@@ -11,9 +11,7 @@ from src._extraction import (
     _extract_image_with_tesseract,
     _extract_pdf_file,
 )
-from src._string import safe_decode
-from src.exceptions import ValidationError
-from src.mime_types import (
+from src._mime_types import (
     IMAGE_MIME_TYPE_EXT_MAP,
     IMAGE_MIME_TYPES,
     MARKDOWN_MIME_TYPE,
@@ -22,6 +20,8 @@ from src.mime_types import (
     PLAIN_TEXT_MIME_TYPE,
     SUPPORTED_MIME_TYPES,
 )
+from src._string import safe_decode
+from src.exceptions import ValidationError
 
 
 class ExtractionResult(NamedTuple):
@@ -33,7 +33,7 @@ class ExtractionResult(NamedTuple):
     """The mime type of the content."""
 
 
-async def extract_file_content(*, content: bytes, mime_type: str) -> ExtractionResult:
+async def extract_bytes(*, content: bytes, mime_type: str) -> ExtractionResult:
     """Extract the textual content from a given byte string representing a file's contents.
 
     Args:

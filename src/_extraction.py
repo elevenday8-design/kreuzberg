@@ -6,9 +6,9 @@ from pypandoc import convert_file, convert_text
 from pypdfium2 import PdfDocument, PdfiumError
 from pytesseract import TesseractError, image_to_string
 
+from src._mime_types import PANDOC_MIME_TYPE_EXT_MAP
 from src._sync import run_sync
 from src.exceptions import ParsingError
-from src.mime_types import PANDOC_MIME_TYPE_EXT_MAP
 
 
 def _extract_pdf_with_tesseract(file_path: Path) -> str:
