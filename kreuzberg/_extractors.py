@@ -64,16 +64,17 @@ def _extract_pdf_with_pdfium2(file_path: Path) -> str:
         ) from e
 
 
-async def _extract_pdf_file(file_path: Path) -> str:
+async def _extract_pdf_file(file_path: Path, force_ocr: bool = False) -> str:
     """Extract text from a PDF file.
 
     Args:
         file_path: The path to the PDF file.
+        force_ocr: Whether or not to force OCR on PDF files that have a text layer. Default = false.
 
     Returns:
         The extracted text.
     """
-    if content := await run_sync(_extract_pdf_with_pdfium2, file_path):
+    if not force_ocr and (content := await run_sync(_extract_pdf_with_pdfium2, file_path)):
         return content
 
     return await run_sync(_extract_pdf_with_tesseract, file_path)

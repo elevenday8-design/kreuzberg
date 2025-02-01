@@ -35,12 +35,13 @@ class ExtractionResult(NamedTuple):
     """The mime type of the content."""
 
 
-async def extract_bytes(content: bytes, mime_type: str) -> ExtractionResult:
+async def extract_bytes(content: bytes, mime_type: str, force_ocr: bool = False) -> ExtractionResult:
     """Extract the textual content from a given byte string representing a file's contents.
 
     Args:
         content: The content to extract.
         mime_type: The mime type of the content.
+        force_ocr: Whether or not to force OCR on PDF files that have a text layer. Default = false.
 
     Raises:
         ValidationError: If the mime type is not supported.
@@ -58,7 +59,7 @@ async def extract_bytes(content: bytes, mime_type: str) -> ExtractionResult:
         with NamedTemporaryFile(suffix=".pdf") as temp_file:
             temp_file.write(content)
             return ExtractionResult(
-                content=await _extract_pdf_file(Path(temp_file.name)), mime_type=PLAIN_TEXT_MIME_TYPE
+                content=await _extract_pdf_file(Path(temp_file.name), force_ocr), mime_type=PLAIN_TEXT_MIME_TYPE
             )
 
     if mime_type in IMAGE_MIME_TYPES or any(mime_type.startswith(value) for value in IMAGE_MIME_TYPES):
@@ -81,12 +82,15 @@ async def extract_bytes(content: bytes, mime_type: str) -> ExtractionResult:
     )
 
 
-async def extract_file(file_path: Path | str, mime_type: str | None = None) -> ExtractionResult:
+async def extract_file(
+    file_path: Path | str, mime_type: str | None = None, force_ocr: bool = False
+) -> ExtractionResult:
     """Extract the textual content from a given file.
 
     Args:
         file_path: The path to the file.
         mime_type: The mime type of the file.
+        force_ocr: Whether or not to force OCR on PDF files that have a text layer. Default = false.
 
     Raises:
         ValidationError: If the mime type is not supported.
@@ -109,7 +113,7 @@ async def extract_file(file_path: Path | str, mime_type: str | None = None) -> E
         raise ValidationError("The file does not exist.", context={"file_path": str(file_path)})
 
     if mime_type == PDF_MIME_TYPE or mime_type.startswith(PDF_MIME_TYPE):
-        return ExtractionResult(content=await _extract_pdf_file(file_path), mime_type=PLAIN_TEXT_MIME_TYPE)
+        return ExtractionResult(content=await _extract_pdf_file(file_path, force_ocr), mime_type=PLAIN_TEXT_MIME_TYPE)
 
     if mime_type in IMAGE_MIME_TYPES or any(mime_type.startswith(value) for value in IMAGE_MIME_TYPES):
         return ExtractionResult(content=await _extract_image_with_tesseract(file_path), mime_type=PLAIN_TEXT_MIME_TYPE)
