@@ -1,14 +1,18 @@
-from pathlib import Path
-from typing import cast
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, cast
 
 from charset_normalizer import detect
 from pypandoc import convert_file, convert_text
 from pypdfium2 import PdfDocument, PdfiumError
 from pytesseract import TesseractError, image_to_string
 
-from src._mime_types import PANDOC_MIME_TYPE_EXT_MAP
-from src._sync import run_sync
-from src.exceptions import ParsingError
+from kreuzberg._mime_types import PANDOC_MIME_TYPE_EXT_MAP
+from kreuzberg._sync import run_sync
+from kreuzberg.exceptions import ParsingError
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _extract_pdf_with_tesseract(file_path: Path) -> str:

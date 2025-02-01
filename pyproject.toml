@@ -1,18 +1,56 @@
 [project]
 name = "kreuzberg"
-version = "0.1.0"
-description = "Add your description here"
+version = "1.0.0"
+description = "A text extraction library supporting PDFs, images, office documents and more"
 readme = "README.md"
-requires-python = ">=3.12.4"
+keywords = [
+  "async",
+  "document-processing",
+  "docx",
+  "image-to-text",
+  "latex",
+  "markdown",
+  "ocr",
+  "odt",
+  "office-documents",
+  "pandoc",
+  "pdf",
+  "pdf-extraction",
+  "rag",
+  "tesseract",
+  "text-extraction",
+  "text-processing",
+]
+license = { text = "MIT" }
+authors = [ { name = "Na'aman Hirschfeld", email = "nhirschfed@gmail.com" } ]
+requires-python = ">=3.9"
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: Text Processing :: General",
+  "Topic :: Utilities",
+  "Typing :: Typed",
+]
 
-classifiers = [ "Programming Language :: Python :: 3 :: Only", "Programming Language :: Python :: 3.12" ]
 dependencies = [
   "anyio>=4.8.0",
   "charset-normalizer>=3.4.1",
   "pypandoc>=1.15",
   "pypdfium2>=4.30.1",
   "pytesseract>=0.3.13",
+  "typing-extensions>=4.12.2",
 ]
+
+urls.homepage = "https://github.com/Goldziher/kreuzberg"
 
 [dependency-groups]
 dev = [
@@ -28,10 +66,16 @@ dev = [
   "ruff>=0.9.3",
 ]
 
+[tool.setuptools.packages.find]
+include = [ "kreuzberg" ]
+
+[tool.setuptools.package-data]
+kreuzberg = [ "py.typed" ]
+
 [tool.ruff]
-target-version = "py312"
+target-version = "py39"
 line-length = 120
-src = [ "src", "tests" ]
+src = [ "kreuzberg", "tests" ]
 
 format.docstring-code-line-length = 120
 format.docstring-code-format = true
@@ -66,11 +110,8 @@ lint.per-file-ignores."tests/**/*.*" = [
   "RUF012",
   "S",
 ]
-lint.isort.known-first-party = [ "src", "tests" ]
-lint.mccabe.max-complexity = 15
+lint.isort.known-first-party = [ "kreuzberg", "tests" ]
 lint.pydocstyle.convention = "google"
-lint.pylint.max-args = 12
-lint.pylint.max-returns = 10
 
 [tool.pyproject-fmt]
 keep_full_version = true
@@ -83,15 +124,15 @@ asyncio_default_fixture_loop_scope = "session"
 [tool.coverage.run]
 omit = [ "tests/*" ]
 plugins = [ "covdefaults" ]
-source = [ "src" ]
+source = [ "kreuzberg" ]
 
 [tool.coverage.report]
 exclude_lines = [ 'if TYPE_CHECKING:' ]
 fail_under = 100
 
 [tool.mypy]
-packages = [ "src", "tests" ]
-python_version = "3.12"
+packages = [ "kreuzberg", "tests" ]
+python_version = "3.9"
 disable_error_code = 'import-untyped'
 implicit_reexport = false
 show_error_codes = true

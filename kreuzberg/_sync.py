@@ -1,8 +1,13 @@
-from collections.abc import Callable
+from __future__ import annotations
+
 from functools import partial
-from typing import ParamSpec, TypeVar, cast
+from typing import TYPE_CHECKING, TypeVar, cast
 
 from anyio.to_thread import run_sync as any_io_run_sync
+from typing_extensions import ParamSpec
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 T = TypeVar("T")
 P = ParamSpec("P")

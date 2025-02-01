@@ -1,12 +1,14 @@
+from __future__ import annotations
+
 from charset_normalizer import detect
 
 
 def safe_decode(byte_data: bytes, encoding: str | None = None) -> str:
-    """Decode a byte string to a string, more safely.
+    """Decode a byte string safely, removing invalid sequences.
 
     Args:
         byte_data: The byte string to decode.
-        encoding: An optional encoding to use when decoding the string.
+        encoding: The encoding to use when decoding the byte string.
 
     Returns:
         The decoded string.
@@ -16,8 +18,8 @@ def safe_decode(byte_data: bytes, encoding: str | None = None) -> str:
 
     if encoding:
         try:
-            return byte_data.decode(encoding)
-        except UnicodeDecodeError:
+            return byte_data.decode(encoding, errors="ignore")
+        except UnicodeDecodeError:  # pragma: no cover
             pass
 
     encodings = ["utf-8", "latin-1"]
@@ -26,8 +28,8 @@ def safe_decode(byte_data: bytes, encoding: str | None = None) -> str:
 
     for encoding in encodings:
         try:
-            return byte_data.decode(encoding)
-        except UnicodeDecodeError:
+            return byte_data.decode(encoding, errors="ignore")
+        except UnicodeDecodeError:  # pragma: no cover  # noqa: PERF203
             pass
 
-    return byte_data.decode(errors="ignore")
+    return byte_data.decode("latin-1", errors="replace")

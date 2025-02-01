@@ -1,19 +1,55 @@
-from collections.abc import Mapping
-from typing import Final
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Final
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 MARKDOWN_MIME_TYPE: Final[str] = "text/markdown"
 PLAIN_TEXT_MIME_TYPE: Final[str] = "text/plain"
 PDF_MIME_TYPE: Final[str] = "application/pdf"
 
 PLAIN_TEXT_MIME_TYPES: Final[set[str]] = {PLAIN_TEXT_MIME_TYPE, MARKDOWN_MIME_TYPE}
-IMAGE_MIME_TYPES: Final[set[str]] = {"image/bmp", "image/gif", "image/heif", "image/jpeg", "image/png", "image/tiff"}
+
+IMAGE_MIME_TYPES: Final[set[str]] = {
+    "image/bmp",
+    "image/gif",
+    "image/jp2",
+    "image/jpeg",
+    "image/jpm",
+    "image/jpx",
+    "image/mj2",
+    "image/pjpeg",
+    "image/png",
+    "image/tiff",
+    "image/webp",
+    "image/x-bmp",
+    "image/x-ms-bmp",
+    "image/x-portable-anymap",
+    "image/x-portable-bitmap",
+    "image/x-portable-graymap",
+    "image/x-portable-pixmap",
+    "image/x-tiff",
+}
 IMAGE_MIME_TYPE_EXT_MAP: Final[Mapping[str, str]] = {
     "image/bmp": "bmp",
+    "image/x-bmp": "bmp",
+    "image/x-ms-bmp": "bmp",
     "image/gif": "gif",
-    "image/heif": "heif",
     "image/jpeg": "jpg",
+    "image/pjpeg": "jpg",
     "image/png": "png",
     "image/tiff": "tiff",
+    "image/x-tiff": "tiff",
+    "image/jp2": "jp2",
+    "image/jpx": "jpx",
+    "image/jpm": "jpm",
+    "image/mj2": "mj2",
+    "image/webp": "webp",
+    "image/x-portable-anymap": "pnm",
+    "image/x-portable-bitmap": "pbm",
+    "image/x-portable-graymap": "pgm",
+    "image/x-portable-pixmap": "ppm",
 }
 PANDOC_SUPPORTED_MIME_TYPES: Final[set[str]] = {
     "application/csv",
