@@ -48,12 +48,25 @@ polished and well maintained.
 
 ### Roadmap
 
-[] - extra install groups (to make dependencies optional and offer alternatives)
-[] - html file text extraction
-[] - better PDF table extraction
-[] - metadata extraction
+V1:
 
-Feel free to open a discussion in GitHub or an issue if you have any feature requests, but keep the philosophy part in mind
+- [ ] - extra install groups (to make dependencies optional and offer alternatives)
+- [ ] - html file text extraction
+- [ ] - better PDF table extraction
+- [ ] - TBD
+
+V2:
+
+- [ ] - metadata extraction (possible breaking change)
+- [ ] - TBD
+
+### Feature Requests
+
+Feel free to open a discussion in GitHub or an issue if you have any feature requests
+
+### Contribution
+
+Is welcome! Read guidelines below.
 
 ## Supported File Types
 
