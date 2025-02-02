@@ -8,7 +8,7 @@ if TYPE_CHECKING:  # pragma: no cover
 MARKDOWN_MIME_TYPE: Final[str] = "text/markdown"
 PLAIN_TEXT_MIME_TYPE: Final[str] = "text/plain"
 PDF_MIME_TYPE: Final[str] = "application/pdf"
-
+POWER_POINT_MIME_TYPE: Final[str] = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 PLAIN_TEXT_MIME_TYPES: Final[set[str]] = {PLAIN_TEXT_MIME_TYPE, MARKDOWN_MIME_TYPE}
 
 IMAGE_MIME_TYPES: Final[set[str]] = {
@@ -93,5 +93,5 @@ PANDOC_MIME_TYPE_EXT_MAP: Final[Mapping[str, str]] = {
 }
 
 SUPPORTED_MIME_TYPES: Final[set[str]] = (
-    PLAIN_TEXT_MIME_TYPES | IMAGE_MIME_TYPES | PANDOC_SUPPORTED_MIME_TYPES | {PDF_MIME_TYPE}
+    PLAIN_TEXT_MIME_TYPES | IMAGE_MIME_TYPES | PANDOC_SUPPORTED_MIME_TYPES | {PDF_MIME_TYPE, POWER_POINT_MIME_TYPE}
 )

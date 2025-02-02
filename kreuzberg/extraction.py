@@ -1,3 +1,12 @@
+"""This module provides functions to extract textual content from files.
+
+It includes vendored code:
+
+- The extract PPTX logic is based on code vendored from `markitdown` to extract text from PPTX files.
+    See: https://github.com/microsoft/markitdown/blob/main/src/markitdown/_markitdown.py
+    Refer to the markitdown repository for it's license (MIT).
+"""
+
 from __future__ import annotations
 
 from mimetypes import guess_type
@@ -12,6 +21,7 @@ from kreuzberg._extractors import (
     _extract_file_with_pandoc,
     _extract_image_with_tesseract,
     _extract_pdf_file,
+    _extract_pptx_file,
 )
 from kreuzberg._mime_types import (
     IMAGE_MIME_TYPE_EXT_MAP,
@@ -20,6 +30,7 @@ from kreuzberg._mime_types import (
     PANDOC_SUPPORTED_MIME_TYPES,
     PDF_MIME_TYPE,
     PLAIN_TEXT_MIME_TYPE,
+    POWER_POINT_MIME_TYPE,
     SUPPORTED_MIME_TYPES,
 )
 from kreuzberg._string import safe_decode
@@ -76,6 +87,9 @@ async def extract_bytes(content: bytes, mime_type: str, force_ocr: bool = False)
             content=await _extract_content_with_pandoc(content, mime_type), mime_type=MARKDOWN_MIME_TYPE
         )
 
+    if mime_type == POWER_POINT_MIME_TYPE or mime_type.startswith(POWER_POINT_MIME_TYPE):
+        return ExtractionResult(content=await _extract_pptx_file(content), mime_type=MARKDOWN_MIME_TYPE)
+
     return ExtractionResult(
         content=safe_decode(content),
         mime_type=mime_type,
@@ -124,5 +138,8 @@ async def extract_file(
         return ExtractionResult(
             content=await _extract_file_with_pandoc(file_path, mime_type), mime_type=MARKDOWN_MIME_TYPE
         )
+
+    if mime_type == POWER_POINT_MIME_TYPE or mime_type.startswith(POWER_POINT_MIME_TYPE):
+        return ExtractionResult(content=await _extract_pptx_file(file_path), mime_type=MARKDOWN_MIME_TYPE)
 
     return ExtractionResult(content=await AsyncPath(file_path).read_text(), mime_type=mime_type)
