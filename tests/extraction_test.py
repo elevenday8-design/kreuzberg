@@ -58,7 +58,10 @@ async def test_extract_bytes_pptx(pptx_document: Path) -> None:
     result = await extract_bytes(content, POWER_POINT_MIME_TYPE)
     assert result.mime_type == MARKDOWN_MIME_TYPE
     assert isinstance(result.content, str)
-    assert result.content.strip()
+    assert (
+        "At Contoso, we empower organizations to foster collaborative thinking to further drive workplace innovation. By closing the loop and leveraging agile frameworks, we help business grow organically and foster a consumer first mindset."
+        in result.content
+    )
 
 
 async def test_extract_bytes_markdown(markdown_document: Path) -> None:
@@ -126,7 +129,10 @@ async def test_extract_file_pptx(pptx_document: Path) -> None:
     result = await extract_file(pptx_document, POWER_POINT_MIME_TYPE)
     assert result.mime_type == MARKDOWN_MIME_TYPE
     assert isinstance(result.content, str)
-    assert result.content.strip()
+    assert (
+        "At Contoso, we empower organizations to foster collaborative thinking to further drive workplace innovation. By closing the loop and leveraging agile frameworks, we help business grow organically and foster a consumer first mindset."
+        in result.content
+    )
 
 
 async def test_extract_file_invalid_mime() -> None:

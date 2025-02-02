@@ -33,3 +33,15 @@ def safe_decode(byte_data: bytes, encoding: str | None = None) -> str:
 
     # TODO: add test case
     return byte_data.decode("latin-1", errors="replace")
+
+
+def normalize_spaces(text: str) -> str:
+    """Normalize the spaces in a string.
+
+    Args:
+        text: The text to sanitize.
+
+    Returns:
+        The sanitized text.
+    """
+    return " ".join(text.strip().split())

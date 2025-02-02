@@ -15,6 +15,7 @@ from pypdfium2 import PdfDocument, PdfiumError
 from pytesseract import TesseractError, image_to_string
 
 from kreuzberg._mime_types import PANDOC_MIME_TYPE_EXT_MAP
+from kreuzberg._string import normalize_spaces
 from kreuzberg._sync import run_sync
 from kreuzberg.exceptions import ParsingError
 
@@ -40,7 +41,7 @@ def _extract_pdf_with_tesseract(file_path: Path) -> str:
         images = [page.render(scale=2.0).to_pil() for page in pdf]
 
         text = "\n".join(image_to_string(img) for img in images)
-        return text.strip()
+        return normalize_spaces(text)
     except (PdfiumError, TesseractError) as e:
         # TODO: add test case
         raise ParsingError(
@@ -63,7 +64,7 @@ def _extract_pdf_with_pdfium2(file_path: Path) -> str:
     try:
         document = PdfDocument(file_path)
         text = "\n".join(page.get_textpage().get_text_range() for page in document)
-        return text.strip()
+        return normalize_spaces(text)
     except PdfiumError as e:
         # TODO: add test case
         raise ParsingError(
@@ -82,9 +83,9 @@ async def _extract_pdf_file(file_path: Path, force_ocr: bool = False) -> str:
         The extracted text.
     """
     if not force_ocr and (content := await run_sync(_extract_pdf_with_pdfium2, file_path)):
-        return content
+        return normalize_spaces(content)
 
-    return await run_sync(_extract_pdf_with_tesseract, file_path)
+    return normalize_spaces(await run_sync(_extract_pdf_with_tesseract, file_path))
 
 
 async def _extract_content_with_pandoc(file_data: bytes, mime_type: str, encoding: str | None = None) -> str:
@@ -104,7 +105,9 @@ async def _extract_content_with_pandoc(file_data: bytes, mime_type: str, encodin
     ext = PANDOC_MIME_TYPE_EXT_MAP[mime_type]
     encoding = encoding or detect(file_data)["encoding"] or "utf-8"
     try:
-        return cast(str, await run_sync(convert_text, file_data, to="md", format=ext, encoding=encoding))
+        return normalize_spaces(
+            cast(str, await run_sync(convert_text, file_data, to="md", format=ext, encoding=encoding))
+        )
     except RuntimeError as e:
         # TODO: add test case
         raise ParsingError(
@@ -128,7 +131,7 @@ async def _extract_file_with_pandoc(file_path: Path | str, mime_type: str) -> st
     """
     ext = PANDOC_MIME_TYPE_EXT_MAP[mime_type]
     try:
-        return cast(str, await run_sync(convert_file, file_path, to="md", format=ext))
+        return normalize_spaces(cast(str, await run_sync(convert_file, file_path, to="md", format=ext)))
     except RuntimeError as e:
         raise ParsingError(
             f"Could not extract text from {PANDOC_MIME_TYPE_EXT_MAP[mime_type]} file",
@@ -149,14 +152,14 @@ async def _extract_image_with_tesseract(file_path: Path | str) -> str:
         The extracted content.
     """
     try:
-        return cast(str, image_to_string(str(file_path)).strip())
+        return normalize_spaces(cast(str, image_to_string(str(file_path))))
     except TesseractError as e:
         raise ParsingError(
             "Could not extract text from image file", context={"file_path": str(file_path), "error": str(e)}
         ) from e
 
 
-async def _extract_pptx_file(file_path_or_contents: Path | bytes) -> str:  # noqa: C901
+async def _extract_pptx_file(file_path_or_contents: Path | bytes) -> str:
     """Extract text from a PPTX file.
 
     Notes:
@@ -211,10 +214,7 @@ async def _extract_pptx_file(file_path_or_contents: Path | bytes) -> str:  # noq
                 md_content += "\n" + html_table + "\n"
 
             elif shape.has_text_frame:
-                if shape == title:
-                    md_content += "# " + shape.text.lstrip() + "\n"
-                else:
-                    md_content += shape.text + "\n"
+                md_content += "# " + shape.text.lstrip() + "\n" if shape == title else shape.text + "\n"
 
         md_content = md_content.strip()
         if slide.has_notes_slide:
@@ -226,4 +226,4 @@ async def _extract_pptx_file(file_path_or_contents: Path | bytes) -> str:  # noq
 
             md_content = md_content.strip()
 
-    return md_content.strip()
+    return normalize_spaces(md_content)
