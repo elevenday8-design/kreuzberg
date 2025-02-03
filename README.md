@@ -43,14 +43,16 @@ polished and well maintained.
 
 - PDFs are processed using pdfium2 for searchable PDFs + Tesseract OCR for scanned documents
 - Images are processed using Tesseract OCR
-- Office documents and other formats are processed using Pandoc, or python-pptx for PPTX files
+- Office documents and other formats are processed using Pandoc
+- PPTX files are converted using python-pptx
+- HTML files are converted using html-to-markdown
 - Plain text files are read directly with appropriate encoding detection
 
 ### Roadmap
 
 V1:
 
-- [ ] - html file text extraction
+- [x] - html file text extraction
 - [ ] - better PDF table extraction
 - [ ] - TBD
 
@@ -96,6 +98,7 @@ Kreuzberg supports a wide range of file formats:
 
 #### Text and Markup Formats
 
+- HTML (`.html`, `.htm`)
 - Plain Text (`.txt`)
 - Markdown (`.md`)
 - reStructuredText (`.rst`)
