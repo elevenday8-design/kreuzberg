@@ -19,11 +19,13 @@ from anyio import Path as AsyncPath
 from kreuzberg._extractors import (
     _extract_content_with_pandoc,
     _extract_file_with_pandoc,
+    _extract_html_string,
     _extract_image_with_tesseract,
     _extract_pdf_file,
     _extract_pptx_file,
 )
 from kreuzberg._mime_types import (
+    HTML_MIME_TYPE,
     IMAGE_MIME_TYPE_EXT_MAP,
     IMAGE_MIME_TYPES,
     MARKDOWN_MIME_TYPE,
@@ -90,6 +92,9 @@ async def extract_bytes(content: bytes, mime_type: str, force_ocr: bool = False)
     if mime_type == POWER_POINT_MIME_TYPE or mime_type.startswith(POWER_POINT_MIME_TYPE):
         return ExtractionResult(content=await _extract_pptx_file(content), mime_type=MARKDOWN_MIME_TYPE)
 
+    if mime_type == HTML_MIME_TYPE or mime_type.startswith(HTML_MIME_TYPE):
+        return ExtractionResult(content=await _extract_html_string(content), mime_type=MARKDOWN_MIME_TYPE)
+
     return ExtractionResult(
         content=safe_decode(content),
         mime_type=mime_type,
@@ -141,5 +146,8 @@ async def extract_file(
 
     if mime_type == POWER_POINT_MIME_TYPE or mime_type.startswith(POWER_POINT_MIME_TYPE):
         return ExtractionResult(content=await _extract_pptx_file(file_path), mime_type=MARKDOWN_MIME_TYPE)
+
+    if mime_type == HTML_MIME_TYPE or mime_type.startswith(HTML_MIME_TYPE):
+        return ExtractionResult(content=await _extract_html_string(file_path), mime_type=MARKDOWN_MIME_TYPE)
 
     return ExtractionResult(content=await AsyncPath(file_path).read_text(), mime_type=mime_type)

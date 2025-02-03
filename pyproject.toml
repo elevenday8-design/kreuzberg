@@ -42,6 +42,7 @@ classifiers = [
 dependencies = [
   "anyio>=4.8.0",
   "charset-normalizer>=3.4.1",
+  "html-to-markdown>=1.2.0",
   "pypandoc>=1.15",
   "pypdfium2>=4.30.1",
   "pytesseract>=0.3.13",

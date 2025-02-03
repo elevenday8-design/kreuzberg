@@ -64,6 +64,17 @@ async def test_extract_bytes_pptx(pptx_document: Path) -> None:
     )
 
 
+async def test_extract_bytes_html(html_document: Path) -> None:
+    content = html_document.read_bytes()
+    result = await extract_bytes(content, "text/html")
+    assert result.mime_type == MARKDOWN_MIME_TYPE
+    assert isinstance(result.content, str)
+    assert (
+        result.content
+        == "Browsers usually insert quotation marks around the q element. WWF's goal is to: Build a future where people live in harmony with nature."
+    )
+
+
 async def test_extract_bytes_markdown(markdown_document: Path) -> None:
     content = markdown_document.read_bytes()
     result = await extract_bytes(content, MARKDOWN_MIME_TYPE)
@@ -132,6 +143,16 @@ async def test_extract_file_pptx(pptx_document: Path) -> None:
     assert (
         "At Contoso, we empower organizations to foster collaborative thinking to further drive workplace innovation. By closing the loop and leveraging agile frameworks, we help business grow organically and foster a consumer first mindset."
         in result.content
+    )
+
+
+async def test_extract_file_html(html_document: Path) -> None:
+    result = await extract_file(html_document, "text/html")
+    assert result.mime_type == MARKDOWN_MIME_TYPE
+    assert isinstance(result.content, str)
+    assert (
+        result.content
+        == "Browsers usually insert quotation marks around the q element. WWF's goal is to: Build a future where people live in harmony with nature."
     )
 
 

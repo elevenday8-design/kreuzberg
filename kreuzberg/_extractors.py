@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, cast
 
 from anyio import Path as AsyncPath
 from charset_normalizer import detect
+from html_to_markdown import convert_to_markdown
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pypandoc import convert_file, convert_text
@@ -15,7 +16,7 @@ from pypdfium2 import PdfDocument, PdfiumError
 from pytesseract import TesseractError, image_to_string
 
 from kreuzberg._mime_types import PANDOC_MIME_TYPE_EXT_MAP
-from kreuzberg._string import normalize_spaces
+from kreuzberg._string import normalize_spaces, safe_decode
 from kreuzberg._sync import run_sync
 from kreuzberg.exceptions import ParsingError
 
@@ -227,3 +228,20 @@ async def _extract_pptx_file(file_path_or_contents: Path | bytes) -> str:
             md_content = md_content.strip()
 
     return normalize_spaces(md_content)
+
+
+async def _extract_html_string(file_path_or_contents: Path | bytes) -> str:
+    """Extract text from an HTML string.
+
+    Args:
+        file_path_or_contents: The HTML content.
+
+    Returns:
+        The extracted text content.
+    """
+    content = (
+        safe_decode(file_path_or_contents)
+        if isinstance(file_path_or_contents, bytes)
+        else await AsyncPath(file_path_or_contents).read_text()
+    )
+    return normalize_spaces(await run_sync(convert_to_markdown, content))

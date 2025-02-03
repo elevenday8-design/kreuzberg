@@ -5,10 +5,12 @@ from typing import TYPE_CHECKING, Final
 if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Mapping
 
-MARKDOWN_MIME_TYPE: Final[str] = "text/markdown"
-PLAIN_TEXT_MIME_TYPE: Final[str] = "text/plain"
-PDF_MIME_TYPE: Final[str] = "application/pdf"
-POWER_POINT_MIME_TYPE: Final[str] = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+HTML_MIME_TYPE: Final = "text/html"
+MARKDOWN_MIME_TYPE: Final = "text/markdown"
+PDF_MIME_TYPE: Final = "application/pdf"
+PLAIN_TEXT_MIME_TYPE: Final = "text/plain"
+POWER_POINT_MIME_TYPE: Final = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+
 PLAIN_TEXT_MIME_TYPES: Final[set[str]] = {PLAIN_TEXT_MIME_TYPE, MARKDOWN_MIME_TYPE}
 
 IMAGE_MIME_TYPES: Final[set[str]] = {
@@ -93,5 +95,8 @@ PANDOC_MIME_TYPE_EXT_MAP: Final[Mapping[str, str]] = {
 }
 
 SUPPORTED_MIME_TYPES: Final[set[str]] = (
-    PLAIN_TEXT_MIME_TYPES | IMAGE_MIME_TYPES | PANDOC_SUPPORTED_MIME_TYPES | {PDF_MIME_TYPE, POWER_POINT_MIME_TYPE}
+    PLAIN_TEXT_MIME_TYPES
+    | IMAGE_MIME_TYPES
+    | PANDOC_SUPPORTED_MIME_TYPES
+    | {PDF_MIME_TYPE, POWER_POINT_MIME_TYPE, HTML_MIME_TYPE}
 )
