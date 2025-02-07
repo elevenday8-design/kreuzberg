@@ -10,7 +10,7 @@ class KreuzbergError(Exception):
     context: Any
     """The context of the error."""
 
-    def __init__(self, message: str, context: Any = None) -> None:
+    def __init__(self, message: str, *, context: Any = None) -> None:
         self.context = context
         super().__init__(message)
 
@@ -27,3 +27,7 @@ class ParsingError(KreuzbergError):
 
 class ValidationError(KreuzbergError):
     """Raised when a validation error occurs."""
+
+
+class MissingDependencyError(KreuzbergError):
+    """Raised when a dependency is missing."""

@@ -22,7 +22,7 @@ async def test_extract_pdf_with_pdfium2(searchable_pdf: Path) -> None:
 
 
 async def test_extract_pdf_with_tesseract(scanned_pdf: Path) -> None:
-    result = _extract_pdf_with_tesseract(scanned_pdf)
+    result = await _extract_pdf_with_tesseract(scanned_pdf)
     assert isinstance(result, str)
     assert result.strip()
 

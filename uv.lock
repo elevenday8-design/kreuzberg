@@ -1,5 +1,19 @@
 version = 1
 requires-python = ">=3.9"
+resolution-markers = [
+    "python_full_version >= '3.12' and sys_platform == 'darwin'",
+    "python_full_version >= '3.12' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "(python_full_version >= '3.12' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.12' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.11.*' and sys_platform == 'darwin'",
+    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version == '3.10.*' and sys_platform == 'darwin'",
+    "python_full_version == '3.10.*' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "(python_full_version == '3.10.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.10.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
+    "python_full_version < '3.10' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "python_full_version < '3.10' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "(python_full_version < '3.10' and platform_machine != 'arm64' and sys_platform == 'darwin') or (python_full_version < '3.10' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.10' and sys_platform != 'darwin' and sys_platform != 'linux')",
+]
 
 [[package]]
 name = "anyio"
@@ -283,9 +297,8 @@ dependencies = [
     { name = "html-to-markdown" },
     { name = "pypandoc" },
     { name = "pypdfium2" },
-    { name = "pytesseract" },
     { name = "python-pptx" },
-    { name = "typing-extensions" },
+    { name = "tesserocr" },
 ]
 
 [package.dev-dependencies]
@@ -309,23 +322,22 @@ requires-dist = [
     { name = "html-to-markdown", specifier = ">=1.2.0" },
     { name = "pypandoc", specifier = ">=1.15" },
     { name = "pypdfium2", specifier = ">=4.30.1" },
-    { name = "pytesseract", specifier = ">=0.3.13" },
     { name = "python-pptx", specifier = ">=1.0.2" },
-    { name = "typing-extensions", specifier = ">=4.12.2" },
+    { name = "tesserocr", specifier = ">=2.7.1" },
 ]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "covdefaults", specifier = ">=2.3.0" },
-    { name = "mypy", specifier = ">=1.14.1" },
+    { name = "mypy", specifier = ">=1.15.0" },
     { name = "pre-commit", specifier = ">=4.1.0" },
     { name = "pytest", specifier = ">=8.3.4" },
-    { name = "pytest-asyncio", specifier = ">=0.25.2" },
+    { name = "pytest-asyncio", specifier = ">=0.25.3" },
     { name = "pytest-cov", specifier = ">=6.0.0" },
     { name = "pytest-mock", specifier = ">=3.14.0" },
     { name = "pytest-timeout", specifier = ">=2.3.1" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
-    { name = "ruff", specifier = ">=0.9.3" },
+    { name = "ruff", specifier = ">=0.9.4" },
 ]
 
 [[package]]
@@ -646,19 +658,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pytesseract"
-version = "0.3.13"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "packaging" },
-    { name = "pillow" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/9f/a6/7d679b83c285974a7cb94d739b461fa7e7a9b17a3abfd7bf6cbc5c2394b0/pytesseract-0.3.13.tar.gz", hash = "sha256:4bf5f880c99406f52a3cfc2633e42d9dc67615e69d8a509d74867d3baddb5db9", size = 17689 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/7a/33/8312d7ce74670c9d39a532b2c246a853861120486be9443eebf048043637/pytesseract-0.3.13-py3-none-any.whl", hash = "sha256:7a99c6c2ac598360693d83a416e36e0b33a67638bb9d77fdcac094a3589d4b34", size = 14705 },
-]
-
-[[package]]
 name = "pytest"
 version = "8.3.4"
 source = { registry = "https://pypi.org/simple" }
@@ -842,6 +841,34 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d7/ce/fbaeed4f9fb8b2daa961f90591662df6a86c1abf25c548329a86920aedfb/soupsieve-2.6.tar.gz", hash = "sha256:e2e68417777af359ec65daac1057404a3c8a5455bb8abc36f1a9866ab1a51abb", size = 101569 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d1/c2/fe97d779f3ef3b15f05c94a2f1e3d21732574ed441687474db9d342a7315/soupsieve-2.6-py3-none-any.whl", hash = "sha256:e72c4ff06e4fb6e4b5a9f0f55fe6e81514581fca1515028625d0f299c602ccc9", size = 36186 },
+]
+
+[[package]]
+name = "tesserocr"
+version = "2.7.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/1c/26/21e95383b4316773dab9db892885e2eae74da05f14d520de7b66e5f9ddbb/tesserocr-2.7.1.tar.gz", hash = "sha256:3744c5c8bbabf18172849c7731be00dc2e5e44f8c556d37c850e788794ae0af4", size = 71816 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e6/1b/75692340ebe441fbd714c8b1ccc33399969acb43a62578a8ec748b9b5c16/tesserocr-2.7.1-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:1b8c4828f970af7bcfca83a1fb228aa68a2587299387bc875d0dfad8b6baf8ed", size = 4258856 },
+    { url = "https://files.pythonhosted.org/packages/5c/5e/2ecaad24fa0dc21edaecde54188bf0c361954ab3d184ec597f7771aa8489/tesserocr-2.7.1-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:3bb5d336ebf2cc47cd0d117cadc8b25b2e558f54fb9a2dedaa28a14cb5a6b437", size = 217954 },
+    { url = "https://files.pythonhosted.org/packages/a0/ad/584d829721da26f0de0679729e5938e4579e372986d3fe2df0da1a10750e/tesserocr-2.7.1-cp310-cp310-manylinux_2_28_aarch64.whl", hash = "sha256:3ff7f6d6b5c12dd31b80842eb0892b661a41ca3edf0e6cc1e54ec2c14552ceef", size = 4781028 },
+    { url = "https://files.pythonhosted.org/packages/d2/9f/27228f8b1955df7f0f25957081bd3a159d2d7986a82e8a456275698a6c17/tesserocr-2.7.1-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:ae794c5434373f4afa4c7f8b59f19fde810f8caf096d8bb701a4b2f3a6739460", size = 5048708 },
+    { url = "https://files.pythonhosted.org/packages/4e/aa/44d493decf9a4959f772f3ae6b72782a996dd70ec956827f229dbeac039c/tesserocr-2.7.1-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:0a0895a4d9ff6a34f5a6f203fe0c9899f31d6f2378ae99be80605637b622687b", size = 5276829 },
+    { url = "https://files.pythonhosted.org/packages/c5/5e/35840da36e0a867b05993e7cb43a7295fc6bc378e5361d689c172a56ec59/tesserocr-2.7.1-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:4c3187d14b95c866aa1d34cc374a53d583e2168742eefe33347e4790af70338e", size = 4263125 },
+    { url = "https://files.pythonhosted.org/packages/44/f4/80946ebce8f9549aefa53cf810cb3991823eb567bc217764bf9e97e7bbfb/tesserocr-2.7.1-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:ec52be3d82136430081427062ad0211a52fc38fa28fe58e216b89f840354f216", size = 221211 },
+    { url = "https://files.pythonhosted.org/packages/ed/2c/40e19b255cc5f37426b87028b1bae81ec151767fa3294518699e5f22801e/tesserocr-2.7.1-cp311-cp311-manylinux_2_28_aarch64.whl", hash = "sha256:44e71b3e8da36b2567760309398689ea9785ee62db3ff21140a9ea6941a233c4", size = 4869975 },
+    { url = "https://files.pythonhosted.org/packages/21/80/93ff9fc65d76d1ede7fb21454959568fe354e905d8f8dd26d46190c42700/tesserocr-2.7.1-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:e31a49d7784e7e52fe656719145c3a872856d67daa9bfb340c2990db00e023e9", size = 5139015 },
+    { url = "https://files.pythonhosted.org/packages/ef/bf/76de5eb0b81bf34f2767b33091ff3af669d989bf0be19ed7c6e082a9e51f/tesserocr-2.7.1-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:37abde15c1c940d691305fd87836e4cad25a1434799729c324bbcd2277bcae44", size = 5360587 },
+    { url = "https://files.pythonhosted.org/packages/3b/34/10270bd2660e153c324fd0612435655e0c7b1fe9a888357c65e23f03146d/tesserocr-2.7.1-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:1b6349d35d333d420d24acf1953ad6f1d5613ffcde462c62126b68bdfca12753", size = 4261803 },
+    { url = "https://files.pythonhosted.org/packages/c6/e1/fc5f38e66197cfa7ccab9ccb6cf5691cf17a06e23d78a6d7f5cf2931f55f/tesserocr-2.7.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:42f009cde8479f3b339da12a8e419fd9559b64b13bc08a248bd0833c6ae94331", size = 221495 },
+    { url = "https://files.pythonhosted.org/packages/20/20/8c0e1b140cb1dea1ef8e4c5223b373b8dc1f6b873a54d5131640fd6d555a/tesserocr-2.7.1-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:6e13204b3b92fac76ece6e33f55eba6335b30e379f4a7b75e285c2ad05762027", size = 4839536 },
+    { url = "https://files.pythonhosted.org/packages/52/33/4b77784543a09f2a8da8194667d7a1f8d4c5ed3daf39fdbd6003901214c7/tesserocr-2.7.1-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:65afdec0c5dc09a4a23a62e65524989cd940af41be1603e251a64ac10de9babf", size = 5116575 },
+    { url = "https://files.pythonhosted.org/packages/8b/13/4069a2c9560bd9174334fe1f1f3b0276bbf5f886f2827eef46e8d6bae25d/tesserocr-2.7.1-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:4c5f59fb072c90bff8aa6a365fc82b747c2668b7b48233901728b155860d1ff9", size = 5339848 },
+    { url = "https://files.pythonhosted.org/packages/02/4c/31a49c2867c5f799614b90ea19c94985cc674cdeea93fbb738cdfef7f0cc/tesserocr-2.7.1-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:b2d3d23223d0a448877fb91af83c46ce95ff0a497a82fa93e93068148c9712e5", size = 4259255 },
+    { url = "https://files.pythonhosted.org/packages/59/8e/91dd449bf3037a5822f46e3982f4a651f7a7890554749b6a5490b908aed1/tesserocr-2.7.1-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:ef8a09a44c2e96bab0f40dbf0633767d063680d86b79365b43fc4e1234219694", size = 218196 },
+    { url = "https://files.pythonhosted.org/packages/76/96/0bc89097513ed9e9de6ef907e9495063e3b61d50e18e25452178c593af55/tesserocr-2.7.1-cp39-cp39-manylinux_2_28_aarch64.whl", hash = "sha256:6e613213ea5b64db06f2cba0b93c3656b7e6aec2d9b2d2e929edf49da7143225", size = 4780926 },
+    { url = "https://files.pythonhosted.org/packages/d7/85/4f1c60ccff2cf41cddd60f79588410071df8342c70b979b428988adf5c86/tesserocr-2.7.1-cp39-cp39-manylinux_2_28_x86_64.whl", hash = "sha256:4a8888b765e26680a6e34b8ec09b7bb85a17e08cea76f0661eafe2a84254562a", size = 5048246 },
+    { url = "https://files.pythonhosted.org/packages/a0/eb/ef4256e5f6877f04135f8593b0aec6df853736f86d261057dcbe0c985c15/tesserocr-2.7.1-cp39-cp39-musllinux_1_1_x86_64.whl", hash = "sha256:64f25763e56c4c29b808e59b485c930cac46b6a1ac8eadd994086dc40a29d3a1", size = 5279334 },
 ]
 
 [[package]]
