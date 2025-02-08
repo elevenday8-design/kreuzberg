@@ -185,3 +185,63 @@ async def test_integration_process_content() -> None:
 async def test_integration_extract_metadata(markdown_document: Path) -> None:
     result = await extract_metadata(markdown_document, mime_type="text/x-markdown")
     assert isinstance(result, dict)
+
+
+async def test_process_content_runtime_error(mock_subprocess_run: Mock) -> None:
+    def side_effect(*args: list[Any], **_: Any) -> Mock:
+        if args[0][0] == "pandoc" and "--version" in args[0]:
+            mock_subprocess_run.return_value.stdout = b"pandoc 3.1.0"
+            return cast(Mock, mock_subprocess_run.return_value)
+        raise RuntimeError("Pandoc error")
+
+    mock_subprocess_run.side_effect = side_effect
+    with pytest.raises(ParsingError, match="Failed to extract file data"):
+        await process_content(
+            b"content", mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
+
+
+async def test_process_file_runtime_error(mock_subprocess_run: Mock, docx_document: Path) -> None:
+    def side_effect(*args: list[Any], **_: Any) -> Mock:
+        if args[0][0] == "pandoc" and "--version" in args[0]:
+            mock_subprocess_run.return_value.stdout = b"pandoc 3.1.0"
+            return cast(Mock, mock_subprocess_run.return_value)
+        raise RuntimeError("Pandoc error")
+
+    mock_subprocess_run.side_effect = side_effect
+    with pytest.raises(ParsingError, match="Failed to extract file data"):
+        await process_file(
+            docx_document, mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
+
+
+async def test_process_content_empty_result(mock_subprocess_run: Mock) -> None:
+    def side_effect(*args: list[Any], **_: Any) -> Mock:
+        if args[0][0] == "pandoc" and "--version" in args[0]:
+            mock_subprocess_run.return_value.stdout = b"pandoc 3.1.0"
+            return cast(Mock, mock_subprocess_run.return_value)
+        output_file = next((arg for arg in args[0] if arg.endswith((".md", ".json"))), "")
+        if output_file:
+            if output_file.endswith(".json"):
+                Path(output_file).write_text('{"pandoc-api-version":[1,22,2,1],"meta":{},"blocks":[]}')
+            else:
+                Path(output_file).write_text("")
+        return cast(Mock, mock_subprocess_run.return_value)
+
+    mock_subprocess_run.side_effect = side_effect
+    result = await process_content(
+        b"content", mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+    assert isinstance(result, PandocResult)
+    assert result.content == ""
+    assert result.metadata == {}
+
+
+async def test_process_file_invalid_mime_type(mock_subprocess_run: Mock, docx_document: Path) -> None:
+    with pytest.raises(ValidationError, match="Unsupported mime type"):
+        await process_file(docx_document, mime_type="invalid/mime-type")
+
+
+async def test_process_content_invalid_mime_type(mock_subprocess_run: Mock) -> None:
+    with pytest.raises(ValidationError, match="Unsupported mime type"):
+        await process_content(b"content", mime_type="invalid/mime-type")

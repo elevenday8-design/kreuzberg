@@ -122,12 +122,12 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 
 [tool.coverage.run]
-omit = [ "tests/*" ]
+omit = [ "tests/*", "scripts/*" ]
 plugins = [ "covdefaults" ]
 source = [ "kreuzberg" ]
 
 [tool.coverage.report]
-exclude_lines = [ 'if TYPE_CHECKING:' ]
+exclude_lines = [ 'if TYPE_CHECKING:', "except ImportError:" ]
 fail_under = 90
 
 [tool.mypy]

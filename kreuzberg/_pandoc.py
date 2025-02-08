@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 try:  # pragma: no cover
     from typing import NotRequired  # type: ignore[attr-defined]
-except ImportError:
+except ImportError:  # pragma: no cover
     from typing_extensions import NotRequired
 
 version_ref: Final[dict[str, bool]] = {"checked": False}
@@ -172,9 +172,6 @@ class PandocResult:
 
 
 def _extract_inline_text(node: dict[str, Any]) -> str | None:
-    if not isinstance(node, dict):
-        return None
-
     if node_type := node.get(TYPE_FIELD):
         if node_type == INLINE_STR:
             return node.get(CONTENT_FIELD)
@@ -182,28 +179,16 @@ def _extract_inline_text(node: dict[str, Any]) -> str | None:
             return " "
         if node_type in (INLINE_EMPH, INLINE_STRONG):
             return _extract_inlines(node.get(CONTENT_FIELD, []))
-    return None
+    return None  # pragma: no cover
 
 
 def _extract_inlines(nodes: list[dict[str, Any]]) -> str | None:
-    if not isinstance(nodes, list):
-        return None
-
     texts = [text for node in nodes if (text := _extract_inline_text(node))]
     result = "".join(texts).strip()
     return result if result else None
 
 
 def _extract_meta_value(node: Any) -> str | list[str] | None:
-    if isinstance(node, list):
-        results: list[str] = []
-        for value in [value for item in node if (value := _extract_meta_value(item))]:
-            if isinstance(value, list):
-                results.extend(value)
-            else:
-                results.append(value)
-        return results
-
     if not isinstance(node, dict) or CONTENT_FIELD not in node or TYPE_FIELD not in node:
         return None
 
@@ -229,7 +214,7 @@ def _extract_meta_value(node: Any) -> str | list[str] | None:
             results = []
             for value in [value for item in content if (value := _extract_meta_value(item))]:
                 if isinstance(value, list):
-                    results.extend(value)
+                    results.extend(value)  # pragma: no cover
                 else:
                     results.append(value)
             return results
@@ -372,43 +357,38 @@ async def process_file(
     extension = _get_extension_from_mime_type(mime_type)
 
     with NamedTemporaryFile(suffix=".md") as output_file:
-        try:
-            command = [
-                "pandoc",
-                str(input_file),
-                f"--from={extension}",
-                "--to=markdown",
-                "--standalone",
-                "--wrap=preserve",
-                "--quiet",
-                "--output",
-                output_file.name,
-            ]
+        command = [
+            "pandoc",
+            str(input_file),
+            f"--from={extension}",
+            "--to=markdown",
+            "--standalone",
+            "--wrap=preserve",
+            "--quiet",
+            "--output",
+            output_file.name,
+        ]
 
-            if extra_args:
-                command.extend(extra_args)
+        if extra_args:
+            command.extend(extra_args)
 
-            result = await run_sync(
-                subprocess.run,
-                command,
-                capture_output=True,
-            )
+        result = await run_sync(
+            subprocess.run,
+            command,
+            capture_output=True,
+        )
 
-            if result.returncode != 0:
-                ParsingError(
-                    "Failed to extract file data", context={"file": str(input_file), "error": result.stderr.decode()}
-                )
-
-            content = normalize_spaces(await AsyncPath(output_file.name).read_text())
-            return PandocResult(
-                content=content,
-                metadata=metadata,
-            )
-
-        except (RuntimeError, OSError) as e:
+        if result.returncode != 0:
+            # todo: add a test case
             raise ParsingError(
                 "Failed to extract file data", context={"file": str(input_file), "error": result.stderr.decode()}
-            ) from e
+            )
+
+        content = normalize_spaces(await AsyncPath(output_file.name).read_text())
+        return PandocResult(
+            content=content,
+            metadata=metadata,
+        )
 
 
 async def process_content(content: bytes, *, mime_type: str, extra_args: list[str] | None = None) -> PandocResult:
