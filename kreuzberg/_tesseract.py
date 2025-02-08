@@ -6,7 +6,7 @@ from asyncio import gather
 from enum import Enum
 from os import PathLike
 from tempfile import NamedTemporaryFile
-from typing import Any, Literal
+from typing import Any, Literal, TypeVar, Union
 
 from anyio import Path as AsyncPath
 from PIL.Image import Image
@@ -15,6 +15,8 @@ from kreuzberg._sync import run_sync
 from kreuzberg.exceptions import MissingDependencyError, OCRError
 
 version_ref = {"checked": False}
+
+T = TypeVar("T", bound=Union[Image, PathLike[str], str])
 
 SupportedLanguages = Literal[
     "afr",
@@ -283,7 +285,7 @@ async def process_image_with_tesseract(
 
 
 async def batch_process_images(
-    images: list[Image] | list[PathLike[str]] | list[str] | list[Image | PathLike[str] | str],
+    images: list[T],
     *,
     language: SupportedLanguages = "eng",
     psm: PSMMode = PSMMode.AUTO,

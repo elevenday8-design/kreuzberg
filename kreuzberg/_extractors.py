@@ -77,7 +77,6 @@ async def extract_pdf_with_pdfium2(file_path: Path) -> str:
         text = "\n".join(page.get_textpage().get_text_range() for page in document)
         return normalize_spaces(text)
     except pypdfium2.PdfiumError as e:
-        # TODO: add test case
         raise ParsingError(
             "Could not extract text from PDF file", context={"file_path": str(file_path), "error": str(e)}
         ) from e
