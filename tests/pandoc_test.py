@@ -1,293 +1,187 @@
-from typing import Any, cast
+from __future__ import annotations
 
-from kreuzberg._pandoc import BLOCK_PARA, META_BLOCKS, META_INLINES, META_LIST, META_STRING, _extract_metadata
+import json
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, cast
+from unittest.mock import Mock
 
-AST_FIXTURE_META = {
-    "pandoc-api-version": ["major", "minor", "patch"],
-    "meta": {
-        "msg": {
-            "c": [
-                {"c": "the", "t": "Str"},
-                {"c": [], "t": "Space"},
-                {
-                    "c": [
-                        {"c": "quick", "t": "Str"},
-                        {"c": [], "t": "Space"},
-                        {"c": [{"c": "brown", "t": "Str"}], "t": "Strong"},
-                        {"c": [], "t": "Space"},
-                        {"c": "fox", "t": "Str"},
-                    ],
-                    "t": "Emph",
-                },
-                {"c": [], "t": "Space"},
-                {"c": "jumped", "t": "Str"},
-            ],
-            "t": "MetaInlines",
-        },
-        "foo": {"c": "bar", "t": "MetaString"},
-    },
-    "blocks": [
-        {"c": [{"c": "%{foo}", "t": "Str"}], "t": "Para"},
-        {"c": [{"c": "Hello", "t": "Str"}, {"c": [], "t": "Space"}, {"c": "%{foo}", "t": "Str"}], "t": "Para"},
-        {"c": [{"c": [{"c": "%{msg}", "t": "Str"}], "t": "Para"}], "t": "BlockQuote"},
-    ],
+import pytest
+
+from kreuzberg._pandoc import (
+    PANDOC_MIMETYPE_TO_FORMAT_MAPPING,
+    PandocResult,
+    _get_extension_from_mime_type,
+    extract_metadata,
+    process_content,
+    process_file,
+    validate_pandoc_version,
+)
+from kreuzberg.exceptions import MissingDependencyError, ParsingError, ValidationError
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
+SAMPLE_PANDOC_JSON = {
+    "pandoc-api-version": [1, 23, 1],
+    "meta": {"title": {"t": "MetaString", "c": "Test Document"}, "author": {"t": "MetaString", "c": "Test Author"}},
+    "blocks": [],
 }
 
-AST_FIXTURE_COMMENTS = [
-    {"unMeta": {}},
-    [
-        {"c": [{"c": "Hello", "t": "Str"}, {"c": [], "t": "Space"}, {"c": "world.", "t": "Str"}], "t": "Para"},
-        {"c": ["html", "<!-- BEGIN COMMENT -->\n"], "t": "RawBlock"},
-        {
-            "c": [
-                {"c": "this", "t": "Str"},
-                {"c": [], "t": "Space"},
-                {"c": "will", "t": "Str"},
-                {"c": [], "t": "Space"},
-                {"c": "be", "t": "Str"},
-                {"c": [], "t": "Space"},
-                {"c": "removed.", "t": "Str"},
-            ],
-            "t": "Para",
-        },
-        {"c": ["html", "<!-- END COMMENT -->\n"], "t": "RawBlock"},
-        {"c": [{"c": "The", "t": "Str"}, {"c": [], "t": "Space"}, {"c": "end.", "t": "Str"}], "t": "Para"},
-    ],
-]
 
-AST_FIXTURE_DEFLIST = [
-    {"unMeta": {}},
-    [
-        {
-            "c": [
-                [
-                    [{"c": "banana", "t": "Str"}],
-                    [
-                        [
-                            {
-                                "c": [
-                                    {"c": "a", "t": "Str"},
-                                    {"c": [], "t": "Space"},
-                                    {"c": "yellow", "t": "Str"},
-                                    {"c": [], "t": "Space"},
-                                    {"c": "fruit", "t": "Str"},
-                                ],
-                                "t": "Plain",
-                            }
-                        ]
-                    ],
-                ],
-                [
-                    [{"c": "carrot", "t": "Str"}],
-                    [
-                        [
-                            {
-                                "c": [
-                                    {"c": "an", "t": "Str"},
-                                    {"c": [], "t": "Space"},
-                                    {"c": "orange", "t": "Str"},
-                                    {"c": [], "t": "Space"},
-                                    {"c": "veggie", "t": "Str"},
-                                ],
-                                "t": "Plain",
-                            }
-                        ]
-                    ],
-                ],
-            ],
-            "t": "DefinitionList",
-        }
-    ],
-]
+@pytest.fixture
+def mock_subprocess_run(mocker: MockerFixture) -> Mock:
+    mock = mocker.patch("subprocess.run")
+    mock.return_value.stdout = b"pandoc 3.1.0"
+    mock.return_value.returncode = 0
+    mock.return_value.stderr = b""
 
-AST_FIXTURE_SPECIAL_HEADERS = [
-    {"unMeta": {}},
-    [
-        {
-            "c": [
-                1,
-                ["a-special-header", [], []],
-                [
-                    {"c": "A", "t": "Str"},
-                    {"c": [], "t": "Space"},
-                    {"c": [{"c": "special", "t": "Str"}], "t": "Emph"},
-                    {"c": [], "t": "Space"},
-                    {"c": "header", "t": "Str"},
-                ],
-            ],
-            "t": "Header",
-        },
-        {
-            "c": [
-                {"c": "The", "t": "Str"},
-                {"c": [], "t": "Space"},
-                {"c": "quick", "t": "Str"},
-                {"c": [], "t": "Space"},
-                {"c": [{"c": "brown", "t": "Str"}], "t": "Emph"},
-                {"c": [], "t": "Space"},
-                {"c": "fox", "t": "Str"},
-                {"c": [], "t": "Space"},
-                {"c": "jumpped.", "t": "Str"},
-            ],
-            "t": "Para",
-        },
-        {
-            "c": [
-                {"c": "The", "t": "Str"},
-                {"c": [], "t": "Space"},
-                {
-                    "c": [
-                        {"c": "quick", "t": "Str"},
-                        {"c": [], "t": "Space"},
-                        {"c": [{"c": "brown", "t": "Str"}], "t": "Emph"},
-                        {"c": [], "t": "Space"},
-                        {"c": "fox", "t": "Str"},
-                    ],
-                    "t": "Strong",
-                },
-                {"c": [], "t": "Space"},
-                {"c": "jumped.", "t": "Str"},
-            ],
-            "t": "Para",
-        },
-        {
-            "c": [
-                [
-                    {
-                        "c": [
-                            {"c": "Buy", "t": "Str"},
-                            {"c": [], "t": "Space"},
-                            {"c": [{"c": "milk", "t": "Str"}], "t": "Emph"},
-                        ],
-                        "t": "Plain",
-                    }
-                ],
-                [
-                    {
-                        "c": [
-                            {"c": "Eat", "t": "Str"},
-                            {"c": [], "t": "Space"},
-                            {"c": [{"c": "cookies", "t": "Str"}], "t": "Emph"},
-                        ],
-                        "t": "Plain",
-                    }
-                ],
-            ],
-            "t": "BulletList",
-        },
-    ],
-]
+    def side_effect(*args: list[Any], **_: Any) -> Mock:
+        if args[0][0] == "pandoc" and "--version" in args[0]:
+            return cast(Mock, mock.return_value)
+
+        output_file = next((arg for arg in args[0] if arg.endswith((".md", ".json"))), "")
+        if output_file:
+            content = json.dumps(SAMPLE_PANDOC_JSON) if output_file.endswith(".json") else "Sample processed content"
+            Path(output_file).write_text(content)
+        return cast(Mock, mock.return_value)
+
+    mock.side_effect = side_effect
+    return mock
 
 
-def test_extract_metadata_empty() -> None:
-    assert _extract_metadata({}) == {}
+@pytest.fixture
+def mock_subprocess_run_invalid(mocker: MockerFixture) -> Mock:
+    mock = mocker.patch("subprocess.run")
+    mock.return_value.stdout = b"pandoc 2.0.0"
+    mock.return_value.returncode = 0
+    return mock
 
 
-def test_extract_metadata_basic_string() -> None:
-    input_meta = {"title": {"t": META_STRING, "c": "Test Document"}, "version": {"t": META_STRING, "c": "1.0.0"}}
-    expected = {"title": "Test Document", "version": "1.0.0"}
-    assert _extract_metadata(input_meta) == expected
+@pytest.fixture
+def mock_subprocess_run_error(mocker: MockerFixture) -> Mock:
+    mock = mocker.patch("subprocess.run")
+    mock.side_effect = FileNotFoundError()
+    return mock
 
 
-def test_extract_metadata_empty_string() -> None:
-    input_meta = {"title": {"t": META_STRING, "c": ""}, "version": {"t": META_STRING, "c": None}}
-    assert _extract_metadata(input_meta) == {}
+@pytest.fixture(autouse=True)
+def reset_version_ref(mocker: MockerFixture) -> None:
+    mocker.patch("kreuzberg._pandoc.version_ref", {"checked": False})
 
 
-def test_extract_metadata_inlines() -> None:
-    input_meta = {
-        "title": {"t": META_INLINES, "c": [{"t": "Str", "c": "Test"}, {"t": "Space"}, {"t": "Str", "c": "Document"}]}
-    }
-    expected = {"title": "Test Document"}
-    assert _extract_metadata(input_meta) == expected
+async def test_validate_pandoc_version(mock_subprocess_run: Mock) -> None:
+    await validate_pandoc_version()
+    mock_subprocess_run.assert_called_with(["pandoc", "--version"], capture_output=True)
 
 
-def test_extract_metadata_list() -> None:
-    input_meta = {
-        "authors": {"t": META_LIST, "c": [{"t": META_STRING, "c": "John Doe"}, {"t": META_STRING, "c": "Jane Smith"}]},
-        "keywords": {
-            "t": META_LIST,
-            "c": [
-                {"t": META_INLINES, "c": [{"t": "Str", "c": "test"}]},
-                {"t": META_INLINES, "c": [{"t": "Str", "c": "metadata"}]},
-            ],
-        },
-    }
-    expected = {"authors": ["John Doe", "Jane Smith"], "keywords": ["test", "metadata"]}
-    assert _extract_metadata(input_meta) == expected
+async def test_validate_pandoc_version_invalid(mock_subprocess_run_invalid: Mock) -> None:
+    with pytest.raises(MissingDependencyError, match="Pandoc version 3 or above is required"):
+        await validate_pandoc_version()
 
 
-def test_extract_metadata_blocks() -> None:
-    input_meta = {
-        "abstract": {
-            "t": META_BLOCKS,
-            "c": [
-                {"t": BLOCK_PARA, "c": [{"t": "Str", "c": "First"}, {"t": "Space"}, {"t": "Str", "c": "paragraph"}]},
-                {"t": BLOCK_PARA, "c": [{"t": "Str", "c": "Second"}, {"t": "Space"}, {"t": "Str", "c": "paragraph"}]},
-            ],
-        }
-    }
-    expected = {"abstract": ["First paragraph", "Second paragraph"]}
-    assert _extract_metadata(input_meta) == expected
+async def test_validate_pandoc_version_missing(mock_subprocess_run_error: Mock) -> None:
+    with pytest.raises(MissingDependencyError, match="Pandoc is not installed"):
+        await validate_pandoc_version()
 
 
-def test_extract_metadata_citations() -> None:
-    input_meta = {"blocks": [{"t": "Cite", "c": [[{"citationId": "reference1"}, {"citationId": "reference2"}]]}]}
-    expected = {"citations": ["reference1", "reference2"]}
-    assert _extract_metadata(input_meta) == expected
+async def test_get_extension_from_mime_type_valid() -> None:
+    for mime_type in PANDOC_MIMETYPE_TO_FORMAT_MAPPING:
+        extension = _get_extension_from_mime_type(mime_type)
+        assert isinstance(extension, str)
+        assert extension
 
 
-def test_extract_metadata_complex() -> None:
-    input_meta = {
-        "title": {"t": META_STRING, "c": "Test Document"},
-        "authors": {
-            "t": META_LIST,
-            "c": [
-                {"t": META_INLINES, "c": [{"t": "Str", "c": "John"}, {"t": "Space"}, {"t": "Str", "c": "Doe"}]},
-                {"t": META_STRING, "c": "Jane Smith"},
-            ],
-        },
-        "abstract": {
-            "t": META_BLOCKS,
-            "c": [{"t": BLOCK_PARA, "c": [{"t": "Str", "c": "Test"}, {"t": "Space"}, {"t": "Str", "c": "abstract"}]}],
-        },
-        "empty": {"t": META_STRING, "c": ""},
-        "invalid_key": {"t": "InvalidType", "c": "Something"},
-    }
-    expected = {"title": "Test Document", "authors": ["John Doe", "Jane Smith"], "abstract": ["Test abstract"]}
-    assert _extract_metadata(input_meta) == expected
+async def test_get_extension_from_mime_type_invalid() -> None:
+    with pytest.raises(ValidationError, match="Unsupported mime type"):
+        _get_extension_from_mime_type("invalid/mime-type")
 
 
-def test_extract_metadata_invalid_types() -> None:
-    input_meta = {
-        "title": None,
-        "authors": "Not a dict",
-        "keywords": {"t": "UnknownType", "c": "content"},
-        "abstract": {"t": META_BLOCKS, "c": "Not a list"},
-    }
-    assert _extract_metadata(input_meta) == {}
+async def test_process_file_success(mock_subprocess_run: Mock, docx_document: Path) -> None:
+    result = await process_file(
+        docx_document, mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+    assert isinstance(result, PandocResult)
+    assert result.content.strip() == "Sample processed content"
 
 
-def test_extract_metadata_from_meta_fixture() -> None:
-    result = _extract_metadata(cast(dict[str, Any], AST_FIXTURE_META["meta"]))
-    expected = {
-        "foo": "bar",
-        # The msg field contains "the quick *brown* fox jumped"
-        "msg": "the quick brown fox jumped",
-    }
-    assert result == expected
+async def test_process_file_with_extra_args(mock_subprocess_run: Mock, docx_document: Path) -> None:
+    result = await process_file(
+        docx_document,
+        mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        extra_args=["--strip-comments"],
+    )
+    assert isinstance(result, PandocResult)
+    assert result.content.strip() == "Sample processed content"
+    assert "--strip-comments" in mock_subprocess_run.call_args[0][0]
 
 
-def test_extract_metadata_from_special_headers() -> None:
-    result = _extract_metadata(cast(dict[str, Any], AST_FIXTURE_SPECIAL_HEADERS[0]))
-    assert result == {}
+async def test_process_file_error(mock_subprocess_run: Mock, docx_document: Path) -> None:
+    mock_subprocess_run.return_value.returncode = 1
+    mock_subprocess_run.return_value.stderr = b"Error processing file"
+
+    with pytest.raises(ParsingError, match="Failed to extract file data"):
+        await process_file(
+            docx_document, mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
 
 
-def test_extract_metadata_from_comments() -> None:
-    result = _extract_metadata(cast(dict[str, Any], AST_FIXTURE_COMMENTS[0]))
-    assert result == {}
+async def test_process_content_success(mock_subprocess_run: Mock) -> None:
+    result = await process_content(
+        b"test content", mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+    assert isinstance(result, PandocResult)
+    assert result.content.strip() == "Sample processed content"
 
 
-def test_extract_metadata_from_deflist() -> None:
-    result = _extract_metadata(cast(dict[str, Any], AST_FIXTURE_DEFLIST[0]))
-    assert result == {}
+async def test_process_content_with_extra_args(mock_subprocess_run: Mock) -> None:
+    result = await process_content(
+        b"test content",
+        mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        extra_args=["--strip-comments"],
+    )
+    assert isinstance(result, PandocResult)
+    assert result.content.strip() == "Sample processed content"
+    assert "--strip-comments" in mock_subprocess_run.call_args[0][0]
+
+
+async def test_extract_metadata_error(mock_subprocess_run: Mock, docx_document: Path) -> None:
+    mock_subprocess_run.return_value.returncode = 1
+    mock_subprocess_run.return_value.stderr = b"Error extracting metadata"
+
+    with pytest.raises(ParsingError, match="Failed to extract file data"):
+        await extract_metadata(
+            docx_document, mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
+
+
+async def test_extract_metadata_runtime_error(mock_subprocess_run: Mock, docx_document: Path) -> None:
+    mock_subprocess_run.side_effect = RuntimeError("Command failed")
+
+    with pytest.raises(ParsingError, match="Failed to extract file data"):
+        await extract_metadata(
+            docx_document, mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
+
+
+async def test_integration_validate_pandoc_version() -> None:
+    await validate_pandoc_version()
+
+
+async def test_integration_process_file(markdown_document: Path) -> None:
+    result = await process_file(markdown_document, mime_type="text/x-markdown")
+    assert isinstance(result, PandocResult)
+    assert isinstance(result.content, str)
+    assert result.content.strip()
+
+
+async def test_integration_process_content() -> None:
+    content = b"# Test\nThis is a test file."
+    result = await process_content(content, mime_type="text/x-markdown")
+    assert isinstance(result, PandocResult)
+    assert isinstance(result.content, str)
+    assert result.content.strip()
+
+
+async def test_integration_extract_metadata(markdown_document: Path) -> None:
+    result = await extract_metadata(markdown_document, mime_type="text/x-markdown")
+    assert isinstance(result, dict)

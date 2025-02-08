@@ -79,67 +79,33 @@ NodeType = Literal[
     "MetaBlocks",
 ]
 
-PandocFormat = Literal[
-    "application/csl+json",
-    "application/docbook+xml",
-    "application/epub+zip",
-    "application/rtf",
-    "application/vnd.oasis.opendocument.text",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "application/x-biblatex",
-    "application/x-bibtex",
-    "application/x-endnote+xml",
-    "application/x-fictionbook+xml",
-    "application/x-ipynb+json",
-    "application/x-jats+xml",
-    "application/x-latex",
-    "application/x-opml+xml",
-    "application/x-research-info-systems",
-    "application/x-typst",
-    "application/xml",
-    "text/csv",
-    "text/tab-separated-values",
-    "text/troff",
-    "text/x-commonmark",
-    "text/x-dokuwiki",
-    "text/x-gfm",
-    "text/x-markdown",
-    "text/x-markdown-extra",
-    "text/x-mdoc",
-    "text/x-multimarkdown",
-    "text/x-org",
-    "text/x-pod",
-    "text/x-rst",
-]
-
-PANDOC_MIME_TYPE_EXT_MAP: Final[Mapping[PandocFormat, str]] = {
-    "application/csl+json": "json",
-    "application/docbook+xml": "xml",
+PANDOC_MIMETYPE_TO_FORMAT_MAPPING: Final[Mapping[str, str]] = {
+    "application/csl+json": "csljson",
+    "application/docbook+xml": "docbook",
     "application/epub+zip": "epub",
     "application/rtf": "rtf",
     "application/vnd.oasis.opendocument.text": "odt",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
-    "application/x-biblatex": "bib",
-    "application/x-bibtex": "bib",
-    "application/x-endnote+xml": "xml",
+    "application/x-biblatex": "biblatex",
+    "application/x-bibtex": "bibtex",
+    "application/x-endnote+xml": "endnotexml",
     "application/x-fictionbook+xml": "fb2",
     "application/x-ipynb+json": "ipynb",
-    "application/x-jats+xml": "xml",
-    "application/x-latex": "tex",
+    "application/x-jats+xml": "jats",
+    "application/x-latex": "latex",
     "application/x-opml+xml": "opml",
     "application/x-research-info-systems": "ris",
     "application/x-typst": "typst",
-    "application/xml": "xml",
     "text/csv": "csv",
     "text/tab-separated-values": "tsv",
     "text/troff": "man",
-    "text/x-commonmark": "md",
-    "text/x-dokuwiki": "txt",
-    "text/x-gfm": "md",
-    "text/x-markdown": "md",
-    "text/x-markdown-extra": "md",
+    "text/x-commonmark": "commonmark",
+    "text/x-dokuwiki": "dokuwiki",
+    "text/x-gfm": "gfm",
+    "text/x-markdown": "markdown",
+    "text/x-markdown-extra": "markdown_phpextra",
     "text/x-mdoc": "mdoc",
-    "text/x-multimarkdown": "md",
+    "text/x-multimarkdown": "markdown_mmd",
     "text/x-org": "org",
     "text/x-pod": "pod",
     "text/x-rst": "rst",
@@ -301,16 +267,19 @@ def _extract_metadata(raw_meta: dict[str, Any]) -> Metadata:
 
 
 def _get_extension_from_mime_type(mime_type: str) -> str:
-    if mime_type not in PANDOC_MIME_TYPE_EXT_MAP or not any(
-        mime_type.startswith(value) for value in PANDOC_MIME_TYPE_EXT_MAP
+    if mime_type not in PANDOC_MIMETYPE_TO_FORMAT_MAPPING or not any(
+        mime_type.startswith(value) for value in PANDOC_MIMETYPE_TO_FORMAT_MAPPING
     ):
         raise ValidationError(
             f"Unsupported mime type: {mime_type}",
-            context={"mime_type": mime_type, "supported_mimetypes": ",".join(sorted(PANDOC_MIME_TYPE_EXT_MAP))},
+            context={
+                "mime_type": mime_type,
+                "supported_mimetypes": ",".join(sorted(PANDOC_MIMETYPE_TO_FORMAT_MAPPING)),
+            },
         )
 
-    return PANDOC_MIME_TYPE_EXT_MAP.get(cast(PandocFormat, mime_type)) or next(
-        PANDOC_MIME_TYPE_EXT_MAP[k] for k in PANDOC_MIME_TYPE_EXT_MAP if k.startswith(mime_type)
+    return PANDOC_MIMETYPE_TO_FORMAT_MAPPING.get(mime_type) or next(
+        PANDOC_MIMETYPE_TO_FORMAT_MAPPING[k] for k in PANDOC_MIMETYPE_TO_FORMAT_MAPPING if k.startswith(mime_type)
     )
 
 
@@ -378,9 +347,7 @@ async def extract_metadata(input_file: str | PathLike[str], *, mime_type: str) -
             return _extract_metadata(json_data)
 
         except (RuntimeError, OSError, json.JSONDecodeError) as e:
-            raise ParsingError(
-                "Failed to extract file data", context={"file": str(input_file), "error": result.stderr.decode()}
-            ) from e
+            raise ParsingError("Failed to extract file data", context={"file": str(input_file)}) from e
 
 
 async def process_file(
