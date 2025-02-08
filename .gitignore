@@ -1,6 +1,7 @@
 *$py.class
 *.Cache
 *.cscfg
+*.egg-info/
 *.log
 *.py[cod]
 *.suo
@@ -8,14 +9,14 @@
 .DS_store
 .coverage
 .dist/
-*.egg-info/
 .env
 .idea/
-.mypy_cache
-.pytest_cache
+.mypy_cache/
+.pytest_cache/
 .python-version
-.ruff_cache
-.venv
+.ruff_cache/
+.run/
+.venv/
 __pycache__/
 coverage.xml
 prompt_template.egg-info/
