@@ -1,43 +1,23 @@
 from __future__ import annotations
 
 import re
-from asyncio import gather
 from contextlib import suppress
 from html import escape
 from io import BytesIO
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, cast
 
-import tesserocr
+import html_to_markdown
+import pptx
+import pypandoc
+import pypdfium2
 from anyio import Path as AsyncPath
 from charset_normalizer import detect
-from typing_extensions import Never
 
 from kreuzberg._mime_types import PANDOC_MIME_TYPE_EXT_MAP
 from kreuzberg._string import normalize_spaces, safe_decode
 from kreuzberg._sync import run_sync
-from kreuzberg.exceptions import MissingDependencyError, ParsingError
-
-try:
-    import pypdfium2
-except ImportError:  # pragma: no cover
-    pypdfium2 = Never
-
-try:
-    import pypandoc
-except ImportError:  # pragma: no cover
-    pypandoc = Never
-
-try:
-    import pptx
-    import pptx.enum.shapes
-except ImportError:  # pragma: no cover
-    pptx = Never  # type: ignore[assignment]
-    shapes = Never
-
-try:
-    import html_to_markdown
-except ImportError:  # pragma: no cover
-    html_to_markdown = Never  # type: ignore[assignment]
+from kreuzberg._tesseract import batch_process_images
+from kreuzberg.exceptions import ParsingError
 
 if TYPE_CHECKING:  # pragma: no cover
     from pathlib import Path
@@ -45,36 +25,20 @@ if TYPE_CHECKING:  # pragma: no cover
     from PIL.Image import Image
 
 
-def _assert_dependency_installed(name: str, dependency: Any) -> None:
-    """Assert that a dependency is installed.
-
-    Args:
-        name: The name of the dependency.
-        dependency: The dependency to check.
-
-    Raises:
-        MissingDependencyError: If the dependency is not installed
-
-    Returns:
-        None
-    """
-    if dependency is Never:
-        raise MissingDependencyError(f"missing dependency {name}")
-
-
-def _convert_pdf_to_images(file_path: Path) -> list[Image]:
+async def convert_pdf_to_images(file_path: Path) -> list[Image]:
     """Convert a PDF file to images.
 
     Args:
         file_path: The path to the PDF file.
 
-    Returns:
-        A list of paths to the images.
-    """
-    _assert_dependency_installed("pdfium2", pypdfium2)
+    Raises:
+        ParsingError: If the PDF file could not be converted to images.
 
+    Returns:
+        A list of Pillow Images.
+    """
     try:
-        pdf = pypdfium2.PdfDocument(str(file_path))
+        pdf = await run_sync(pypdfium2.PdfDocument, str(file_path))
         return [page.render(scale=2.0).to_pil() for page in pdf]
     except pypdfium2.PdfiumError as e:
         raise ParsingError(
@@ -82,44 +46,21 @@ def _convert_pdf_to_images(file_path: Path) -> list[Image]:
         ) from e
 
 
-async def _ocr_image_with_tesseract(image: Image) -> str:
-    """Perform OCR on an image using tesserocr.
-
-    Args:
-        image: The image to perform OCR on.
-
-    Returns:
-        The extracted text.
-    """
-    _assert_dependency_installed("tesserocr", tesserocr)
-
-    try:
-        result = await run_sync(tesserocr.image_to_text, image, psm=tesserocr.PSM.AUTO_OSD, lang="eng")
-    except RuntimeError as e:
-        raise ParsingError("Could not extract text from image", context={"error": str(e)}) from e
-
-    return normalize_spaces(result)
-
-
-async def _extract_pdf_with_tesseract(file_path: Path) -> str:
+async def extract_pdf_with_tesseract(file_path: Path) -> str:
     """Extract text from a scanned PDF file using pytesseract.
 
     Args:
         file_path: The path to the PDF file.
 
-    Raises:
-        ParsingError: If the text could not be extracted from the PDF file.
-
     Returns:
         The extracted text.
     """
-    _assert_dependency_installed("tesserocr", tesserocr)
-
-    ocr_results = await gather(*[_ocr_image_with_tesseract(img) for img in _convert_pdf_to_images(file_path)])
+    images = await convert_pdf_to_images(file_path)
+    ocr_results = await batch_process_images(images)
     return normalize_spaces("\n".join(ocr_results))
 
 
-def _extract_pdf_with_pdfium2(file_path: Path) -> str:
+async def extract_pdf_with_pdfium2(file_path: Path) -> str:
     """Extract text from a searchable PDF file using pypdfium2.
 
     Args:
@@ -131,9 +72,8 @@ def _extract_pdf_with_pdfium2(file_path: Path) -> str:
     Returns:
         The extracted text.
     """
-    _assert_dependency_installed("pdfium2", pypdfium2)
     try:
-        document = pypdfium2.PdfDocument(file_path)
+        document = await run_sync(pypdfium2.PdfDocument, file_path)
         text = "\n".join(page.get_textpage().get_text_range() for page in document)
         return normalize_spaces(text)
     except pypdfium2.PdfiumError as e:
@@ -143,7 +83,7 @@ def _extract_pdf_with_pdfium2(file_path: Path) -> str:
         ) from e
 
 
-async def _extract_pdf_file(file_path: Path, force_ocr: bool = False) -> str:
+async def extract_pdf_file(file_path: Path, force_ocr: bool = False) -> str:
     """Extract text from a PDF file.
 
     Args:
@@ -153,13 +93,13 @@ async def _extract_pdf_file(file_path: Path, force_ocr: bool = False) -> str:
     Returns:
         The extracted text.
     """
-    if not force_ocr and (content := await run_sync(_extract_pdf_with_pdfium2, file_path)):
+    if not force_ocr and (content := await extract_pdf_with_pdfium2(file_path)):
         return normalize_spaces(content)
 
-    return await _extract_pdf_with_tesseract(file_path)
+    return await extract_pdf_with_tesseract(file_path)
 
 
-async def _extract_content_with_pandoc(file_data: bytes, mime_type: str, encoding: str | None = None) -> str:
+async def extract_content_with_pandoc(file_data: bytes, mime_type: str, encoding: str | None = None) -> str:
     """Extract text using pandoc.
 
     Args:
@@ -173,8 +113,6 @@ async def _extract_content_with_pandoc(file_data: bytes, mime_type: str, encodin
     Returns:
         The extracted text.
     """
-    _assert_dependency_installed("pypandoc", pypandoc)
-
     ext = PANDOC_MIME_TYPE_EXT_MAP[mime_type]
     encoding = encoding or detect(file_data)["encoding"] or "utf-8"
     try:
@@ -189,7 +127,7 @@ async def _extract_content_with_pandoc(file_data: bytes, mime_type: str, encodin
         ) from e
 
 
-async def _extract_file_with_pandoc(file_path: Path | str, mime_type: str) -> str:
+async def extract_file_with_pandoc(file_path: Path | str, mime_type: str) -> str:
     """Extract text using pandoc.
 
     Args:
@@ -202,8 +140,6 @@ async def _extract_file_with_pandoc(file_path: Path | str, mime_type: str) -> st
     Returns:
         The extracted text.
     """
-    _assert_dependency_installed("pandoc", pypandoc)
-
     ext = PANDOC_MIME_TYPE_EXT_MAP[mime_type]
     try:
         return normalize_spaces(cast(str, await run_sync(pypandoc.convert_file, file_path, to="md", format=ext)))
@@ -214,30 +150,7 @@ async def _extract_file_with_pandoc(file_path: Path | str, mime_type: str) -> st
         ) from e
 
 
-async def _extract_image_with_tesseract(file_path: Path | str) -> str:
-    """Extract text from an image file.
-
-    Args:
-        file_path: The path to the image file.
-
-    Raises:
-        ParsingError: If the text could not be extracted from the image file.
-
-    Returns:
-        The extracted content.
-    """
-    _assert_dependency_installed("tesserocr", tesserocr)
-
-    try:
-        result = normalize_spaces(cast(str, tesserocr.file_to_text(str(file_path))))
-        return result
-    except RuntimeError as e:
-        raise ParsingError(
-            "Could not extract text from image file", context={"file_path": str(file_path), "error": str(e)}
-        ) from e
-
-
-async def _extract_pptx_file(file_path_or_contents: Path | bytes) -> str:
+async def extract_pptx_file(file_path_or_contents: Path | bytes) -> str:
     """Extract text from a PPTX file.
 
     Notes:
@@ -249,7 +162,7 @@ async def _extract_pptx_file(file_path_or_contents: Path | bytes) -> str:
     Returns:
         The extracted text content
     """
-    _assert_dependency_installed("pptx", pptx)
+    from pptx.enum.shapes import MSO_SHAPE_TYPE
 
     md_content = ""
     file_contents = (
@@ -265,8 +178,8 @@ async def _extract_pptx_file(file_path_or_contents: Path | bytes) -> str:
         title = slide.shapes.title
 
         for shape in slide.shapes:
-            if shape.shape_type == shapes.MSO_SHAPE_TYPE.PICTURE or (
-                shape.shape_type == shapes.MSO_SHAPE_TYPE.PLACEHOLDER and hasattr(shape, "image")
+            if shape.shape_type == MSO_SHAPE_TYPE.PICTURE or (
+                shape.shape_type == MSO_SHAPE_TYPE.PLACEHOLDER and hasattr(shape, "image")
             ):
                 alt_text = ""
                 with suppress(AttributeError):
@@ -276,7 +189,7 @@ async def _extract_pptx_file(file_path_or_contents: Path | bytes) -> str:
                 filename = re.sub(r"\W", "", shape.name) + ".jpg"
                 md_content += f"\n![{alt_text if alt_text else shape.name}]({filename})\n"
 
-            elif shape.shape_type == shapes.MSO_SHAPE_TYPE.TABLE:
+            elif shape.shape_type == MSO_SHAPE_TYPE.TABLE:
                 html_table = "<table>"
                 first_row = True
 
@@ -309,7 +222,7 @@ async def _extract_pptx_file(file_path_or_contents: Path | bytes) -> str:
     return normalize_spaces(md_content)
 
 
-async def _extract_html_string(file_path_or_contents: Path | bytes) -> str:
+async def extract_html_string(file_path_or_contents: Path | bytes) -> str:
     """Extract text from an HTML string.
 
     Args:
@@ -318,7 +231,6 @@ async def _extract_html_string(file_path_or_contents: Path | bytes) -> str:
     Returns:
         The extracted text content.
     """
-    _assert_dependency_installed("html_to_markdown", html_to_markdown)
     content = (
         safe_decode(file_path_or_contents)
         if isinstance(file_path_or_contents, bytes)

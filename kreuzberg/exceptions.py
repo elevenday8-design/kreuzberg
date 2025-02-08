@@ -31,3 +31,7 @@ class ValidationError(KreuzbergError):
 
 class MissingDependencyError(KreuzbergError):
     """Raised when a dependency is missing."""
+
+
+class OCRError(KreuzbergError):
+    """Raised when an OCR error occurs."""
