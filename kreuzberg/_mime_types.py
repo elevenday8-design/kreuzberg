@@ -73,26 +73,6 @@ PANDOC_SUPPORTED_MIME_TYPES: Final[set[str]] = {
     "text/x-rst",
     "text/x-tsv",
 }
-PANDOC_MIME_TYPE_EXT_MAP: Final[Mapping[str, str]] = {
-    "application/csv": "csv",
-    "application/latex": "latex",
-    "application/rtf": "rtf",
-    "application/vnd.oasis.opendocument.text": "odt",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
-    "application/x-csv": "csv",
-    "application/x-latex": "latex",
-    "application/x-rtf": "rtf",
-    "application/x-vnd.oasis.opendocument.text": "odt",
-    "text/csv": "csv",
-    "text/latex": "latex",
-    "text/rst": "rst",
-    "text/rtf": "rtf",
-    "text/tab-separated-values": "tsv",
-    "text/x-csv": "csv",
-    "text/x-latex": "latex",
-    "text/x-rst": "rst",
-    "text/x-tsv": "tsv",
-}
 
 SUPPORTED_MIME_TYPES: Final[set[str]] = (
     PLAIN_TEXT_MIME_TYPES
