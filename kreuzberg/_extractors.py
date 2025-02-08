@@ -4,16 +4,15 @@ import re
 from contextlib import suppress
 from html import escape
 from io import BytesIO
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 import html_to_markdown
 import pptx
-import pypandoc
 import pypdfium2
 from anyio import Path as AsyncPath
-from charset_normalizer import detect
+from pptx.enum.shapes import MSO_SHAPE_TYPE
 
-from kreuzberg._mime_types import PANDOC_MIME_TYPE_EXT_MAP
+from kreuzberg._pandoc import process_content, process_file
 from kreuzberg._string import normalize_spaces, safe_decode
 from kreuzberg._sync import run_sync
 from kreuzberg._tesseract import batch_process_images
@@ -98,32 +97,18 @@ async def extract_pdf_file(file_path: Path, force_ocr: bool = False) -> str:
     return await extract_pdf_with_tesseract(file_path)
 
 
-async def extract_content_with_pandoc(file_data: bytes, mime_type: str, encoding: str | None = None) -> str:
+async def extract_content_with_pandoc(file_data: bytes, mime_type: str) -> str:
     """Extract text using pandoc.
 
     Args:
         file_data: The content of the file.
         mime_type: The mime type of the file.
-        encoding: An optional encoding to use when decoding the string.
-
-    Raises:
-        ParsingError: If the text could not be extracted from the file using pandoc.
 
     Returns:
         The extracted text.
     """
-    ext = PANDOC_MIME_TYPE_EXT_MAP[mime_type]
-    encoding = encoding or detect(file_data)["encoding"] or "utf-8"
-    try:
-        return normalize_spaces(
-            cast(str, await run_sync(pypandoc.convert_text, file_data, to="md", format=ext, encoding=encoding))
-        )
-    except RuntimeError as e:
-        # TODO: add test case
-        raise ParsingError(
-            f"Could not extract text from {PANDOC_MIME_TYPE_EXT_MAP[mime_type]} file contents",
-            context={"error": str(e)},
-        ) from e
+    result = await process_content(file_data, mime_type=mime_type)
+    return normalize_spaces(result.content)
 
 
 async def extract_file_with_pandoc(file_path: Path | str, mime_type: str) -> str:
@@ -133,20 +118,11 @@ async def extract_file_with_pandoc(file_path: Path | str, mime_type: str) -> str
         file_path: The path to the file.
         mime_type: The mime type of the file.
 
-    Raises:
-        ParsingError: If the text could not be extracted from the file using pandoc.
-
     Returns:
         The extracted text.
     """
-    ext = PANDOC_MIME_TYPE_EXT_MAP[mime_type]
-    try:
-        return normalize_spaces(cast(str, await run_sync(pypandoc.convert_file, file_path, to="md", format=ext)))
-    except RuntimeError as e:
-        raise ParsingError(
-            f"Could not extract text from {PANDOC_MIME_TYPE_EXT_MAP[mime_type]} file",
-            context={"file_path": str(file_path), "error": str(e)},
-        ) from e
+    result = await process_file(file_path, mime_type=mime_type)
+    return normalize_spaces(result.content)
 
 
 async def extract_pptx_file(file_path_or_contents: Path | bytes) -> str:
@@ -161,8 +137,6 @@ async def extract_pptx_file(file_path_or_contents: Path | bytes) -> str:
     Returns:
         The extracted text content
     """
-    from pptx.enum.shapes import MSO_SHAPE_TYPE
-
     md_content = ""
     file_contents = (
         file_path_or_contents
