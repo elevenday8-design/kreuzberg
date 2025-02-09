@@ -74,9 +74,13 @@ async def extract_pdf_with_pdfium2(file_path: Path) -> str:
         The extracted text.
     """
     try:
+        print("extracting PDF with pdfium2")
         resolved_path = str(await AsyncPath(file_path).resolve())
+        print("resolved path")
         document = await run_sync(pypdfium2.PdfDocument, resolved_path)
+        print("extracted document")
         text = "\n".join(page.get_textpage().get_text_bounded() for page in document)
+        print("extracted text")
         return normalize_spaces(text)
     except pypdfium2.PdfiumError as e:
         raise ParsingError(
@@ -84,20 +88,32 @@ async def extract_pdf_with_pdfium2(file_path: Path) -> str:
         ) from e
 
 
-async def extract_pdf_file(file_path: Path, force_ocr: bool = False) -> str:
+async def extract_pdf(file_path_or_contents: Path | bytes, force_ocr: bool = False) -> str:
     """Extract text from a PDF file.
 
     Args:
-        file_path: The path to the PDF file.
+        file_path_or_contents: The path to the PDF file or its contents as bytes.
         force_ocr: Whether or not to force OCR on PDF files that have a text layer. Default = false.
 
     Returns:
         The extracted text.
     """
-    if not force_ocr and (content := await extract_pdf_with_pdfium2(file_path)):
+    if isinstance(file_path_or_contents, bytes):
+        print("writing file")
+        with NamedTemporaryFile(suffix=".pdf") as pdf_file:
+            pdf_file.write(file_path_or_contents)
+            file_path = Path(pdf_file.name)
+            print("extracting PDF")
+
+            if not force_ocr and (content := await extract_pdf_with_pdfium2(file_path)):
+                return normalize_spaces(content)
+
+            return await extract_pdf_with_tesseract(file_path)
+
+    if not force_ocr and (content := await extract_pdf_with_pdfium2(file_path_or_contents)):
         return normalize_spaces(content)
 
-    return await extract_pdf_with_tesseract(file_path)
+    return await extract_pdf_with_tesseract(file_path_or_contents)
 
 
 async def extract_content_with_pandoc(file_data: bytes, mime_type: str) -> str:

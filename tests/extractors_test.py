@@ -14,7 +14,7 @@ from kreuzberg._extractors import (
     convert_pdf_to_images,
     extract_content_with_pandoc,
     extract_file_with_pandoc,
-    extract_pdf_file,
+    extract_pdf,
     extract_pdf_with_pdfium2,
     extract_pdf_with_tesseract,
     extract_pptx_file,
@@ -39,21 +39,22 @@ async def test_extract_pdf_with_tesseract(scanned_pdf: Path) -> None:
     assert result.strip()
 
 
+@pytest.mark.timeout(timeout=60)
 async def test_extract_pdf_file(searchable_pdf: Path) -> None:
-    result = await extract_pdf_file(searchable_pdf)
+    result = await extract_pdf(searchable_pdf)
     assert isinstance(result, str)
     assert result.strip()
 
 
 async def test_extract_pdf_file_non_searchable(non_searchable_pdf: Path) -> None:
-    result = await extract_pdf_file(non_searchable_pdf)
+    result = await extract_pdf(non_searchable_pdf)
     assert isinstance(result, str)
     assert result.strip()
 
 
 async def test_extract_pdf_file_invalid() -> None:
     with pytest.raises(FileNotFoundError):
-        await extract_pdf_file(Path("/invalid/path.pdf"))
+        await extract_pdf(Path("/invalid/path.pdf"))
 
 
 async def test_extract_content_with_pandoc(docx_document: Path) -> None:
