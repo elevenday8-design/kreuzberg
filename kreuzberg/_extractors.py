@@ -4,6 +4,8 @@ import re
 from contextlib import suppress
 from html import escape
 from io import BytesIO
+from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import TYPE_CHECKING
 
 import html_to_markdown
@@ -11,6 +13,7 @@ import pptx
 import pypdfium2
 from anyio import Path as AsyncPath
 from pptx.enum.shapes import MSO_SHAPE_TYPE
+from xlsx2csv import Xlsx2csv
 
 from kreuzberg._pandoc import process_content, process_file
 from kreuzberg._string import normalize_spaces, safe_decode
@@ -19,8 +22,6 @@ from kreuzberg._tesseract import batch_process_images
 from kreuzberg.exceptions import ParsingError
 
 if TYPE_CHECKING:  # pragma: no cover
-    from pathlib import Path
-
     from PIL.Image import Image
 
 
@@ -193,6 +194,40 @@ async def extract_pptx_file(file_path_or_contents: Path | bytes) -> str:
             md_content = md_content.strip()
 
     return normalize_spaces(md_content)
+
+
+async def extract_xlsx_file(file_path_or_contents: Path | bytes) -> str:
+    """Extract text from an XLSX file by converting it to CSV and then to markdown.
+
+    Args:
+        file_path_or_contents: The path to the XLSX file or its contents as bytes.
+
+    Returns:
+        The extracted text content.
+
+    Raises:
+        ParsingError: If the XLSX file could not be parsed.
+    """
+    try:
+        with NamedTemporaryFile(suffix=".xlsx") as xlsx_file, NamedTemporaryFile(suffix=".csv") as csv_file:
+            if isinstance(file_path_or_contents, bytes):
+                xlsx_file.write(file_path_or_contents)
+                xlsx_file.flush()
+                xlsx_path = xlsx_file.name
+            else:
+                xlsx_path = str(file_path_or_contents)
+
+            await run_sync(Xlsx2csv(xlsx_path).convert, csv_file.name)
+            result = await process_file(csv_file.name, mime_type="text/csv")
+            return normalize_spaces(result.content)
+    except Exception as e:
+        raise ParsingError(
+            "Could not extract text from XLSX file",
+            context={
+                "error": str(e),
+                "file_path": str(file_path_or_contents) if isinstance(file_path_or_contents, Path) else None,
+            },
+        ) from e
 
 
 async def extract_html_string(file_path_or_contents: Path | bytes) -> str:
