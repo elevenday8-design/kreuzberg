@@ -74,7 +74,7 @@ async def extract_pdf_with_pdfium2(file_path: Path) -> str:
     """
     try:
         document = await run_sync(pypdfium2.PdfDocument, file_path)
-        text = "\n".join(page.get_textpage().get_text_range() for page in document)
+        text = "\n".join(page.get_textpage().get_text_bounded() for page in document)
         return normalize_spaces(text)
     except pypdfium2.PdfiumError as e:
         raise ParsingError(

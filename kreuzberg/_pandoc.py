@@ -80,7 +80,7 @@ NodeType = Literal[
     "MetaBlocks",
 ]
 
-PANDOC_MIMETYPE_TO_FORMAT_MAPPING: Final[Mapping[str, str]] = {
+MIMETYPE_TO_PANDOC_TYPE_MAPPING: Final[Mapping[str, str]] = {
     "application/csl+json": "csljson",
     "application/docbook+xml": "docbook",
     "application/epub+zip": "epub",
@@ -107,6 +107,38 @@ PANDOC_MIMETYPE_TO_FORMAT_MAPPING: Final[Mapping[str, str]] = {
     "text/x-markdown-extra": "markdown_phpextra",
     "text/x-mdoc": "mdoc",
     "text/x-multimarkdown": "markdown_mmd",
+    "text/x-org": "org",
+    "text/x-pod": "pod",
+    "text/x-rst": "rst",
+}
+
+MIMETYPE_TO_FILE_EXTENSION_MAPPING: Final[Mapping[str, str]] = {
+    "application/csl+json": "json",
+    "application/docbook+xml": "xml",
+    "application/epub+zip": "epub",
+    "application/rtf": "rtf",
+    "application/vnd.oasis.opendocument.text": "odt",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+    "application/x-biblatex": "bib",
+    "application/x-bibtex": "bib",
+    "application/x-endnote+xml": "xml",
+    "application/x-fictionbook+xml": "fb2",
+    "application/x-ipynb+json": "ipynb",
+    "application/x-jats+xml": "xml",
+    "application/x-latex": "tex",
+    "application/x-opml+xml": "opml",
+    "application/x-research-info-systems": "ris",
+    "application/x-typst": "typst",
+    "text/csv": "csv",
+    "text/tab-separated-values": "tsv",
+    "text/troff": "1",
+    "text/x-commonmark": "md",
+    "text/x-dokuwiki": "wiki",
+    "text/x-gfm": "md",
+    "text/x-markdown": "md",
+    "text/x-markdown-extra": "md",
+    "text/x-mdoc": "md",
+    "text/x-multimarkdown": "md",
     "text/x-org": "org",
     "text/x-pod": "pod",
     "text/x-rst": "rst",
@@ -232,7 +264,6 @@ def _extract_meta_value(node: Any) -> str | list[str] | None:
 
 
 def _extract_metadata(raw_meta: dict[str, Any]) -> Metadata:
-    """Extract all non-empty metadata values from Pandoc AST metadata."""
     meta: Metadata = {}
 
     for key, value in raw_meta.items():
@@ -252,29 +283,24 @@ def _extract_metadata(raw_meta: dict[str, Any]) -> Metadata:
     return meta
 
 
-def _get_extension_from_mime_type(mime_type: str) -> str:
-    if mime_type not in PANDOC_MIMETYPE_TO_FORMAT_MAPPING or not any(
-        mime_type.startswith(value) for value in PANDOC_MIMETYPE_TO_FORMAT_MAPPING
+def _get_pandoc_type_from_mime_type(mime_type: str) -> str:
+    if mime_type not in MIMETYPE_TO_PANDOC_TYPE_MAPPING or not any(
+        mime_type.startswith(value) for value in MIMETYPE_TO_PANDOC_TYPE_MAPPING
     ):
         raise ValidationError(
             f"Unsupported mime type: {mime_type}",
             context={
                 "mime_type": mime_type,
-                "supported_mimetypes": ",".join(sorted(PANDOC_MIMETYPE_TO_FORMAT_MAPPING)),
+                "supported_mimetypes": ",".join(sorted(MIMETYPE_TO_PANDOC_TYPE_MAPPING)),
             },
         )
 
-    return PANDOC_MIMETYPE_TO_FORMAT_MAPPING.get(mime_type) or next(
-        PANDOC_MIMETYPE_TO_FORMAT_MAPPING[k] for k in PANDOC_MIMETYPE_TO_FORMAT_MAPPING if k.startswith(mime_type)
+    return MIMETYPE_TO_PANDOC_TYPE_MAPPING.get(mime_type) or next(
+        MIMETYPE_TO_PANDOC_TYPE_MAPPING[k] for k in MIMETYPE_TO_PANDOC_TYPE_MAPPING if k.startswith(mime_type)
     )
 
 
-async def validate_pandoc_version() -> None:
-    """Validate that Pandoc is installed and is version 3 or above.
-
-    Raises:
-        MissingDependencyError: If Pandoc is not installed or is below version 3.
-    """
+async def _validate_pandoc_version() -> None:
     try:
         if version_ref["checked"]:
             return
@@ -290,27 +316,15 @@ async def validate_pandoc_version() -> None:
         raise MissingDependencyError("Pandoc is not installed.") from e
 
 
-async def extract_metadata(input_file: str | PathLike[str], *, mime_type: str) -> Metadata:
-    """Extract metadata from a document using pandoc.
-
-    Args:
-        input_file: The path to the file to process.
-        mime_type: The mime type of the file.
-
-    Raises:
-        ParsingError: If Pandoc fails to extract metadata.
-
-    Returns:
-        Dictionary containing document metadata.
-    """
-    extension = _get_extension_from_mime_type(mime_type)
+async def _handle_extract_metadata(input_file: str | PathLike[str], *, mime_type: str) -> Metadata:
+    pandoc_type = _get_pandoc_type_from_mime_type(mime_type)
 
     with NamedTemporaryFile(suffix=".json") as metadata_file:
         try:
             command = [
                 "pandoc",
                 str(input_file),
-                f"--from={extension}",
+                f"--from={pandoc_type}",
                 "--to=json",
                 "--standalone",
                 "--quiet",
@@ -336,14 +350,16 @@ async def extract_metadata(input_file: str | PathLike[str], *, mime_type: str) -
             raise ParsingError("Failed to extract file data", context={"file": str(input_file)}) from e
 
 
-async def _extract_file(input_file: str | PathLike[str], *, mime_type: str, extra_args: list[str] | None = None) -> str:
-    extension = _get_extension_from_mime_type(mime_type)
+async def _handle_extract_file(
+    input_file: str | PathLike[str], *, mime_type: str, extra_args: list[str] | None = None
+) -> str:
+    pandoc_type = _get_pandoc_type_from_mime_type(mime_type)
 
     with NamedTemporaryFile(suffix=".md") as output_file:
         command = [
             "pandoc",
             str(input_file),
-            f"--from={extension}",
+            f"--from={pandoc_type}",
             "--to=markdown",
             "--standalone",
             "--wrap=preserve",
@@ -384,12 +400,12 @@ async def process_file(
     Returns:
         PandocResult containing processed content and metadata.
     """
-    await validate_pandoc_version()
+    await _validate_pandoc_version()
 
     metadata, content = await gather(
         *[
-            extract_metadata(input_file, mime_type=mime_type),
-            _extract_file(input_file, mime_type=mime_type, extra_args=extra_args),
+            _handle_extract_metadata(input_file, mime_type=mime_type),
+            _handle_extract_file(input_file, mime_type=mime_type, extra_args=extra_args),
         ]
     )
     return PandocResult(
@@ -409,7 +425,7 @@ async def process_content(content: bytes, *, mime_type: str, extra_args: list[st
     Returns:
         PandocResult containing processed content and metadata.
     """
-    extension = _get_extension_from_mime_type(mime_type)
+    extension = MIMETYPE_TO_FILE_EXTENSION_MAPPING.get(mime_type) or "md"
 
     with NamedTemporaryFile(suffix=f".{extension}") as input_file:
         await AsyncPath(input_file.name).write_bytes(content)
