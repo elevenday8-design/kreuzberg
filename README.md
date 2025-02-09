@@ -197,11 +197,16 @@ async def process_document(path: str) -> tuple[str, str]:
 
 ### Error Handling
 
-Kreuzberg provides detailed error handling with two main exception types:
+Kreuzberg provides comprehensive error handling through several exception types, all inheriting from `KreuzbergError`. Each exception includes helpful context information for debugging.
 
 ```python
 from kreuzberg import extract_file
-from kreuzberg.exceptions import ValidationError, ParsingError
+from kreuzberg.exceptions import (
+    ValidationError,
+    ParsingError,
+    OCRError,
+    MissingDependencyError
+)
 
 async def safe_extract(path: str) -> str:
     try:
@@ -209,20 +214,31 @@ async def safe_extract(path: str) -> str:
         return result.content
 
     except ValidationError as e:
-        # Handles input validation issues:
-        # - Unsupported file types
+        # Input validation issues
+        # - Unsupported or undetectable MIME types
         # - Missing files
-        # - Invalid MIME types
-        print(f"Invalid input: {e.message}")
-        print(f"Details: {e.context}")
+        # - Invalid input parameters
+        print(f"Validation failed: {e}")
+
+    except OCRError as e:
+        # OCR-specific issues
+        # - Tesseract processing failures
+        # - Image conversion problems
+        print(f"OCR failed: {e}")
+
+    except MissingDependencyError as e:
+        # System dependency issues
+        # - Missing Tesseract OCR
+        # - Missing Pandoc
+        # - Incompatible versions
+        print(f"Dependency missing: {e}")
 
     except ParsingError as e:
-        # Handles processing errors:
+        # General processing errors
         # - PDF parsing failures
-        # - OCR errors
         # - Format conversion issues
-        print(f"Processing failed: {e.message}")
-        print(f"Details: {e.context}")
+        # - Encoding problems
+        print(f"Processing failed: {e}")
 
     return ""
 
@@ -230,23 +246,32 @@ async def safe_extract(path: str) -> str:
 try:
     result = await extract_file("document.xyz")
 except ValidationError as e:
-    # e.context might contain:
-    # {
+    # Error will include context:
+    # ValidationError: Unsupported mime type
+    # Context: {
     #    "file_path": "document.xyz",
-    #    "error": "Unsupported file type",
-    #    "supported_types": ["pdf", "docx", ...]
+    #    "supported_mimetypes": ["application/pdf", ...]
     # }
+    print(e)
 
 try:
-    result = await extract_file("scan.pdf")
-except ParsingError as e:
-    # e.context might contain:
-    # {
-    #    "file_path": "scan.pdf",
-    #    "error": "OCR processing failed",
-    #    "details": "Tesseract error: Unable to process image"
+    result = await extract_file("scan.jpg")
+except OCRError as e:
+    # Error will include context:
+    # OCRError: OCR failed with a non-0 return code
+    # Context: {
+    #    "file_path": "scan.jpg",
+    #    "tesseract_version": "5.3.0"
     # }
+    print(e)
 ```
+
+All exceptions provide:
+
+- A descriptive error message
+- Relevant context in the `context` attribute
+- String representation with both message and context
+- Proper exception chaining for debugging
 
 ## Roadmap
 
