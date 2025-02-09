@@ -10,7 +10,7 @@ MARKDOWN_MIME_TYPE: Final = "text/markdown"
 PDF_MIME_TYPE: Final = "application/pdf"
 PLAIN_TEXT_MIME_TYPE: Final = "text/plain"
 POWER_POINT_MIME_TYPE: Final = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-
+EXCEL_MIME_TYPE: Final = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 PLAIN_TEXT_MIME_TYPES: Final[set[str]] = {PLAIN_TEXT_MIME_TYPE, MARKDOWN_MIME_TYPE}
 
 IMAGE_MIME_TYPES: Final[set[str]] = {
@@ -89,5 +89,5 @@ SUPPORTED_MIME_TYPES: Final[set[str]] = (
     PLAIN_TEXT_MIME_TYPES
     | IMAGE_MIME_TYPES
     | PANDOC_SUPPORTED_MIME_TYPES
-    | {PDF_MIME_TYPE, POWER_POINT_MIME_TYPE, HTML_MIME_TYPE}
+    | {PDF_MIME_TYPE, POWER_POINT_MIME_TYPE, HTML_MIME_TYPE, EXCEL_MIME_TYPE}
 )
