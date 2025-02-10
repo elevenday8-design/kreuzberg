@@ -20,7 +20,7 @@ from kreuzberg._extractors import (
     extract_content_with_pandoc,
     extract_file_with_pandoc,
     extract_html_string,
-    extract_pdf_file,
+    extract_pdf,
     extract_pptx_file,
     extract_xlsx_file,
 )
@@ -71,11 +71,8 @@ async def extract_bytes(content: bytes, mime_type: str, force_ocr: bool = False)
         )
 
     if mime_type == PDF_MIME_TYPE or mime_type.startswith(PDF_MIME_TYPE):
-        with NamedTemporaryFile(suffix=".pdf") as temp_file:
-            temp_file.write(content)
-            return ExtractionResult(
-                content=await extract_pdf_file(Path(temp_file.name), force_ocr), mime_type=PLAIN_TEXT_MIME_TYPE
-            )
+        print("extracting PDF")
+        return ExtractionResult(content=await extract_pdf(content, force_ocr), mime_type=PLAIN_TEXT_MIME_TYPE)
 
     if mime_type == EXCEL_MIME_TYPE or mime_type.startswith(EXCEL_MIME_TYPE):
         return ExtractionResult(content=await extract_xlsx_file(content), mime_type=MARKDOWN_MIME_TYPE)
@@ -137,7 +134,7 @@ async def extract_file(
         raise ValidationError("The file does not exist.", context={"file_path": str(file_path)})
 
     if mime_type == PDF_MIME_TYPE or mime_type.startswith(PDF_MIME_TYPE):
-        return ExtractionResult(content=await extract_pdf_file(file_path, force_ocr), mime_type=PLAIN_TEXT_MIME_TYPE)
+        return ExtractionResult(content=await extract_pdf(file_path, force_ocr), mime_type=PLAIN_TEXT_MIME_TYPE)
 
     if mime_type == EXCEL_MIME_TYPE or mime_type.startswith(EXCEL_MIME_TYPE):
         return ExtractionResult(content=await extract_xlsx_file(file_path), mime_type=MARKDOWN_MIME_TYPE)

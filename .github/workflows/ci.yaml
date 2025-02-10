@@ -4,7 +4,6 @@ on:
   pull_request:
     branches:
       - main
-      - development
   push:
     branches:
       - main
@@ -40,8 +39,10 @@ jobs:
       - name: Execute Pre-Commit
         run: uv run pre-commit run --show-diff-on-failure --color=always --all-files
   test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, windows-latest, macos-latest ]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -51,16 +52,38 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Set up Python
+      - name: Install Python
         uses: actions/setup-python@v5
         with:
           python-version-file: "pyproject.toml"
 
-      - name: Install System Dependencies
-        run: sudo apt-get install -y tesseract-ocr pandoc
-
       - name: Install Dependencies
         run: uv sync --all-extras --dev
 
-      - name: Test
-        run: uv run pytest tests
+      - name: Install System Dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install -y tesseract pandoc
+          RefreshEnv.cmd
+          $env:PATH = "C:\Program Files\Tesseract-OCR;C:\Program Files\Pandoc;" + $env:PATH
+          echo "PATH after updates:"
+          Write-Output $env:PATH
+          tesseract --version
+          pandoc --version
+
+      - name: Install System Dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install -y tesseract-ocr pandoc
+          tesseract --version
+          pandoc --version
+
+      - name: Install System Dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install tesseract pandoc
+          tesseract --version
+          pandoc --version
+
+      - name: Run Tests
+        run: uv run pytest tests -s -vv

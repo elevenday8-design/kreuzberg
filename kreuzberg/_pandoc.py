@@ -13,7 +13,7 @@ from kreuzberg._string import normalize_spaces
 from kreuzberg._sync import run_sync
 from kreuzberg.exceptions import MissingDependencyError, ParsingError, ValidationError
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Mapping
     from os import PathLike
 
@@ -305,7 +305,8 @@ async def _validate_pandoc_version() -> None:
         if version_ref["checked"]:
             return
 
-        result = await run_sync(subprocess.run, ["pandoc", "--version"], capture_output=True)
+        command = ["pandoc", "--version"]
+        result = await run_sync(subprocess.run, command, capture_output=True)
         version = result.stdout.decode().split("\n")[0].split()[1]
         if not version.startswith("3."):
             raise MissingDependencyError("Pandoc version 3 or above is required.")
