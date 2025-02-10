@@ -71,7 +71,6 @@ async def extract_bytes(content: bytes, mime_type: str, force_ocr: bool = False)
         )
 
     if mime_type == PDF_MIME_TYPE or mime_type.startswith(PDF_MIME_TYPE):
-        print("extracting PDF")
         return ExtractionResult(content=await extract_pdf(content, force_ocr), mime_type=PLAIN_TEXT_MIME_TYPE)
 
     if mime_type == EXCEL_MIME_TYPE or mime_type.startswith(EXCEL_MIME_TYPE):

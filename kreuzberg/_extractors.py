@@ -74,13 +74,9 @@ async def extract_pdf_with_pdfium2(file_path: Path) -> str:
         The extracted text.
     """
     try:
-        print("extracting PDF with pdfium2")
         resolved_path = str(await AsyncPath(file_path).resolve())
-        print("resolved path")
         document = await run_sync(pypdfium2.PdfDocument, resolved_path)
-        print("extracted document")
         text = "\n".join(page.get_textpage().get_text_bounded() for page in document)
-        print("extracted text")
         return normalize_spaces(text)
     except pypdfium2.PdfiumError as e:
         raise ParsingError(
@@ -99,11 +95,9 @@ async def extract_pdf(file_path_or_contents: Path | bytes, force_ocr: bool = Fal
         The extracted text.
     """
     if isinstance(file_path_or_contents, bytes):
-        print("writing file")
         with NamedTemporaryFile(suffix=".pdf") as pdf_file:
             pdf_file.write(file_path_or_contents)
             file_path = Path(pdf_file.name)
-            print("extracting PDF")
 
             if not force_ocr and (content := await extract_pdf_with_pdfium2(file_path)):
                 return normalize_spaces(content)
