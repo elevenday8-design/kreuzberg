@@ -2,19 +2,30 @@ from __future__ import annotations
 
 import re
 import subprocess
-from asyncio import gather
+import sys
 from enum import Enum
 from os import PathLike
 from tempfile import NamedTemporaryFile
-from typing import Any, Literal, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Literal, TypeVar, Union, cast
 
 from anyio import Path as AsyncPath
+from anyio import Semaphore, create_task_group
 from PIL.Image import Image
 
+from kreuzberg import ParsingError
+from kreuzberg._ref import Ref
 from kreuzberg._sync import run_sync
 from kreuzberg.exceptions import MissingDependencyError, OCRError
 
+if TYPE_CHECKING:
+    from kreuzberg.config import Config
+
+
+if sys.version_info < (3, 11):
+    from exceptiongroup import ExceptionGroup
+
 version_ref = {"checked": False}
+semaphore_ref = Ref[Semaphore]()
 
 T = TypeVar("T", bound=Union[Image, PathLike[str], str])
 
@@ -298,22 +309,45 @@ async def process_image_with_tesseract(
 async def batch_process_images(
     images: list[T],
     *,
+    config: Config,
     language: SupportedLanguages = "eng",
     psm: PSMMode = PSMMode.AUTO,
     **kwargs: Any,
 ) -> list[str]:
-    """Run Tesseract OCR asynchronously on a single Pillow Image or a list of Pillow Images.
+    """Run Tesseract OCR asynchronously on multiple images with controlled concurrency.
 
     Args:
         images: A list of Pillow Images, paths or strings to process.
+        config: The configuration object.
         language: The language code for OCR (default: "eng").
         psm: Page segmentation mode (default: PSMMode.AUTO).
         **kwargs: Additional Tesseract configuration options as key-value pairs.
 
+    Raises:
+        ParsingError: If OCR fails to extract text from any of the images.
+
     Returns:
-        Extracted text as a string (for single image) or a list of strings (for multiple images).
+        List of extracted text strings, one per input image.
+
+    The function uses a semaphore to limit concurrent Tesseract processes,
+    preventing resource exhaustion while still allowing parallel processing.
+    The concurrency limit can be configured via the global config object.
     """
     await validate_tesseract_version()
-    return await gather(
-        *[process_image_with_tesseract(image, language=language, psm=psm, **kwargs) for image in images]
-    )
+    results = cast(list[str], list(range(len(images))))
+
+    async def _process_image(index: int, image: T) -> None:
+        if not semaphore_ref.value:
+            semaphore_ref.value = Semaphore(config.concurrent_limit)
+
+        async with semaphore_ref.value:
+            results[index] = await process_image_with_tesseract(image, language=language, psm=psm, **kwargs)
+
+    try:
+        async with create_task_group() as tg:
+            for i, image in enumerate(images):
+                tg.start_soon(_process_image, i, image)
+    except ExceptionGroup as eg:
+        raise ParsingError("Failed to process images with Tesseract") from eg
+
+    return results

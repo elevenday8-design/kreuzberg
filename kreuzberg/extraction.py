@@ -14,6 +14,7 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import NamedTuple
 
+import anyio
 from anyio import Path as AsyncPath
 
 from kreuzberg._extractors import (
@@ -38,6 +39,7 @@ from kreuzberg._mime_types import (
 )
 from kreuzberg._string import safe_decode
 from kreuzberg._tesseract import process_image_with_tesseract
+from kreuzberg.config import Config, default_config
 from kreuzberg.exceptions import ValidationError
 
 
@@ -50,13 +52,20 @@ class ExtractionResult(NamedTuple):
     """The mime type of the content."""
 
 
-async def extract_bytes(content: bytes, mime_type: str, force_ocr: bool = False) -> ExtractionResult:
+async def extract_bytes(
+    content: bytes,
+    mime_type: str,
+    force_ocr: bool = False,
+    *,
+    config: Config | None = None,
+) -> ExtractionResult:
     """Extract the textual content from a given byte string representing a file's contents.
 
     Args:
         content: The content to extract.
         mime_type: The mime type of the content.
         force_ocr: Whether or not to force OCR on PDF files that have a text layer. Default = false.
+        config: Configuration for text extraction.
 
     Raises:
         ValidationError: If the mime type is not supported.
@@ -71,7 +80,9 @@ async def extract_bytes(content: bytes, mime_type: str, force_ocr: bool = False)
         )
 
     if mime_type == PDF_MIME_TYPE or mime_type.startswith(PDF_MIME_TYPE):
-        return ExtractionResult(content=await extract_pdf(content, force_ocr), mime_type=PLAIN_TEXT_MIME_TYPE)
+        return ExtractionResult(
+            content=await extract_pdf(content, force_ocr, config=config), mime_type=PLAIN_TEXT_MIME_TYPE
+        )
 
     if mime_type == EXCEL_MIME_TYPE or mime_type.startswith(EXCEL_MIME_TYPE):
         return ExtractionResult(content=await extract_xlsx_file(content), mime_type=MARKDOWN_MIME_TYPE)
@@ -80,7 +91,8 @@ async def extract_bytes(content: bytes, mime_type: str, force_ocr: bool = False)
         with NamedTemporaryFile(suffix=IMAGE_MIME_TYPE_EXT_MAP[mime_type]) as temp_file:
             temp_file.write(content)
             return ExtractionResult(
-                content=await process_image_with_tesseract(temp_file.name), mime_type=PLAIN_TEXT_MIME_TYPE
+                content=await process_image_with_tesseract(temp_file.name, config=config or default_config),
+                mime_type=PLAIN_TEXT_MIME_TYPE,
             )
 
     if mime_type in PANDOC_SUPPORTED_MIME_TYPES or any(
@@ -102,8 +114,54 @@ async def extract_bytes(content: bytes, mime_type: str, force_ocr: bool = False)
     )
 
 
+def extract_bytes_sync(
+    content: bytes,
+    mime_type: str,
+    *,
+    config: Config | None = None,
+    force_ocr: bool = False,
+) -> ExtractionResult:
+    """Synchronous version of extract_bytes.
+
+    Args:
+        content: The content to extract.
+        mime_type: The mime type of the content.
+        config: Optional configuration for text extraction.
+        force_ocr: Whether or not to force OCR on PDF files that have a text layer. Default = false.
+
+    Returns:
+        The extracted content and the mime type of the content.
+    """
+    return anyio.run(lambda: extract_bytes(content, mime_type, config=config, force_ocr=force_ocr))
+
+
+def extract_file_sync(
+    file_path: Path | str,
+    mime_type: str | None = None,
+    *,
+    config: Config | None = None,
+    force_ocr: bool = False,
+) -> ExtractionResult:
+    """Synchronous version of extract_file.
+
+    Args:
+        file_path: The path to the file.
+        mime_type: The mime type of the file.
+        config: Optional configuration for text extraction.
+        force_ocr: Whether or not to force OCR on PDF files that have a text layer. Default = false.
+
+    Returns:
+        The extracted content and the mime type of the content.
+    """
+    return anyio.run(lambda: extract_file(file_path, mime_type, config=config, force_ocr=force_ocr))
+
+
 async def extract_file(
-    file_path: Path | str, mime_type: str | None = None, force_ocr: bool = False
+    file_path: Path | str,
+    mime_type: str | None = None,
+    force_ocr: bool = False,
+    *,
+    config: Config | None = None,
 ) -> ExtractionResult:
     """Extract the textual content from a given file.
 
@@ -111,6 +169,7 @@ async def extract_file(
         file_path: The path to the file.
         mime_type: The mime type of the file.
         force_ocr: Whether or not to force OCR on PDF files that have a text layer. Default = false.
+        config: Configuration for text extraction.
 
     Raises:
         ValidationError: If the mime type is not supported.
@@ -133,13 +192,18 @@ async def extract_file(
         raise ValidationError("The file does not exist.", context={"file_path": str(file_path)})
 
     if mime_type == PDF_MIME_TYPE or mime_type.startswith(PDF_MIME_TYPE):
-        return ExtractionResult(content=await extract_pdf(file_path, force_ocr), mime_type=PLAIN_TEXT_MIME_TYPE)
+        return ExtractionResult(
+            content=await extract_pdf(file_path, force_ocr, config=config), mime_type=PLAIN_TEXT_MIME_TYPE
+        )
 
     if mime_type == EXCEL_MIME_TYPE or mime_type.startswith(EXCEL_MIME_TYPE):
         return ExtractionResult(content=await extract_xlsx_file(file_path), mime_type=MARKDOWN_MIME_TYPE)
 
     if mime_type in IMAGE_MIME_TYPES or any(mime_type.startswith(value) for value in IMAGE_MIME_TYPES):
-        return ExtractionResult(content=await process_image_with_tesseract(file_path), mime_type=PLAIN_TEXT_MIME_TYPE)
+        return ExtractionResult(
+            content=await process_image_with_tesseract(file_path, config=config or default_config),
+            mime_type=PLAIN_TEXT_MIME_TYPE,
+        )
 
     if mime_type in PANDOC_SUPPORTED_MIME_TYPES or any(
         mime_type.startswith(value) for value in PANDOC_SUPPORTED_MIME_TYPES

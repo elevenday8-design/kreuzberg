@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import json
 import subprocess
-from asyncio import gather
+import sys
 from dataclasses import dataclass
 from tempfile import NamedTemporaryFile
 from typing import TYPE_CHECKING, Any, Final, Literal, TypedDict, cast
 
 from anyio import Path as AsyncPath
+from anyio import create_task_group
 
 from kreuzberg._string import normalize_spaces
 from kreuzberg._sync import run_sync
@@ -21,6 +22,9 @@ try:  # pragma: no cover
     from typing import NotRequired  # type: ignore[attr-defined]
 except ImportError:  # pragma: no cover
     from typing_extensions import NotRequired
+
+if sys.version_info < (3, 11):
+    from exceptiongroup import ExceptionGroup
 
 version_ref: Final[dict[str, bool]] = {"checked": False}
 
@@ -398,17 +402,35 @@ async def process_file(
         mime_type: The mime type of the file.
         extra_args: Additional Pandoc command line arguments.
 
+    Raises:
+        ParsingError: If the file data could not be extracted.
+
     Returns:
         PandocResult containing processed content and metadata.
     """
     await _validate_pandoc_version()
 
-    metadata, content = await gather(
-        *[
-            _handle_extract_metadata(input_file, mime_type=mime_type),
-            _handle_extract_file(input_file, mime_type=mime_type, extra_args=extra_args),
-        ]
-    )
+    _get_pandoc_type_from_mime_type(mime_type)
+
+    metadata = None
+    content = None
+
+    try:
+        async with create_task_group() as tg:
+
+            async def _get_metadata() -> None:
+                nonlocal metadata
+                metadata = await _handle_extract_metadata(input_file, mime_type=mime_type)
+
+            async def _get_content() -> None:
+                nonlocal content
+                content = await _handle_extract_file(input_file, mime_type=mime_type, extra_args=extra_args)
+
+            tg.start_soon(_get_metadata)
+            tg.start_soon(_get_content)
+    except ExceptionGroup as eg:
+        raise ParsingError("Failed to extract file data", context={"file": str(input_file)}) from eg.exceptions[0]
+
     return PandocResult(
         content=content,  # type: ignore[arg-type]
         metadata=metadata,  # type: ignore[arg-type]

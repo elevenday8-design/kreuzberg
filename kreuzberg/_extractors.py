@@ -19,6 +19,7 @@ from kreuzberg._pandoc import process_content, process_file
 from kreuzberg._string import normalize_spaces, safe_decode
 from kreuzberg._sync import run_sync
 from kreuzberg._tesseract import batch_process_images
+from kreuzberg.config import Config, default_config
 from kreuzberg.exceptions import ParsingError
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -47,17 +48,18 @@ async def convert_pdf_to_images(file_path: Path) -> list[Image]:
         ) from e
 
 
-async def extract_pdf_with_tesseract(file_path: Path) -> str:
+async def extract_pdf_with_tesseract(file_path: Path, *, config: Config | None = None) -> str:
     """Extract text from a scanned PDF file using pytesseract.
 
     Args:
         file_path: The path to the PDF file.
+        config: Optional configuration for text extraction.
 
     Returns:
         The extracted text.
     """
     images = await convert_pdf_to_images(file_path)
-    ocr_results = await batch_process_images(images)
+    ocr_results = await batch_process_images(images, config=config or default_config)
     return normalize_spaces("\n".join(ocr_results))
 
 
@@ -84,12 +86,15 @@ async def extract_pdf_with_pdfium2(file_path: Path) -> str:
         ) from e
 
 
-async def extract_pdf(file_path_or_contents: Path | bytes, force_ocr: bool = False) -> str:
+async def extract_pdf(
+    file_path_or_contents: Path | bytes, force_ocr: bool = False, *, config: Config | None = None
+) -> str:
     """Extract text from a PDF file.
 
     Args:
         file_path_or_contents: The path to the PDF file or its contents as bytes.
         force_ocr: Whether or not to force OCR on PDF files that have a text layer. Default = false.
+        config: Optional configuration for text extraction.
 
     Returns:
         The extracted text.
@@ -102,12 +107,12 @@ async def extract_pdf(file_path_or_contents: Path | bytes, force_ocr: bool = Fal
             if not force_ocr and (content := await extract_pdf_with_pdfium2(file_path)):
                 return normalize_spaces(content)
 
-            return await extract_pdf_with_tesseract(file_path)
+            return await extract_pdf_with_tesseract(file_path, config=config)
 
     if not force_ocr and (content := await extract_pdf_with_pdfium2(file_path_or_contents)):
         return normalize_spaces(content)
 
-    return await extract_pdf_with_tesseract(file_path_or_contents)
+    return await extract_pdf_with_tesseract(file_path_or_contents, config=config)
 
 
 async def extract_content_with_pandoc(file_data: bytes, mime_type: str) -> str:
