@@ -27,7 +27,7 @@ async def test_extract_bytes_pdf(pdf_document: Path) -> None:
 
 async def test_extract_bytes_force_ocr_pdf(non_ascii_pdf: Path) -> None:
     content = non_ascii_pdf.read_bytes()
-    result = await extract_bytes(content, PDF_MIME_TYPE, True)
+    result = await extract_bytes(content, PDF_MIME_TYPE, force_ocr=True)
     assert result.mime_type == PLAIN_TEXT_MIME_TYPE
     assert result.content.startswith("AMTSBLATT")
     assert isinstance(result.content, str)
@@ -104,7 +104,7 @@ async def test_extract_file_pdf(pdf_document: Path) -> None:
 
 
 async def test_extract_file_force_ocr_pdf(non_ascii_pdf: Path) -> None:
-    result = await extract_file(non_ascii_pdf, PDF_MIME_TYPE, True)
+    result = await extract_file(non_ascii_pdf, PDF_MIME_TYPE, force_ocr=True)
     assert result.mime_type == PLAIN_TEXT_MIME_TYPE
     assert result.content.startswith("AMTSBLATT")
     assert isinstance(result.content, str)

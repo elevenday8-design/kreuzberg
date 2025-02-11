@@ -55,8 +55,8 @@ class ExtractionResult(NamedTuple):
 async def extract_bytes(
     content: bytes,
     mime_type: str,
-    force_ocr: bool = False,
     *,
+    force_ocr: bool = False,
     config: Config | None = None,
 ) -> ExtractionResult:
     """Extract the textual content from a given byte string representing a file's contents.
@@ -159,8 +159,8 @@ def extract_file_sync(
 async def extract_file(
     file_path: Path | str,
     mime_type: str | None = None,
-    force_ocr: bool = False,
     *,
+    force_ocr: bool = False,
     config: Config | None = None,
 ) -> ExtractionResult:
     """Extract the textual content from a given file.
