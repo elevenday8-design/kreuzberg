@@ -27,6 +27,9 @@ def test_config_validation() -> None:
     with pytest.raises(ValueError, match="max_concurrent_ocr must be at least 1"):
         Config(max_concurrent_ocr=-1)
 
+    with pytest.raises(ValueError, match="max_concurrent_ocr must be an integer"):
+        Config(max_concurrent_ocr=1.5)  # type: ignore[arg-type]
+
 
 def test_config_concurrent_limit() -> None:
     """Test concurrent_limit calculation."""

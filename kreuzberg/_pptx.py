@@ -14,7 +14,7 @@ from kreuzberg import ExtractionResult
 from kreuzberg._mime_types import MARKDOWN_MIME_TYPE
 from kreuzberg._string import normalize_spaces
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from pathlib import Path
 
 
@@ -80,7 +80,7 @@ async def extract_pptx_file_content(file_path_or_contents: Path | bytes) -> Extr
             md_content += "\n\n### Notes:\n"
             notes_frame = slide.notes_slide.notes_text_frame
 
-            if notes_frame is not None:
+            if notes_frame is not None:  # pragma: no branch
                 md_content += notes_frame.text
 
             md_content = md_content.strip()

@@ -17,7 +17,7 @@ from kreuzberg._tesseract import (
     validate_tesseract_version,
 )
 from kreuzberg.config import default_config
-from kreuzberg.exceptions import MissingDependencyError, OCRError
+from kreuzberg.exceptions import MissingDependencyError, OCRError, ParsingError
 
 if TYPE_CHECKING:
     from os import PathLike
@@ -222,3 +222,19 @@ async def test_integration_batch_process_images_mixed(ocr_image: Path) -> None:
         assert len(results) == 3
         assert all(isinstance(result, ExtractionResult) for result in results)
         assert all(result.content.strip() for result in results)
+
+
+async def test_batch_process_images_exception_group(mock_subprocess_run: Mock) -> None:
+    """Test that batch_process_images handles ExceptionGroup correctly."""
+
+    def side_effect(*args: list[Any], **kwargs: dict[str, Any]) -> Mock:
+        if args[0][0] == "tesseract" and "--version" in args[0]:
+            mock_subprocess_run.return_value.stdout = b"tesseract 5.0.0"
+            return cast(Mock, mock_subprocess_run.return_value)
+        raise RuntimeError("Tesseract error")
+
+    mock_subprocess_run.side_effect = side_effect
+    image = Image.new("RGB", (100, 100))
+
+    with pytest.raises(ParsingError, match="Failed to process images with Tesseract"):
+        await batch_process_images([image], config=default_config)

@@ -19,7 +19,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Mapping
     from os import PathLike
 
-if sys.version_info < (3, 11):
+if sys.version_info < (3, 11):  # pragma: no cover
     from exceptiongroup import ExceptionGroup
 
 

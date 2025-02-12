@@ -19,11 +19,11 @@ from kreuzberg._string import normalize_spaces
 from kreuzberg._sync import run_sync
 from kreuzberg.exceptions import MissingDependencyError, OCRError
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from kreuzberg.config import Config
 
 
-if sys.version_info < (3, 11):
+if sys.version_info < (3, 11):  # pragma: no cover
     from exceptiongroup import ExceptionGroup
 
 version_ref = {"checked": False}
@@ -225,7 +225,7 @@ async def process_file(
         OCRError: If OCR fails to extract text from the image.
 
     Returns:
-        str: Extracted text from the image.
+        ExtractionResult: The extracted text from the image.
     """
     with NamedTemporaryFile(suffix=".txt") as output_file:
         # this is needed because tesseract adds .txt to the output file
@@ -269,7 +269,7 @@ async def process_image(image: Image, *, language: SupportedLanguages, psm: PSMM
         **kwargs: Additional Tesseract configuration options as key-value pairs.
 
     Returns:
-        str: Extracted text from the image.
+        ExtractionResult: The extracted text from the image.
     """
     with NamedTemporaryFile(suffix=".png") as image_file:
         await run_sync(image.save, image_file.name, format="PNG")
@@ -329,7 +329,7 @@ async def batch_process_images(
         ParsingError: If OCR fails to extract text from any of the images.
 
     Returns:
-        List of extracted text strings, one per input image.
+        List of ExtractionResult objects, one per input image.
 
     The function uses a semaphore to limit concurrent Tesseract processes,
     preventing resource exhaustion while still allowing parallel processing.

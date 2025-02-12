@@ -23,8 +23,9 @@ async def extract_xlsx_file(input_file: Path) -> ExtractionResult:
         ParsingError: If the XLSX file could not be parsed.
     """
     try:
-        await run_sync(Xlsx2csv(input_file).convert, input_file.name)
-        return await process_file_with_pandoc(input_file.name, mime_type="text/csv")
+        with NamedTemporaryFile(suffix=".csv") as csv_file:
+            await run_sync(Xlsx2csv(input_file).convert, csv_file.name)
+            return await process_file_with_pandoc(csv_file.name, mime_type="text/csv")
     except Exception as e:
         raise ParsingError(
             "Could not extract text from XLSX",
