@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+from re import Pattern
+from re import compile as compile_regex
 from tempfile import NamedTemporaryFile
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 import pypdfium2
 
@@ -16,6 +18,37 @@ from kreuzberg.exceptions import ParsingError
 
 if TYPE_CHECKING:  # pragma: no cover
     from PIL.Image import Image
+
+# Pattern to detect common PDF text extraction corruption:
+# - Control and non-printable characters
+# - Unicode replacement and invalid characters
+# - Zero-width spaces and other invisible characters
+CORRUPTED_PATTERN: Final[Pattern[str]] = compile_regex(
+    r"[\x00-\x08\x0B-\x1F\x7F-\x9F]|\uFFFD|[\u200B-\u200F\u2028-\u202F]"
+)
+
+
+def _validate_extracted_text(text: str) -> bool:
+    """Check if text extracted from PDF is valid or corrupted.
+
+    This checks for common indicators of corrupted PDF text extraction:
+    1. Empty or whitespace-only text
+    2. Control characters and other non-printable characters
+    3. Unicode replacement characters
+    4. Zero-width spaces and other invisible characters
+
+    Args:
+        text: The extracted text to validate
+
+    Returns:
+        True if the text appears valid, False if it seems corrupted
+    """
+    # Check for empty or whitespace-only text
+    if not text or not text.strip():
+        return False
+
+    # Check for corruption indicators
+    return not bool(CORRUPTED_PATTERN.search(text))
 
 
 async def _convert_pdf_to_images(input_file: Path) -> list[Image]:
@@ -91,7 +124,11 @@ async def extract_pdf_file(
     Returns:
         The extracted text.
     """
-    if not force_ocr and (content := await _extract_pdf_searchable_text(input_file)):
+    if (
+        not force_ocr
+        and (content := await _extract_pdf_searchable_text(input_file))
+        and _validate_extracted_text(content)
+    ):
         return ExtractionResult(content=content, mime_type=PLAIN_TEXT_MIME_TYPE, metadata={})
 
     return await _extract_pdf_text_with_ocr(input_file, config=config)

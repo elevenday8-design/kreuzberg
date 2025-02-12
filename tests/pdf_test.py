@@ -11,6 +11,7 @@ from kreuzberg._pdf import (
     _convert_pdf_to_images,
     _extract_pdf_searchable_text,
     _extract_pdf_text_with_ocr,
+    _validate_extracted_text,
     extract_pdf_file,
 )
 from kreuzberg.exceptions import ParsingError
@@ -75,3 +76,38 @@ async def test_extract_pdf_searchable_text_raises_parsing_error(tmp_path: Path) 
 
     assert "Could not extract text from PDF file" in str(exc_info.value)
     assert str(pdf_path) in str(exc_info.value.context["file_path"])
+
+
+def test_validate_empty_text() -> None:
+    """Test that empty text is considered invalid."""
+    assert not _validate_extracted_text("")
+    assert not _validate_extracted_text("   ")
+    assert not _validate_extracted_text("\n\n")
+
+
+def test_validate_control_chars() -> None:
+    """Test that text with control characters is invalid."""
+    assert not _validate_extracted_text("Hello\x00World")
+    assert not _validate_extracted_text("Test\x1fText")
+    assert not _validate_extracted_text("Sample\x7fText")
+    assert not _validate_extracted_text("Test\x9fData")
+
+
+def test_validate_unicode_chars() -> None:
+    """Test that text with replacement characters is invalid."""
+    assert not _validate_extracted_text("Bad\ufffdText")
+    assert not _validate_extracted_text("Text\u200bHidden")
+    assert not _validate_extracted_text("Line\u2028Break")
+
+
+def test_validate_normal_text() -> None:
+    """Test that normal text passes validation."""
+    assert _validate_extracted_text("Hello World!")
+    assert _validate_extracted_text("Line 1\nLine 2")
+    assert _validate_extracted_text("© 2024 Company")
+    assert _validate_extracted_text("Special chars: !@#$%^&*()")
+    assert _validate_extracted_text("""
+        This is a normal paragraph of text that should pass validation.
+        It contains normal punctuation, numbers (123), and symbols (!@#$%).
+        Even with multiple paragraphs and line breaks, it should be fine.
+    """)

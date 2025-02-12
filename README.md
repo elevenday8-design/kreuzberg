@@ -63,7 +63,7 @@ Kreuzberg is designed as a high-level async abstraction over established open-so
 #### Document Formats
 
 - PDF (`.pdf`, both searchable and scanned documents)
-- Microsoft Word (`.docx`, `.doc`)
+- Microsoft Word (`.docx`)
 - PowerPoint presentations (`.pptx`)
 - OpenDocument Text (`.odt`)
 - Rich Text Format (`.rtf`)
@@ -81,12 +81,13 @@ Kreuzberg is designed as a high-level async abstraction over established open-so
 - Org-mode (`.org`)
 - DokuWiki (`.txt`)
 - Pod (`.pod`)
-- Man pages (`.1`, `.2`, etc.)
+- Troff/Man (`.1`, `.2`, etc.)
 
 #### Data and Research Formats
 
 - Excel spreadsheets (`.xlsx`)
 - CSV (`.csv`) and TSV (`.tsv`) files
+- OPML files (`.opml`)
 - Jupyter Notebooks (`.ipynb`)
 - BibTeX (`.bib`) and BibLaTeX (`.bib`)
 - CSL-JSON (`.json`)
@@ -101,12 +102,13 @@ Kreuzberg is designed as a high-level async abstraction over established open-so
 - TIFF (`.tiff`, `.tif`)
 - BMP (`.bmp`)
 - GIF (`.gif`)
+- JPEG 2000 family (`.jp2`, `.jpm`, `.jpx`, `.mj2`)
 - WebP (`.webp`)
-- JPEG 2000 (`.jp2`, `.jpx`, `.jpm`, `.mj2`)
-- Portable Anymap (`.pnm`)
-- Portable Bitmap (`.pbm`)
-- Portable Graymap (`.pgm`)
-- Portable Pixmap (`.ppm`)
+- Portable anymap formats:
+  - Portable Anymap (`.pnm`)
+  - Portable Bitmap (`.pbm`)
+  - Portable Graymap (`.pgm`)
+  - Portable Pixmap (`.ppm`)
 
 ## Usage
 
@@ -131,74 +133,109 @@ However, we also provide sync methods for simpler use cases or when working in s
 
 ```python
 from pathlib import Path
-from kreuzberg import extract_file, extract_bytes, extract_file_sync, extract_bytes_sync
+from kreuzberg import extract_file, Config
+from kreuzberg.extraction import ExtractionResult
+
+# Configure OCR settings (optional)
+config = Config(max_concurrent_ocr=2)
 
 # Basic file extraction
-# Async usage
 async def extract_document():
     # Extract from a PDF file
-    pdf_result = await extract_file("document.pdf")
-    print(f"PDF text: {pdf_result.content}")
+    pdf_result: ExtractionResult = await extract_file("document.pdf", config=config)
+    print(f"Content: {pdf_result.content}")
+    print(f"MIME type: {pdf_result.mime_type}")
+    print(f"Metadata: {pdf_result.metadata}")
 
     # Extract from an image
-    img_result = await extract_file("scan.png")
+    img_result = await extract_file("scan.png", config=config)
     print(f"Image text: {img_result.content}")
 
-    # Extract from Word document
+    # Extract from Word document with metadata
     docx_result = await extract_file(Path("document.docx"))
-    print(f"Word text: {docx_result.content}")
-
-# Sync usage
-def extract_document_sync():
-    # Extract from a PDF file
-    pdf_result = extract_file_sync("document.pdf")
-    print(f"PDF text: {pdf_result.content}")
-
-    # Extract from an image
-    img_result = extract_file_sync("scan.png")
-    print(f"Image text: {img_result.content}")
-
-    # Extract from Word document
-    docx_result = extract_file_sync(Path("document.docx"))
-    print(f"Word text: {docx_result.content}")
+    if docx_result.metadata:
+        print(f"Title: {docx_result.metadata.get('title')}")
+        print(f"Author: {docx_result.metadata.get('author')}")
 ```
 
 ### Processing Uploaded Files
 
 ```python
-from kreuzberg import extract_bytes
+from kreuzberg import extract_bytes, Config
+from kreuzberg.extraction import ExtractionResult
 
-async def process_upload(file_content: bytes, mime_type: str):
+async def process_upload(file_content: bytes, mime_type: str) -> ExtractionResult:
     """Process uploaded file content with known MIME type."""
-    result = await extract_bytes(file_content, mime_type=mime_type)
-    return result.content
+    config = Config(max_concurrent_ocr=2)
+    return await extract_bytes(file_content, mime_type=mime_type, config=config)
 
 # Example usage with different file types
 async def handle_uploads():
     # Process PDF upload
-    pdf_result = await extract_bytes(pdf_bytes, mime_type="application/pdf")
+    pdf_result = await process_upload(pdf_bytes, mime_type="application/pdf")
+    print(f"PDF content: {pdf_result.content}")
+    print(f"PDF metadata: {pdf_result.metadata}")
 
-    # Process image upload
-    img_result = await extract_bytes(image_bytes, mime_type="image/jpeg")
+    # Process image upload (will use OCR)
+    img_result = await process_upload(image_bytes, mime_type="image/jpeg")
+    print(f"Image text: {img_result.content}")
 
     # Process Word document upload
-    docx_result = await extract_bytes(docx_bytes,
-        mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    docx_result = await process_upload(
+        docx_bytes,
+        mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+    print(f"Word content: {docx_result.content}")
 ```
 
 ### Advanced Features
 
+#### Smart PDF Processing
+
+Kreuzberg employs a smart approach to PDF text extraction:
+
+1. **Searchable Text Detection**: First attempts to extract text directly from searchable PDFs using `pdfium2`.
+
+2. **Text Validation**: Extracted text is validated for corruption by checking for:
+
+   - Control and non-printable characters
+   - Unicode replacement characters (�)
+   - Zero-width spaces and other invisible characters
+   - Empty or whitespace-only content
+
+3. **Automatic OCR Fallback**: If the extracted text appears corrupted or if the PDF is image-based, automatically falls back to OCR using Tesseract.
+
+This approach ensures optimal text quality while minimizing unnecessary OCR processing.
+
 #### PDF Processing Options
 
+You can control PDF processing behavior using the `Config` class:
+
 ```python
-from kreuzberg import extract_file
+from kreuzberg import extract_file, Config
 
 async def process_pdf():
+    # Default behavior: auto-detect and use OCR if needed
+    result = await extract_file("document.pdf")
+    print(result.content)
+
+    # Force OCR even for searchable PDFs
+    config = Config(force_ocr=True)
+    result = await extract_file("document.pdf", config=config)
+    print(result.content)
+
+    # Control OCR concurrency for large documents
+    config = Config(max_concurrent_ocr=4)
+    result = await extract_file("large_document.pdf", config=config)
+    print(result.content)
+
     # Force OCR for PDFs with embedded images or scanned content
     result = await extract_file("document.pdf", force_ocr=True)
+    print(result.content)
 
     # Process a scanned PDF (automatically uses OCR)
-    scanned = await extract_file("scanned.pdf")
+    result = await extract_file("scanned.pdf")
+    print(result.content)
 ```
 
 #### ExtractionResult Object
@@ -209,7 +246,7 @@ All extraction functions return an `ExtractionResult` containing:
 - `mime_type`: Output format ("text/plain" or "text/markdown" for Pandoc conversions)
 
 ```python
-from kreuzberg import ExtractionResult
+from kreuzberg import extract_file, ExtractionResult
 
 async def process_document(path: str) -> tuple[str, str]:
     # Access as a named tuple
@@ -268,29 +305,6 @@ async def safe_extract(path: str) -> str:
         print(f"Processing failed: {e}")
 
     return ""
-
-# Example error contexts
-try:
-    result = await extract_file("document.xyz")
-except ValidationError as e:
-    # Error will include context:
-    # ValidationError: Unsupported mime type
-    # Context: {
-    #    "file_path": "document.xyz",
-    #    "supported_mimetypes": ["application/pdf", ...]
-    # }
-    print(e)
-
-try:
-    result = await extract_file("scan.jpg")
-except OCRError as e:
-    # Error will include context:
-    # OCRError: OCR failed with a non-0 return code
-    # Context: {
-    #    "file_path": "scan.jpg",
-    #    "tesseract_version": "5.3.0"
-    # }
-    print(e)
 ```
 
 All exceptions provide:
