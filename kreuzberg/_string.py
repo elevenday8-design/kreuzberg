@@ -4,8 +4,6 @@ from contextlib import suppress
 
 from charset_normalizer import detect
 
-from kreuzberg.exceptions import ParsingError
-
 
 def safe_decode(byte_data: bytes, encoding: str | None = None) -> str:
     """Decode a byte string safely, removing invalid sequences.
@@ -14,22 +12,19 @@ def safe_decode(byte_data: bytes, encoding: str | None = None) -> str:
         byte_data: The byte string to decode.
         encoding: The encoding to use when decoding the byte string.
 
-    Raises:
-        ParsingError: If the byte string could not be decoded.
-
     Returns:
         The decoded string.
     """
     if not byte_data:
         return ""
 
-    encodings = [encoding, detect(byte_data).get("encoding", ""), "utf-8", "latin-1"]
+    encodings = [encoding, detect(byte_data).get("encoding", ""), "utf-8"]
 
     for enc in [e for e in encodings if e]:
         with suppress(UnicodeDecodeError):
             return byte_data.decode(enc)
 
-    raise ParsingError("Could not decode byte string. Please provide an encoding.")
+    return byte_data.decode("latin-1", errors="replace")
 
 
 def normalize_spaces(text: str) -> str:
