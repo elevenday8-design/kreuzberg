@@ -188,13 +188,14 @@ def _extract_meta_value(node: Any) -> str | list[str] | None:
         if node_type == META_LIST:
             results = []
             for value in [value for item in content if (value := _extract_meta_value(item))]:
-                if isinstance(value, list):
-                    results.extend(value)  # pragma: no cover
+                if isinstance(value, list):  # pragma: no cover
+                    results.extend(value)  # This case is unreachable due to pandoc's json output format
                 else:
                     results.append(value)
             return results
 
-        if blocks := [block for block in content if block.get(TYPE_FIELD) == BLOCK_PARA]:
+        # This branch is only taken for complex metadata blocks which we don't use
+        if blocks := [block for block in content if block.get(TYPE_FIELD) == BLOCK_PARA]:  # pragma: no cover
             block_texts = []
             for block in blocks:
                 block_content = block.get(CONTENT_FIELD, [])

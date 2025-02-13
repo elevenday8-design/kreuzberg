@@ -27,9 +27,12 @@ def test_safe_decode_with_detected_encoding() -> None:
 
 
 def test_safe_decode_with_invalid_encoding() -> None:
-    byte_data = b"\xff\xfe"
+    # Create bytes that will fail UTF-8 and charset detection
+    byte_data = bytes([0xFF, 0xFE, 0xFD])
     result = safe_decode(byte_data)
+    # Just verify we get a string back and no errors
     assert isinstance(result, str)
+    assert len(result) == 3  # Each byte becomes one character
 
 
 def test_safe_decode_with_fallback_encodings() -> None:
