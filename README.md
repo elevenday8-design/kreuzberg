@@ -139,7 +139,8 @@ from kreuzberg import extract_file, Config
 from kreuzberg.extraction import ExtractionResult
 
 # Configure OCR settings (optional)
-config = Config(max_concurrent_ocr=2)
+config = Config(max_concurrent_tesseract=2)
+
 
 # Basic file extraction
 async def extract_document():
@@ -166,10 +167,12 @@ async def extract_document():
 from kreuzberg import extract_bytes, Config
 from kreuzberg.extraction import ExtractionResult
 
+
 async def process_upload(file_content: bytes, mime_type: str) -> ExtractionResult:
     """Process uploaded file content with known MIME type."""
-    config = Config(max_concurrent_ocr=2)
+    config = Config(max_concurrent_tesseract=2)
     return await extract_bytes(file_content, mime_type=mime_type, config=config)
+
 
 # Example usage with different file types
 async def handle_uploads(docx_bytes: bytes, pdf_bytes: bytes, image_bytes: bytes):
@@ -216,6 +219,7 @@ You can control PDF processing behavior using the `Config` class:
 ```python
 from kreuzberg import extract_file, Config
 
+
 async def process_pdf():
     # Default behavior: auto-detect and use OCR if needed
     result = await extract_file("document.pdf")
@@ -227,7 +231,7 @@ async def process_pdf():
     print(result.content)
 
     # Control OCR concurrency for large documents
-    config = Config(max_concurrent_ocr=4)
+    config = Config(max_concurrent_tesseract=4)
     result = await extract_file("large_document.pdf", config=config)
     print(result.content)
 

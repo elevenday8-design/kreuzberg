@@ -6,7 +6,7 @@ import sys
 from enum import Enum
 from os import PathLike
 from tempfile import NamedTemporaryFile
-from typing import TYPE_CHECKING, Any, Literal, TypeVar, Union, cast
+from typing import Literal, TypeVar, Union, cast
 
 from anyio import Path as AsyncPath
 from anyio import Semaphore, create_task_group
@@ -18,10 +18,6 @@ from kreuzberg._ref import Ref
 from kreuzberg._string import normalize_spaces
 from kreuzberg._sync import run_sync
 from kreuzberg.exceptions import MissingDependencyError, OCRError
-
-if TYPE_CHECKING:  # pragma: no cover
-    from kreuzberg.config import Config
-
 
 if sys.version_info < (3, 11):  # pragma: no cover
     from exceptiongroup import ExceptionGroup
@@ -211,7 +207,7 @@ async def validate_tesseract_version() -> None:
 
 
 async def process_file(
-    input_file: str | PathLike[str], *, language: SupportedLanguages, psm: PSMMode, **kwargs: Any
+    input_file: str | PathLike[str], *, language: SupportedLanguages, psm: PSMMode
 ) -> ExtractionResult:
     """Process a single image file using Tesseract OCR.
 
@@ -219,7 +215,6 @@ async def process_file(
         input_file: The path to the image file to process.
         language: The language code for OCR.
         psm: Page segmentation mode.
-        **kwargs: Additional Tesseract configuration options as key-value pairs.
 
     Raises:
         OCRError: If OCR fails to extract text from the image.
@@ -241,9 +236,6 @@ async def process_file(
                 str(psm.value),
             ]
 
-            for key, value in kwargs.items():
-                command.extend(["-c", f"{key}={value}"])
-
             result = await run_sync(
                 subprocess.run,
                 command,
@@ -259,21 +251,20 @@ async def process_file(
             raise OCRError("Failed to OCR using tesseract") from e
 
 
-async def process_image(image: Image, *, language: SupportedLanguages, psm: PSMMode, **kwargs: Any) -> ExtractionResult:
+async def process_image(image: Image, *, language: SupportedLanguages, psm: PSMMode) -> ExtractionResult:
     """Process a single Pillow Image using Tesseract OCR.
 
     Args:
         image: The Pillow Image to process.
         language: The language code for OCR.
         psm: Page segmentation mode.
-        **kwargs: Additional Tesseract configuration options as key-value pairs.
 
     Returns:
         ExtractionResult: The extracted text from the image.
     """
     with NamedTemporaryFile(suffix=".png") as image_file:
         await run_sync(image.save, image_file.name, format="PNG")
-        return await process_file(image_file.name, language=language, psm=psm, **kwargs)
+        return await process_file(image_file.name, language=language, psm=psm)
 
 
 async def process_image_with_tesseract(
@@ -281,7 +272,6 @@ async def process_image_with_tesseract(
     *,
     language: SupportedLanguages = "eng",
     psm: PSMMode = PSMMode.AUTO,
-    **kwargs: Any,
 ) -> ExtractionResult:
     """Run Tesseract OCR asynchronously on a single Pillow Image or a list of Pillow Images.
 
@@ -289,7 +279,6 @@ async def process_image_with_tesseract(
         image: A single Pillow Image, a pathlike or a string or a list of Pillow Images to process.
         language: The language code for OCR (default: "eng").
         psm: Page segmentation mode (default: PSMMode.AUTO).
-        **kwargs: Additional Tesseract configuration options as key-value pairs.
 
     Raises:
         ValueError: If the input is not a Pillow Image or a list of Pillow Images.
@@ -300,10 +289,10 @@ async def process_image_with_tesseract(
     await validate_tesseract_version()
 
     if isinstance(image, Image):
-        return await process_image(image, language=language, psm=psm, **kwargs)
+        return await process_image(image, language=language, psm=psm)
 
     if isinstance(image, (PathLike, str)):
-        return await process_file(image, language=language, psm=psm, **kwargs)
+        return await process_file(image, language=language, psm=psm)
 
     raise ValueError("Input must be one of: str, Pathlike or Pillow Image.")
 
@@ -311,19 +300,17 @@ async def process_image_with_tesseract(
 async def batch_process_images(
     images: list[T],
     *,
-    config: Config,
     language: SupportedLanguages = "eng",
     psm: PSMMode = PSMMode.AUTO,
-    **kwargs: Any,
+    max_tesseract_concurrency: int,
 ) -> list[ExtractionResult]:
     """Run Tesseract OCR asynchronously on multiple images with controlled concurrency.
 
     Args:
         images: A list of Pillow Images, paths or strings to process.
-        config: The configuration object.
         language: The language code for OCR (default: "eng").
         psm: Page segmentation mode (default: PSMMode.AUTO).
-        **kwargs: Additional Tesseract configuration options as key-value pairs.
+        max_tesseract_concurrency: Maximum number of concurrent Tesseract processes.
 
     Raises:
         ParsingError: If OCR fails to extract text from any of the images.
@@ -340,10 +327,10 @@ async def batch_process_images(
 
     async def _process_image(index: int, image: T) -> None:
         if not semaphore_ref.value:
-            semaphore_ref.value = Semaphore(config.concurrent_limit)
+            semaphore_ref.value = Semaphore(max_tesseract_concurrency)
 
         async with semaphore_ref.value:
-            results[index] = await process_image_with_tesseract(image, language=language, psm=psm, **kwargs)
+            results[index] = await process_image_with_tesseract(image, language=language, psm=psm)
 
     try:
         async with create_task_group() as tg:

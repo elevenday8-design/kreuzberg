@@ -7,13 +7,13 @@ from tempfile import NamedTemporaryFile
 from typing import TYPE_CHECKING, Final
 
 import pypdfium2
+from anyio import Path as AsyncPath
 
 from kreuzberg import ExtractionResult
 from kreuzberg._mime_types import PLAIN_TEXT_MIME_TYPE
 from kreuzberg._string import normalize_spaces
 from kreuzberg._sync import run_sync
 from kreuzberg._tesseract import batch_process_images
-from kreuzberg.config import Config, default_config
 from kreuzberg.exceptions import ParsingError
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -72,18 +72,18 @@ async def _convert_pdf_to_images(input_file: Path) -> list[Image]:
         ) from e
 
 
-async def _extract_pdf_text_with_ocr(input_file: Path, *, config: Config | None = None) -> ExtractionResult:
+async def _extract_pdf_text_with_ocr(input_file: Path, *, max_tesseract_concurrency: int) -> ExtractionResult:
     """Extract text from a scanned PDF file using pytesseract.
 
     Args:
         input_file: The path to the PDF file.
-        config: Optional configuration for text extraction.
+        max_tesseract_concurrency: Maximum number of concurrent Tesseract processes.
 
     Returns:
         The extracted text.
     """
     images = await _convert_pdf_to_images(input_file)
-    ocr_results = await batch_process_images(images, config=config or default_config)
+    ocr_results = await batch_process_images(images, max_tesseract_concurrency=max_tesseract_concurrency)
     return ExtractionResult(
         content="\n".join([v.content for v in ocr_results]), mime_type=PLAIN_TEXT_MIME_TYPE, metadata={}
     )
@@ -111,15 +111,13 @@ async def _extract_pdf_searchable_text(input_file: Path) -> str:
         ) from e
 
 
-async def extract_pdf_file(
-    input_file: Path, force_ocr: bool = False, *, config: Config | None = None
-) -> ExtractionResult:
+async def extract_pdf_file(input_file: Path, *, force_ocr: bool, max_tesseract_concurrency: int) -> ExtractionResult:
     """Extract text from a PDF file.
 
     Args:
         input_file: The path to the PDF file.
-        force_ocr: Whether to force OCR on the PDF file
-        config: Optional configuration for text extraction.
+        force_ocr: Whether to force OCR on the PDF file.
+        max_tesseract_concurrency: Maximum number of concurrent Tesseract processes.
 
     Returns:
         The extracted text.
@@ -131,24 +129,24 @@ async def extract_pdf_file(
     ):
         return ExtractionResult(content=content, mime_type=PLAIN_TEXT_MIME_TYPE, metadata={})
 
-    return await _extract_pdf_text_with_ocr(input_file, config=config)
+    return await _extract_pdf_text_with_ocr(input_file, max_tesseract_concurrency=max_tesseract_concurrency)
 
 
-async def extract_pdf_content(
-    content: bytes, *, config: Config | None = None, force_ocr: bool = False
-) -> ExtractionResult:
+async def extract_pdf_content(content: bytes, *, force_ocr: bool, max_tesseract_concurrency: int) -> ExtractionResult:
     """Extract text from a PDF file content.
 
     Args:
         content: The PDF file content.
-        config: Optional configuration for text extraction.
         force_ocr: Whether to force OCR on the PDF file.
+        max_tesseract_concurrency: Maximum number of concurrent Tesseract processes.
 
     Returns:
         The extracted text.
     """
     with NamedTemporaryFile(suffix=".pdf") as pdf_file:
-        pdf_file.write(content)
+        await AsyncPath(pdf_file.name).write_bytes(content)
         file_path = Path(pdf_file.name)
 
-        return await extract_pdf_file(file_path, force_ocr=force_ocr, config=config)
+        return await extract_pdf_file(
+            file_path, force_ocr=force_ocr, max_tesseract_concurrency=max_tesseract_concurrency
+        )
