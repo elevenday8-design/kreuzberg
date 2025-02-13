@@ -10,7 +10,16 @@ MARKDOWN_MIME_TYPE: Final = "text/markdown"
 PDF_MIME_TYPE: Final = "application/pdf"
 PLAIN_TEXT_MIME_TYPE: Final = "text/plain"
 POWER_POINT_MIME_TYPE: Final = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+# Excel formats
 EXCEL_MIME_TYPE: Final = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+EXCEL_BINARY_MIME_TYPE: Final = "application/vnd.ms-excel"
+EXCEL_MACRO_MIME_TYPE: Final = "application/vnd.ms-excel.sheet.macroEnabled.12"
+EXCEL_BINARY_2007_MIME_TYPE: Final = "application/vnd.ms-excel.sheet.binary.macroEnabled.12"
+EXCEL_ADDON_MIME_TYPE: Final = "application/vnd.ms-excel.addin.macroEnabled.12"
+EXCEL_TEMPLATE_MIME_TYPE: Final = "application/vnd.ms-excel.template.macroEnabled.12"
+
+# OpenDocument spreadsheet format
+OPENDOC_SPREADSHEET_MIME_TYPE: Final = "application/vnd.oasis.opendocument.spreadsheet"  # ods
 PLAIN_TEXT_MIME_TYPES: Final[set[str]] = {PLAIN_TEXT_MIME_TYPE, MARKDOWN_MIME_TYPE}
 
 IMAGE_MIME_TYPES: Final[set[str]] = {
@@ -85,9 +94,21 @@ PANDOC_SUPPORTED_MIME_TYPES: Final[set[str]] = {
     "text/x-rst",
 }
 
+# All Excel and OpenDocument spreadsheet formats supported by calamine
+SPREADSHEET_MIME_TYPES: Final[set[str]] = {
+    EXCEL_MIME_TYPE,  # xlsx
+    EXCEL_BINARY_MIME_TYPE,  # xls
+    EXCEL_MACRO_MIME_TYPE,  # xlsm
+    EXCEL_BINARY_2007_MIME_TYPE,  # xlsb
+    EXCEL_ADDON_MIME_TYPE,  # xlam
+    EXCEL_TEMPLATE_MIME_TYPE,  # xla
+    OPENDOC_SPREADSHEET_MIME_TYPE,  # ods
+}
+
 SUPPORTED_MIME_TYPES: Final[set[str]] = (
     PLAIN_TEXT_MIME_TYPES
     | IMAGE_MIME_TYPES
     | PANDOC_SUPPORTED_MIME_TYPES
-    | {PDF_MIME_TYPE, POWER_POINT_MIME_TYPE, HTML_MIME_TYPE, EXCEL_MIME_TYPE}
+    | SPREADSHEET_MIME_TYPES
+    | {PDF_MIME_TYPE, POWER_POINT_MIME_TYPE, HTML_MIME_TYPE}
 )

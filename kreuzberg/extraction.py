@@ -14,7 +14,7 @@ from mimetypes import guess_type
 from multiprocessing import cpu_count
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import anyio
 from anyio import Path as AsyncPath
@@ -43,6 +43,7 @@ from kreuzberg._xlsx import extract_xlsx_content, extract_xlsx_file
 from kreuzberg.exceptions import ValidationError
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from os import PathLike
 
 DEFAULT_MAX_TESSERACT_CONCURRENCY = max(cpu_count() // 2, 1)
@@ -167,6 +168,76 @@ async def extract_file(
     return ExtractionResult(content=safe_decode(await input_file.read_bytes()), mime_type=mime_type, metadata={})
 
 
+async def batch_extract_file(
+    file_paths: Sequence[PathLike[str] | str],
+    *,
+    force_ocr: bool = False,
+    max_tesseract_concurrency: int = DEFAULT_MAX_TESSERACT_CONCURRENCY,
+) -> list[ExtractionResult]:
+    """Extract text from multiple files concurrently.
+
+    Args:
+        file_paths: A sequence of paths to files to extract text from.
+        force_ocr: Whether to force OCR on PDF files that have a text layer.
+        max_tesseract_concurrency: Maximum number of concurrent Tesseract processes. Defaults to CPU count / 2 (minimum 1).
+
+    Returns:
+        A list of extraction results in the same order as the input paths.
+    """
+    results = cast(list[ExtractionResult], ([None] * len(file_paths)))
+
+    async def _extract_file(path: PathLike[str] | str, index: int) -> None:
+        result = await extract_file(
+            path,
+            force_ocr=force_ocr,
+            max_tesseract_concurrency=max_tesseract_concurrency,
+        )
+        results[index] = result
+
+    async with anyio.create_task_group() as tg:
+        for i, path in enumerate(file_paths):
+            tg.start_soon(_extract_file, path, i)
+
+    return results
+
+
+async def batch_extract_bytes(
+    contents: Sequence[tuple[bytes, str]],
+    *,
+    force_ocr: bool = False,
+    max_tesseract_concurrency: int = DEFAULT_MAX_TESSERACT_CONCURRENCY,
+) -> list[ExtractionResult]:
+    """Extract text from multiple byte contents concurrently.
+
+    Args:
+        contents: A sequence of tuples containing (content, mime_type) pairs.
+        force_ocr: Whether to force OCR on PDF files that have a text layer.
+        max_tesseract_concurrency: Maximum number of concurrent Tesseract processes. Defaults to CPU count / 2 (minimum 1).
+
+    Returns:
+        A list of extraction results in the same order as the input contents.
+    """
+    results = cast(list[ExtractionResult], [None] * len(contents))
+
+    async def _extract_bytes(content: bytes, mime_type: str, index: int) -> None:
+        result = await extract_bytes(
+            content,
+            mime_type,
+            force_ocr=force_ocr,
+            max_tesseract_concurrency=max_tesseract_concurrency,
+        )
+        results[index] = result
+
+    async with anyio.create_task_group() as tg:
+        for i, (content, mime_type) in enumerate(contents):
+            tg.start_soon(_extract_bytes, content, mime_type, i)
+
+    return results
+
+
+### Sync proxies
+
+
 def extract_bytes_sync(
     content: bytes,
     mime_type: str,
@@ -211,5 +282,55 @@ def extract_file_sync(
     """
     handler = partial(
         extract_file, file_path, mime_type, max_tesseract_concurrency=max_tesseract_concurrency, force_ocr=force_ocr
+    )
+    return anyio.run(handler)
+
+
+def batch_extract_file_sync(
+    file_paths: Sequence[PathLike[str] | str],
+    *,
+    force_ocr: bool = False,
+    max_tesseract_concurrency: int = DEFAULT_MAX_TESSERACT_CONCURRENCY,
+) -> list[ExtractionResult]:
+    """Synchronous version of batch_extract_file.
+
+    Args:
+        file_paths: A sequence of paths to files to extract text from.
+        force_ocr: Whether to force OCR on PDF files that have a text layer.
+        max_tesseract_concurrency: Maximum number of concurrent Tesseract processes. Defaults to CPU count / 2 (minimum 1).
+
+    Returns:
+        A list of extraction results in the same order as the input paths.
+    """
+    handler = partial(
+        batch_extract_file,
+        file_paths,
+        force_ocr=force_ocr,
+        max_tesseract_concurrency=max_tesseract_concurrency,
+    )
+    return anyio.run(handler)
+
+
+def batch_extract_bytes_sync(
+    contents: Sequence[tuple[bytes, str]],
+    *,
+    force_ocr: bool = False,
+    max_tesseract_concurrency: int = DEFAULT_MAX_TESSERACT_CONCURRENCY,
+) -> list[ExtractionResult]:
+    """Synchronous version of batch_extract_bytes.
+
+    Args:
+        contents: A sequence of tuples containing (content, mime_type) pairs.
+        force_ocr: Whether to force OCR on PDF files that have a text layer.
+        max_tesseract_concurrency: Maximum number of concurrent Tesseract processes. Defaults to CPU count / 2 (minimum 1).
+
+    Returns:
+        A list of extraction results in the same order as the input contents.
+    """
+    handler = partial(
+        batch_extract_bytes,
+        contents,
+        force_ocr=force_ocr,
+        max_tesseract_concurrency=max_tesseract_concurrency,
     )
     return anyio.run(handler)
