@@ -30,7 +30,7 @@ async def extract_xlsx_file(input_file: Path) -> ExtractionResult:
         ParsingError: If the XLSX file could not be parsed.
     """
     try:
-        workbook = await run_sync(CalamineWorkbook.from_path, input_file.name)
+        workbook = await run_sync(CalamineWorkbook.from_path, str(input_file))
 
         results = cast(list[str], [None] * len(workbook.sheet_names))
 

@@ -66,3 +66,8 @@ def html_document() -> Path:
 @pytest.fixture(scope="session")
 def excel_document() -> Path:
     return Path(__file__).parent / "source" / "excel.xlsx"
+
+
+@pytest.fixture(scope="session")
+def excel_multi_sheet_document() -> Path:
+    return Path(__file__).parent / "source" / "excel-multi-sheet.xlsx"

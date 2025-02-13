@@ -55,7 +55,7 @@ Kreuzberg is designed as a high-level async abstraction over established open-so
   - Pandoc for many document and markup formats
   - `python-pptx` for PowerPoint files
   - `html-to-markdown` for HTML content
-  - `xlsx2csv` for Excel spreadsheets
+  - `calamine` for Excel spreadsheets (with multi-sheet support)
 - **Text Processing**:
   - Smart encoding detection
   - Markdown and plain text handling
