@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from kreuzberg._types import ExtractionResult
 
 if sys.version_info < (3, 11):  # pragma: no cover
-    from exceptiongroup import ExceptionGroup
+    from exceptiongroup import ExceptionGroup  # type: ignore[import-not-found]
 
 
 @pytest.mark.timeout(timeout=60)

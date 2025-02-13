@@ -20,7 +20,7 @@ from kreuzberg._sync import run_sync
 from kreuzberg.exceptions import MissingDependencyError, OCRError
 
 if sys.version_info < (3, 11):  # pragma: no cover
-    from exceptiongroup import ExceptionGroup
+    from exceptiongroup import ExceptionGroup  # type: ignore[import-not-found]
 
 version_ref = {"checked": False}
 semaphore_ref = Ref[Semaphore]()

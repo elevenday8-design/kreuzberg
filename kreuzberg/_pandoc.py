@@ -20,7 +20,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from os import PathLike
 
 if sys.version_info < (3, 11):  # pragma: no cover
-    from exceptiongroup import ExceptionGroup
+    from exceptiongroup import ExceptionGroup  # type: ignore[import-not-found]
 
 
 version_ref: Final[dict[str, bool]] = {"checked": False}
