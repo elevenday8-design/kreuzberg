@@ -14,7 +14,6 @@ from PIL.Image import Image
 
 from kreuzberg import ExtractionResult, ParsingError
 from kreuzberg._mime_types import PLAIN_TEXT_MIME_TYPE
-from kreuzberg._ref import Ref
 from kreuzberg._string import normalize_spaces
 from kreuzberg._sync import run_sync
 from kreuzberg.exceptions import MissingDependencyError, OCRError
@@ -23,7 +22,6 @@ if sys.version_info < (3, 11):  # pragma: no cover
     from exceptiongroup import ExceptionGroup  # type: ignore[import-not-found]
 
 version_ref = {"checked": False}
-semaphore_ref = Ref[Semaphore]()
 
 T = TypeVar("T", bound=Union[Image, PathLike[str], str])
 
@@ -325,11 +323,11 @@ async def batch_process_images(
     await validate_tesseract_version()
     results = cast(list[ExtractionResult], list(range(len(images))))
 
-    async def _process_image(index: int, image: T) -> None:
-        if not semaphore_ref.value:
-            semaphore_ref.value = Semaphore(max_tesseract_concurrency)
+    # Create a new semaphore for this batch operation
+    sem = Semaphore(max_tesseract_concurrency)
 
-        async with semaphore_ref.value:
+    async def _process_image(index: int, image: T) -> None:
+        async with sem:
             results[index] = await process_image_with_tesseract(image, language=language, psm=psm)
 
     try:
