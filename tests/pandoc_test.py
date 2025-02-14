@@ -135,7 +135,20 @@ async def test_process_file_with_extra_args(mock_subprocess_run: Mock, docx_docu
     )
     assert isinstance(result, ExtractionResult)
     assert result.content.strip() == "Sample processed content"
-    assert "--strip-comments" in mock_subprocess_run.call_args[0][0]
+
+    # Get all pandoc commands that were run
+    pandoc_calls = [call[0][0] for call in mock_subprocess_run.call_args_list if "pandoc" in call[0][0]]
+
+    # First call should be version check
+    assert pandoc_calls[0] == ["pandoc", "--version"]
+
+    # Second call should be metadata extraction (no extra args)
+    assert "--to=json" in pandoc_calls[1]
+    assert "--strip-comments" not in pandoc_calls[1]
+
+    # Third call should be content extraction (with extra args)
+    assert "--to=markdown" in pandoc_calls[2]
+    assert "--strip-comments" in pandoc_calls[2]
 
 
 async def test_process_file_error(mock_subprocess_run: Mock, docx_document: Path) -> None:
@@ -170,7 +183,20 @@ async def test_process_content_with_extra_args(mock_subprocess_run: Mock) -> Non
     )
     assert isinstance(result, ExtractionResult)
     assert result.content.strip() == "Sample processed content"
-    assert "--strip-comments" in mock_subprocess_run.call_args[0][0]
+
+    # Get all pandoc commands that were run
+    pandoc_calls = [call[0][0] for call in mock_subprocess_run.call_args_list if "pandoc" in call[0][0]]
+
+    # First call should be version check
+    assert pandoc_calls[0] == ["pandoc", "--version"]
+
+    # Second call should be metadata extraction (no extra args)
+    assert "--to=json" in pandoc_calls[1]
+    assert "--strip-comments" not in pandoc_calls[1]
+
+    # Third call should be content extraction (with extra args)
+    assert "--to=markdown" in pandoc_calls[2]
+    assert "--strip-comments" in pandoc_calls[2]
 
 
 async def test_extract_metadata_error(mock_subprocess_run: Mock, docx_document: Path) -> None:
