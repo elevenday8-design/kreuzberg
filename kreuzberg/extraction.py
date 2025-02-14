@@ -10,24 +10,25 @@ It includes vendored code:
 from __future__ import annotations
 
 from functools import partial
-from mimetypes import guess_type
+from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 import anyio
 from anyio import Path as AsyncPath
+from PIL.Image import open as open_image
 
 from kreuzberg import ExtractionResult
 from kreuzberg._html import extract_html_string
 from kreuzberg._mime_types import (
     EXCEL_MIME_TYPE,
     HTML_MIME_TYPE,
-    IMAGE_MIME_TYPE_EXT_MAP,
     IMAGE_MIME_TYPES,
     PANDOC_SUPPORTED_MIME_TYPES,
     PDF_MIME_TYPE,
     POWER_POINT_MIME_TYPE,
     SUPPORTED_MIME_TYPES,
+    validate_mime_type,
 )
 from kreuzberg._pandoc import process_content_with_pandoc, process_file_with_pandoc
 from kreuzberg._pdf import (
@@ -37,7 +38,6 @@ from kreuzberg._pdf import (
 from kreuzberg._pptx import extract_pptx_file_content
 from kreuzberg._string import safe_decode
 from kreuzberg._tesseract import DEFAULT_MAX_TESSERACT_CONCURRENCY, process_image_with_tesseract
-from kreuzberg._tmp import create_temp_file
 from kreuzberg._xlsx import extract_xlsx_content, extract_xlsx_file
 from kreuzberg.exceptions import ValidationError
 
@@ -82,14 +82,7 @@ async def extract_bytes(
         return await extract_xlsx_content(content)
 
     if mime_type in IMAGE_MIME_TYPES or any(mime_type.startswith(value) for value in IMAGE_MIME_TYPES):
-        temp_path = None
-        try:
-            temp_path = await create_temp_file(IMAGE_MIME_TYPE_EXT_MAP[mime_type])
-            await AsyncPath(temp_path).write_bytes(content)
-            return await process_image_with_tesseract(str(temp_path))
-        finally:
-            if temp_path:
-                await AsyncPath(temp_path).unlink(missing_ok=True)
+        return await process_image_with_tesseract(open_image(BytesIO(content)))
 
     if mime_type in PANDOC_SUPPORTED_MIME_TYPES or any(
         mime_type.startswith(value) for value in PANDOC_SUPPORTED_MIME_TYPES
@@ -132,15 +125,7 @@ async def extract_file(
     """
     input_file = await AsyncPath(file_path).resolve()
 
-    mime_type = mime_type or guess_type(input_file.name)[0]
-    if not mime_type:  # pragma: no cover
-        raise ValidationError("Could not determine the mime type of the file.", context={"input_file": str(input_file)})
-
-    if mime_type not in SUPPORTED_MIME_TYPES or not any(mime_type.startswith(value) for value in SUPPORTED_MIME_TYPES):
-        raise ValidationError(
-            f"Unsupported mime type: {mime_type}",
-            context={"mime_type": mime_type, "supported_mimetypes": ",".join(sorted(SUPPORTED_MIME_TYPES))},
-        )
+    mime_type = validate_mime_type(input_file, mime_type)
 
     if not await input_file.exists():
         raise ValidationError("The file does not exist.", context={"input_file": str(input_file)})

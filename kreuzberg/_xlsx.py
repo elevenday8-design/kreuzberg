@@ -13,6 +13,7 @@ from kreuzberg._mime_types import MARKDOWN_MIME_TYPE
 from kreuzberg._pandoc import process_file_with_pandoc
 from kreuzberg._string import normalize_spaces
 from kreuzberg._sync import run_sync
+from kreuzberg._tmp import create_temp_file
 
 if TYPE_CHECKING:  # pragma: no cover
     from pathlib import Path
@@ -50,15 +51,11 @@ async def extract_xlsx_file(input_file: Path) -> ExtractionResult:
 
             from kreuzberg._tmp import create_temp_file
 
-            csv_path = await create_temp_file(".csv")
-            try:
-                await AsyncPath(csv_path).write_text(csv_data)
-                result = await process_file_with_pandoc(csv_path, mime_type="text/csv")
-                results[workbook.sheet_names.index(sheet_name)] = (
-                    f"## {sheet_name}\n\n{normalize_spaces(result.content)}"
-                )
-            finally:
-                await AsyncPath(csv_path).unlink(missing_ok=True)
+            csv_path, unlink = await create_temp_file(".csv")
+            await AsyncPath(csv_path).write_text(csv_data)
+            result = await process_file_with_pandoc(csv_path, mime_type="text/csv")
+            results[workbook.sheet_names.index(sheet_name)] = f"## {sheet_name}\n\n{normalize_spaces(result.content)}"
+            await unlink()
 
         async with create_task_group() as tg:
             for sheet_name in workbook.sheet_names:
@@ -87,13 +84,9 @@ async def extract_xlsx_content(content: bytes) -> ExtractionResult:
     Returns:
         The extracted text content.
     """
-    from kreuzberg._tmp import create_temp_file
+    xlsx_path, unlink = await create_temp_file(".xlsx")
 
-    xlsx_path = None
-    try:
-        xlsx_path = await create_temp_file(".xlsx")
-        await AsyncPath(xlsx_path).write_bytes(content)
-        return await extract_xlsx_file(xlsx_path)
-    finally:
-        if xlsx_path:
-            await AsyncPath(xlsx_path).unlink(missing_ok=True)
+    await AsyncPath(xlsx_path).write_bytes(content)
+    result = await extract_xlsx_file(xlsx_path)
+    await unlink()
+    return result

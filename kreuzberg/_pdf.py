@@ -154,14 +154,8 @@ async def extract_pdf_content(content: bytes, *, force_ocr: bool, max_tesseract_
     """
     from kreuzberg._tmp import create_temp_file
 
-    file_path = None
-    try:
-        file_path = await create_temp_file(".pdf")
-        await AsyncPath(file_path).write_bytes(content)
-
-        return await extract_pdf_file(
-            file_path, force_ocr=force_ocr, max_tesseract_concurrency=max_tesseract_concurrency
-        )
-    finally:
-        if file_path:
-            await AsyncPath(file_path).unlink(missing_ok=True)
+    file_path, unlink = await create_temp_file(".pdf")
+    await AsyncPath(file_path).write_bytes(content)
+    result = await extract_pdf_file(file_path, force_ocr=force_ocr, max_tesseract_concurrency=max_tesseract_concurrency)
+    await unlink()
+    return result

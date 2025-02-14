@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 import subprocess
 import sys
-from contextlib import suppress
 from enum import Enum
 from functools import partial
 from multiprocessing import cpu_count
@@ -18,6 +17,7 @@ from kreuzberg import ExtractionResult, ParsingError
 from kreuzberg._mime_types import PLAIN_TEXT_MIME_TYPE
 from kreuzberg._string import normalize_spaces
 from kreuzberg._sync import run_sync
+from kreuzberg._tmp import create_temp_file
 from kreuzberg.exceptions import MissingDependencyError, OCRError
 
 if sys.version_info < (3, 11):  # pragma: no cover
@@ -229,14 +229,9 @@ async def process_file(
     Returns:
         ExtractionResult: The extracted text from the image.
     """
-    from kreuzberg._tmp import create_temp_file
-
-    output_path = None
+    output_path, unlink = await create_temp_file(".txt")
     try:
-        # Create a temporary file for tesseract output
-        output_path = await create_temp_file(".txt")
         output_base = str(output_path).replace(".txt", "")
-
         command = [
             "tesseract",
             str(input_file),
@@ -251,6 +246,7 @@ async def process_file(
             partial(subprocess.run, capture_output=True),
             command,
             limiter=CapacityLimiter(max_tesseract_concurrency),
+            cancellable=True,
         )
 
         if not result.returncode == 0:
@@ -261,9 +257,7 @@ async def process_file(
     except (RuntimeError, OSError) as e:
         raise OCRError("Failed to OCR using tesseract") from e
     finally:
-        if output_path:
-            with suppress(OSError, PermissionError):
-                await AsyncPath(output_path).unlink(missing_ok=True)
+        await unlink()
 
 
 async def process_image(
@@ -284,21 +278,13 @@ async def process_image(
     Returns:
         ExtractionResult: The extracted text from the image.
     """
-    from kreuzberg._tmp import create_temp_file
-
-    image_path = None
-    try:
-        # Create a temporary file for the image
-        image_path = await create_temp_file(".png")
-        await run_sync(image.save, str(image_path), format="PNG")
-
-        return await process_file(
-            image_path, language=language, psm=psm, max_tesseract_concurrency=max_tesseract_concurrency
-        )
-    finally:
-        if image_path:
-            with suppress(OSError, PermissionError):
-                await AsyncPath(image_path).unlink(missing_ok=True)
+    image_path, unlink = await create_temp_file(".png")
+    await run_sync(image.save, str(image_path), format="PNG")
+    result = await process_file(
+        image_path, language=language, psm=psm, max_tesseract_concurrency=max_tesseract_concurrency
+    )
+    await unlink()
+    return result
 
 
 async def process_image_with_tesseract(
