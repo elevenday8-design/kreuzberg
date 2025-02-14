@@ -4,7 +4,7 @@ from pathlib import Path
 from re import Pattern
 from re import compile as compile_regex
 from tempfile import NamedTemporaryFile
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, cast
 
 import pypdfium2
 from anyio import Path as AsyncPath
@@ -63,13 +63,17 @@ async def _convert_pdf_to_images(input_file: Path) -> list[Image]:
     Returns:
         A list of Pillow Images.
     """
+    document: pypdfium2.PdfDocument | None = None
     try:
-        pdf = await run_sync(pypdfium2.PdfDocument, str(input_file))
-        return [page.render(scale=2.0).to_pil() for page in pdf]
+        document = await run_sync(pypdfium2.PdfDocument, str(input_file))
+        return [page.render(scale=2.0).to_pil() for page in cast(pypdfium2.PdfDocument, document)]
     except pypdfium2.PdfiumError as e:
         raise ParsingError(
             "Could not convert PDF to images", context={"file_path": str(input_file), "error": str(e)}
         ) from e
+    finally:
+        if document:
+            await run_sync(document.close)
 
 
 async def _extract_pdf_text_with_ocr(input_file: Path, *, max_tesseract_concurrency: int) -> ExtractionResult:
@@ -101,14 +105,18 @@ async def _extract_pdf_searchable_text(input_file: Path) -> str:
     Returns:
         The extracted text.
     """
+    document: pypdfium2.PdfDocument | None = None
     try:
         document = await run_sync(pypdfium2.PdfDocument, str(input_file))
-        text = "\n".join(page.get_textpage().get_text_bounded() for page in document)
+        text = "\n".join(page.get_textpage().get_text_bounded() for page in cast(pypdfium2.PdfDocument, document))
         return normalize_spaces(text)
     except pypdfium2.PdfiumError as e:
         raise ParsingError(
             "Could not extract text from PDF file", context={"file_path": str(input_file), "error": str(e)}
         ) from e
+    finally:
+        if document:
+            await run_sync(document.close)
 
 
 async def extract_pdf_file(input_file: Path, *, force_ocr: bool, max_tesseract_concurrency: int) -> ExtractionResult:
@@ -143,10 +151,13 @@ async def extract_pdf_content(content: bytes, *, force_ocr: bool, max_tesseract_
     Returns:
         The extracted text.
     """
-    with NamedTemporaryFile(suffix=".pdf") as pdf_file:
-        await AsyncPath(pdf_file.name).write_bytes(content)
-        file_path = Path(pdf_file.name)
+    with NamedTemporaryFile(suffix=".pdf", delete=False) as pdf_file:
+        try:
+            file_path = Path(pdf_file.name)
+            await AsyncPath(file_path).write_bytes(content)
 
-        return await extract_pdf_file(
-            file_path, force_ocr=force_ocr, max_tesseract_concurrency=max_tesseract_concurrency
-        )
+            return await extract_pdf_file(
+                file_path, force_ocr=force_ocr, max_tesseract_concurrency=max_tesseract_concurrency
+            )
+        finally:
+            await AsyncPath(file_path).unlink(missing_ok=True)

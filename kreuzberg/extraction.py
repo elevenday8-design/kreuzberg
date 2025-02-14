@@ -85,9 +85,12 @@ async def extract_bytes(
         return await extract_xlsx_content(content)
 
     if mime_type in IMAGE_MIME_TYPES or any(mime_type.startswith(value) for value in IMAGE_MIME_TYPES):
-        with NamedTemporaryFile(suffix=IMAGE_MIME_TYPE_EXT_MAP[mime_type]) as temp_file:
-            await AsyncPath(temp_file.name).write_bytes(content)
-            return await process_image_with_tesseract(temp_file.name)
+        with NamedTemporaryFile(suffix=IMAGE_MIME_TYPE_EXT_MAP[mime_type], delete=False) as temp_file:
+            try:
+                await AsyncPath(temp_file.name).write_bytes(content)
+                return await process_image_with_tesseract(temp_file.name)
+            finally:
+                await AsyncPath(temp_file.name).unlink(missing_ok=True)
 
     if mime_type in PANDOC_SUPPORTED_MIME_TYPES or any(
         mime_type.startswith(value) for value in PANDOC_SUPPORTED_MIME_TYPES

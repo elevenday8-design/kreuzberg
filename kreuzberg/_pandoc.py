@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import json
 import subprocess
 import sys
+from json import JSONDecodeError, loads
 from tempfile import NamedTemporaryFile
 from typing import TYPE_CHECKING, Any, Final, Literal, cast
 
@@ -189,7 +189,7 @@ def _extract_meta_value(node: Any) -> str | list[str] | None:
             results = []
             for value in [value for item in content if (value := _extract_meta_value(item))]:
                 if isinstance(value, list):  # pragma: no cover
-                    results.extend(value)  # This case is unreachable due to pandoc's json output format
+                    results.extend(value)
                 else:
                     results.append(value)
             return results
@@ -263,7 +263,7 @@ async def _validate_pandoc_version() -> None:
 async def _handle_extract_metadata(input_file: str | PathLike[str], *, mime_type: str) -> Metadata:
     pandoc_type = _get_pandoc_type_from_mime_type(mime_type)
 
-    with NamedTemporaryFile(suffix=".json") as metadata_file:
+    with NamedTemporaryFile(suffix=".json", delete=False) as metadata_file:
         try:
             command = [
                 "pandoc",
@@ -287,11 +287,12 @@ async def _handle_extract_metadata(input_file: str | PathLike[str], *, mime_type
                     "Failed to extract file data", context={"file": str(input_file), "error": result.stderr.decode()}
                 )
 
-            json_data = json.loads(await AsyncPath(metadata_file.name).read_text())
+            json_data = loads(await AsyncPath(metadata_file.name).read_text("utf-8"))
             return _extract_metadata(json_data)
-
-        except (RuntimeError, OSError, json.JSONDecodeError) as e:
+        except (RuntimeError, OSError, JSONDecodeError) as e:
             raise ParsingError("Failed to extract file data", context={"file": str(input_file)}) from e
+        finally:
+            await AsyncPath(metadata_file.name).unlink(missing_ok=True)
 
 
 async def _handle_extract_file(
@@ -299,36 +300,41 @@ async def _handle_extract_file(
 ) -> str:
     pandoc_type = _get_pandoc_type_from_mime_type(mime_type)
 
-    with NamedTemporaryFile(suffix=".md") as output_file:
-        command = [
-            "pandoc",
-            str(input_file),
-            f"--from={pandoc_type}",
-            "--to=markdown",
-            "--standalone",
-            "--wrap=preserve",
-            "--quiet",
-            "--output",
-            output_file.name,
-        ]
+    with NamedTemporaryFile(suffix=".md", delete=False) as output_file:
+        try:
+            command = [
+                "pandoc",
+                str(input_file),
+                f"--from={pandoc_type}",
+                "--to=markdown",
+                "--standalone",
+                "--wrap=preserve",
+                "--quiet",
+                "--output",
+                output_file.name,
+            ]
 
-        if extra_args:
-            command.extend(extra_args)
+            if extra_args:
+                command.extend(extra_args)
 
-        result = await run_sync(
-            subprocess.run,
-            command,
-            capture_output=True,
-        )
-
-        if result.returncode != 0:
-            raise ParsingError(
-                "Failed to extract file data", context={"file": str(input_file), "error": result.stderr.decode()}
+            result = await run_sync(
+                subprocess.run,
+                command,
+                capture_output=True,
             )
 
-        text = await AsyncPath(output_file.name).read_text()
+            if result.returncode != 0:
+                raise ParsingError(
+                    "Failed to extract file data", context={"file": str(input_file), "error": result.stderr.decode()}
+                )
 
-        return normalize_spaces(text)
+            text = await AsyncPath(output_file.name).read_text("utf-8")
+
+            return normalize_spaces(text)
+        except (RuntimeError, OSError) as e:
+            raise ParsingError("Failed to extract file data", context={"file": str(input_file)}) from e
+        finally:
+            await AsyncPath(output_file.name).unlink(missing_ok=True)
 
 
 async def process_file_with_pandoc(
@@ -392,6 +398,9 @@ async def process_content_with_pandoc(
     """
     extension = MIMETYPE_TO_FILE_EXTENSION_MAPPING.get(mime_type) or "md"
 
-    with NamedTemporaryFile(suffix=f".{extension}") as input_file:
-        await AsyncPath(input_file.name).write_bytes(content)
-        return await process_file_with_pandoc(input_file.name, mime_type=mime_type, extra_args=extra_args)
+    with NamedTemporaryFile(suffix=f".{extension}", delete=False) as input_file:
+        try:
+            await AsyncPath(input_file.name).write_bytes(content)
+            return await process_file_with_pandoc(input_file.name, mime_type=mime_type, extra_args=extra_args)
+        finally:
+            await AsyncPath(input_file.name).unlink(missing_ok=True)

@@ -41,7 +41,7 @@ jobs:
   test:
     strategy:
       matrix:
-        os: [ ubuntu-latest, macOS-latest ]
+        os: [ ubuntu-latest, macOS-latest, windows-latest ]
         python: [ "3.9", "3.10", "3.11", "3.12", "3.13" ]
     runs-on: ${{ matrix.os }}
     steps:
@@ -65,10 +65,9 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           choco install -y tesseract pandoc
-          RefreshEnv.cmd
+          Write-Output "C:\Program Files\Tesseract-OCR" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          Write-Output "C:\Program Files\Pandoc" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           $env:PATH = "C:\Program Files\Tesseract-OCR;C:\Program Files\Pandoc;" + $env:PATH
-          echo "PATH after updates:"
-          Write-Output $env:PATH
           tesseract --version
           pandoc --version
 

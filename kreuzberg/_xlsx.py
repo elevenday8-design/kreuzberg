@@ -30,7 +30,7 @@ async def extract_xlsx_file(input_file: Path) -> ExtractionResult:
         ParsingError: If the XLSX file could not be parsed.
     """
     try:
-        workbook = await run_sync(CalamineWorkbook.from_path, str(input_file))
+        workbook: CalamineWorkbook = await run_sync(CalamineWorkbook.from_path, str(input_file))
 
         results = cast(list[str], [None] * len(workbook.sheet_names))
 
@@ -81,6 +81,9 @@ async def extract_xlsx_content(content: bytes) -> ExtractionResult:
     Returns:
         The extracted text content.
     """
-    with NamedTemporaryFile(suffix=".xlsx") as xlsx_file:
-        await AsyncPath(xlsx_file.name).write_bytes(content)
-        return await extract_xlsx_file(Path(xlsx_file.name))
+    with NamedTemporaryFile(suffix=".xlsx", delete=False) as xlsx_file:
+        try:
+            await AsyncPath(xlsx_file.name).write_bytes(content)
+            return await extract_xlsx_file(Path(xlsx_file.name))
+        finally:
+            await AsyncPath(xlsx_file.name).unlink(missing_ok=True)

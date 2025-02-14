@@ -6,6 +6,7 @@ import html_to_markdown
 from anyio import Path as AsyncPath
 
 from kreuzberg import ExtractionResult
+from kreuzberg._mime_types import MARKDOWN_MIME_TYPE
 from kreuzberg._string import normalize_spaces, safe_decode
 from kreuzberg._sync import run_sync
 
@@ -28,4 +29,4 @@ async def extract_html_string(file_path_or_contents: Path | bytes) -> Extraction
         else await AsyncPath(file_path_or_contents).read_text()
     )
     result = await run_sync(html_to_markdown.convert_to_markdown, content)
-    return ExtractionResult(content=normalize_spaces(result), mime_type="text/markdown", metadata={})
+    return ExtractionResult(content=normalize_spaces(result), mime_type=MARKDOWN_MIME_TYPE, metadata={})

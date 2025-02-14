@@ -195,7 +195,7 @@ async def validate_tesseract_version() -> None:
 
         command = ["tesseract", "--version"]
         result = await run_sync(subprocess.run, command, capture_output=True)
-        version_match = re.search(r"tesseract\s+(\d+)", result.stdout.decode())
+        version_match = re.search(r"tesseract\s+v?(\d+)", result.stdout.decode())
         if not version_match or int(version_match.group(1)) < 5:
             raise MissingDependencyError("Tesseract version 5 or above is required.")
 
@@ -220,10 +220,10 @@ async def process_file(
     Returns:
         ExtractionResult: The extracted text from the image.
     """
-    with NamedTemporaryFile(suffix=".txt") as output_file:
+    with NamedTemporaryFile(suffix=".txt", delete=False) as output_file:
         # this is needed because tesseract adds .txt to the output file
-        output_file_name = output_file.name.replace(".txt", "")
         try:
+            output_file_name = output_file.name.replace(".txt", "")
             command = [
                 "tesseract",
                 str(input_file),
@@ -243,10 +243,13 @@ async def process_file(
             if not result.returncode == 0:
                 raise OCRError("OCR failed with a non-0 return code.")
 
-            output = await AsyncPath(output_file.name).read_text()
+            output = await AsyncPath(output_file.name).read_text("utf-8")
             return ExtractionResult(content=normalize_spaces(output), mime_type=PLAIN_TEXT_MIME_TYPE, metadata={})
         except (RuntimeError, OSError) as e:
             raise OCRError("Failed to OCR using tesseract") from e
+
+        finally:
+            await AsyncPath(output_file.name).unlink(missing_ok=True)
 
 
 async def process_image(image: Image, *, language: SupportedLanguages, psm: PSMMode) -> ExtractionResult:
@@ -260,9 +263,12 @@ async def process_image(image: Image, *, language: SupportedLanguages, psm: PSMM
     Returns:
         ExtractionResult: The extracted text from the image.
     """
-    with NamedTemporaryFile(suffix=".png") as image_file:
-        await run_sync(image.save, image_file.name, format="PNG")
-        return await process_file(image_file.name, language=language, psm=psm)
+    with NamedTemporaryFile(suffix=".png", delete=False) as image_file:
+        try:
+            await run_sync(image.save, image_file.name, format="PNG")
+            return await process_file(image_file.name, language=language, psm=psm)
+        finally:
+            await AsyncPath(image_file.name).unlink(missing_ok=True)
 
 
 async def process_image_with_tesseract(
@@ -323,7 +329,6 @@ async def batch_process_images(
     await validate_tesseract_version()
     results = cast(list[ExtractionResult], list(range(len(images))))
 
-    # Create a new semaphore for this batch operation
     sem = Semaphore(max_tesseract_concurrency)
 
     async def _process_image(index: int, image: T) -> None:
@@ -334,7 +339,6 @@ async def batch_process_images(
         async with create_task_group() as tg:
             for i, image in enumerate(images):
                 tg.start_soon(_process_image, i, image)
+        return results
     except ExceptionGroup as eg:
         raise ParsingError("Failed to process images with Tesseract") from eg
-
-    return results
