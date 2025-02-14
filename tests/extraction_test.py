@@ -223,10 +223,17 @@ def assert_extraction_result(result: ExtractionResult, *, mime_type: str) -> Non
     assert isinstance(result.metadata, dict)
 
 
-async def test_batch_extract_file_mixed() -> None:
+async def test_batch_extract_pdf_files(scanned_pdf: Path, test_article: Path) -> None:
+    results = await batch_extract_file([scanned_pdf, test_article], force_ocr=True)
+    assert len(results) == 2
+    for result in results:
+        assert_extraction_result(result, mime_type=PLAIN_TEXT_MIME_TYPE)
+
+
+async def test_batch_extract_file_mixed(test_article: Path) -> None:
     """Test batch extraction of multiple files of different types."""
     # Get paths to different types of files
-    test_files = list((Path(__file__).parent / "source").glob("*.pdf"))
+    test_files = [test_article]
     test_files.extend((Path(__file__).parent / "source").glob("*.docx"))
     test_files.extend((Path(__file__).parent / "source").glob("*.xlsx"))
 
@@ -289,10 +296,10 @@ async def test_batch_extract_bytes_invalid() -> None:
     assert "Unsupported mime type" in str(exc_info.value.exceptions[0])
 
 
-def test_batch_extract_file_sync_mixed() -> None:
+def test_batch_extract_file_sync_mixed(test_article: Path) -> None:
     """Test synchronous batch extraction of multiple files of different types."""
     # Get paths to different types of files
-    test_files = list((Path(__file__).parent / "source").glob("*.pdf"))
+    test_files = [test_article]
     test_files.extend((Path(__file__).parent / "source").glob("*.docx"))
     test_files.extend((Path(__file__).parent / "source").glob("*.xlsx"))
 

@@ -6,10 +6,11 @@ import sys
 from enum import Enum
 from os import PathLike
 from tempfile import NamedTemporaryFile
+from threading import Lock
 from typing import Literal, TypeVar, Union, cast
 
 from anyio import Path as AsyncPath
-from anyio import Semaphore, create_task_group
+from anyio import create_task_group
 from PIL.Image import Image
 
 from kreuzberg import ExtractionResult, ParsingError
@@ -20,6 +21,9 @@ from kreuzberg.exceptions import MissingDependencyError, OCRError
 
 if sys.version_info < (3, 11):  # pragma: no cover
     from exceptiongroup import ExceptionGroup  # type: ignore[import-not-found]
+
+thread_lock = Lock()
+
 
 version_ref = {"checked": False}
 
@@ -238,9 +242,6 @@ async def process_file(
                 subprocess.run,
                 command,
                 capture_output=True,
-                env={
-                    "OMP_THREAD_LIMIT": "1",
-                },
             )
 
             if not result.returncode == 0:
@@ -332,16 +333,14 @@ async def batch_process_images(
     await validate_tesseract_version()
     results = cast(list[ExtractionResult], list(range(len(images))))
 
-    sem = Semaphore(max_tesseract_concurrency)
-
     async def _process_image(index: int, image: T) -> None:
-        async with sem:
-            results[index] = await process_image_with_tesseract(image, language=language, psm=psm)
+        results[index] = await process_image_with_tesseract(image, language=language, psm=psm)
 
     try:
-        async with create_task_group() as tg:
-            for i, image in enumerate(images):
-                tg.start_soon(_process_image, i, image)
+        with thread_lock:
+            async with create_task_group() as tg:
+                for i, image in enumerate(images):
+                    tg.start_soon(_process_image, i, image)
         return results
     except ExceptionGroup as eg:
         raise ParsingError("Failed to process images with Tesseract") from eg

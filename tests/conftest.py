@@ -19,11 +19,6 @@ def scanned_pdf() -> Path:
 
 
 @pytest.fixture(scope="session")
-def german_pdf() -> Path:
-    return Path(__file__).parent / "source" / "german.pdf"
-
-
-@pytest.fixture(scope="session")
 def non_searchable_pdf() -> Path:
     return Path(__file__).parent / "source" / "non-searchable.pdf"
 
@@ -34,7 +29,7 @@ def non_ascii_pdf() -> Path:
 
 
 @pytest.fixture(scope="session")
-def test_artile() -> Path:
+def test_article() -> Path:
     return Path(__file__).parent / "source" / "test-article.pdf"
 
 
