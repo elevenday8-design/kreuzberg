@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import subprocess
 import sys
+from contextlib import suppress
 from enum import Enum
 from functools import partial
 from multiprocessing import cpu_count
@@ -229,36 +230,40 @@ async def process_file(
     Returns:
         ExtractionResult: The extracted text from the image.
     """
-    with NamedTemporaryFile(suffix=".txt", delete=False) as output_file:
-        # this is needed because tesseract adds .txt to the output file
-        try:
-            output_file_name = output_file.name.replace(".txt", "")
-            command = [
-                "tesseract",
-                str(input_file),
-                output_file_name,
-                "-l",
-                language,
-                "--psm",
-                str(psm.value),
-            ]
+    output_file = None
+    try:
+        # Create a temporary file for tesseract output
+        output_file = await run_sync(NamedTemporaryFile, suffix=".txt", delete=False)
+        output_file_name = output_file.name.replace(".txt", "")
+        await run_sync(output_file.close)  # Close the file before tesseract uses it
 
-            result = await to_process.run_sync(
-                partial(subprocess.run, capture_output=True),
-                command,
-                limiter=CapacityLimiter(max_tesseract_concurrency),
-            )
+        command = [
+            "tesseract",
+            str(input_file),
+            output_file_name,
+            "-l",
+            language,
+            "--psm",
+            str(psm.value),
+        ]
 
-            if not result.returncode == 0:
-                raise OCRError("OCR failed with a non-0 return code.")
+        result = await to_process.run_sync(
+            partial(subprocess.run, capture_output=True),
+            command,
+            limiter=CapacityLimiter(max_tesseract_concurrency),
+        )
 
-            output = await AsyncPath(output_file.name).read_text("utf-8")
-            return ExtractionResult(content=normalize_spaces(output), mime_type=PLAIN_TEXT_MIME_TYPE, metadata={})
-        except (RuntimeError, OSError) as e:
-            raise OCRError("Failed to OCR using tesseract") from e
+        if not result.returncode == 0:
+            raise OCRError("OCR failed with a non-0 return code.")
 
-        finally:
-            await AsyncPath(output_file.name).unlink(missing_ok=True)
+        output = await AsyncPath(output_file.name).read_text("utf-8")
+        return ExtractionResult(content=normalize_spaces(output), mime_type=PLAIN_TEXT_MIME_TYPE, metadata={})
+    except (RuntimeError, OSError) as e:
+        raise OCRError("Failed to OCR using tesseract") from e
+    finally:
+        if output_file:
+            with suppress(OSError, PermissionError):
+                await AsyncPath(output_file.name).unlink(missing_ok=True)
 
 
 async def process_image(
@@ -279,14 +284,20 @@ async def process_image(
     Returns:
         ExtractionResult: The extracted text from the image.
     """
-    with NamedTemporaryFile(suffix=".png", delete=False) as image_file:
-        try:
-            await run_sync(image.save, image_file.name, format="PNG")
-            return await process_file(
-                image_file.name, language=language, psm=psm, max_tesseract_concurrency=max_tesseract_concurrency
-            )
-        finally:
-            await AsyncPath(image_file.name).unlink(missing_ok=True)
+    image_file = None
+    try:
+        # Create a temporary file for the image
+        image_file = await run_sync(NamedTemporaryFile, suffix=".png", delete=False)
+        await run_sync(image.save, image_file.name, format="PNG")
+        await run_sync(image_file.close)  # Close the file before tesseract uses it
+
+        return await process_file(
+            image_file.name, language=language, psm=psm, max_tesseract_concurrency=max_tesseract_concurrency
+        )
+    finally:
+        if image_file:
+            with suppress(OSError, PermissionError):
+                await AsyncPath(image_file.name).unlink(missing_ok=True)
 
 
 async def process_image_with_tesseract(
