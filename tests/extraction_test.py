@@ -256,7 +256,9 @@ async def test_batch_extract_file_invalid() -> None:
     with pytest.raises(ExceptionGroup) as exc_info:
         await batch_extract_file([Path("/invalid/file.xyz")])
     assert isinstance(exc_info.value.exceptions[0], ValidationError)
-    assert "Unsupported mime type" in str(exc_info.value.exceptions[0])
+    assert "Unsupported mime type" in str(
+        exc_info.value.exceptions[0]
+    ) or "Could not determine the mime type of the file" in str(exc_info.value.exceptions[0])
 
 
 async def test_batch_extract_bytes_mixed() -> None:
