@@ -79,7 +79,7 @@ async def extract_bytes(content: bytes, mime_type: str, force_ocr: bool = False)
     if mime_type in IMAGE_MIME_TYPES or any(mime_type.startswith(value) for value in IMAGE_MIME_TYPES):
         with NamedTemporaryFile(suffix=IMAGE_MIME_TYPE_EXT_MAP[mime_type], delete=False) as temp_file:
             try:
-                temp_file.write(content)
+                await AsyncPath(temp_file.name).write_bytes(content)
                 return ExtractionResult(
                     content=await process_image_with_tesseract(temp_file.name), mime_type=PLAIN_TEXT_MIME_TYPE
                 )

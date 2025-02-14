@@ -106,8 +106,8 @@ async def extract_pdf(file_path_or_contents: Path | bytes, force_ocr: bool = Fal
     if isinstance(file_path_or_contents, bytes):
         with NamedTemporaryFile(suffix=".pdf", delete=False) as pdf_file:
             try:
-                pdf_file.write(file_path_or_contents)
                 file_path = Path(pdf_file.name)
+                await AsyncPath(file_path).write_bytes(file_path_or_contents)
 
                 if not force_ocr and (content := await extract_pdf_with_pdfium2(file_path)):
                     return normalize_spaces(content)

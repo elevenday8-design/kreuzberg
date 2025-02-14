@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import json
 import subprocess
 from asyncio import gather
 from dataclasses import dataclass
+from json import JSONDecodeError, loads
 from tempfile import NamedTemporaryFile
 from typing import TYPE_CHECKING, Any, Final, Literal, TypedDict, cast
 
@@ -344,10 +344,10 @@ async def _handle_extract_metadata(input_file: str | PathLike[str], *, mime_type
                     "Failed to extract file data", context={"file": str(input_file), "error": result.stderr.decode()}
                 )
 
-            json_data = json.loads(await AsyncPath(metadata_file.name).read_text("utf-8"))
+            json_data = loads(await AsyncPath(metadata_file.name).read_text("utf-8"))
             return _extract_metadata(json_data)
 
-        except (RuntimeError, OSError, json.JSONDecodeError) as e:
+        except (RuntimeError, OSError, JSONDecodeError) as e:
             raise ParsingError("Failed to extract file data", context={"file": str(input_file)}) from e
 
         finally:
