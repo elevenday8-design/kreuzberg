@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import subprocess
 import sys
+from functools import partial
 from json import JSONDecodeError, loads
 from tempfile import NamedTemporaryFile
 from typing import TYPE_CHECKING, Any, Final, Literal, cast
 
 from anyio import Path as AsyncPath
-from anyio import create_task_group
+from anyio import create_task_group, to_process
 
 from kreuzberg._mime_types import MARKDOWN_MIME_TYPE
 from kreuzberg._string import normalize_spaces
@@ -276,15 +277,14 @@ async def _handle_extract_metadata(input_file: str | PathLike[str], *, mime_type
                 metadata_file.name,
             ]
 
-            result = await run_sync(
-                subprocess.run,
+            result = await to_process.run_sync(
+                partial(subprocess.run, capture_output=True),
                 command,
-                capture_output=True,
             )
 
             if result.returncode != 0:
                 raise ParsingError(
-                    "Failed to extract file data", context={"file": str(input_file), "error": result.stderr.decode()}
+                    "Failed to extract file data", context={"file": str(input_file), "error": result.stderr}
                 )
 
             json_data = loads(await AsyncPath(metadata_file.name).read_text("utf-8"))
@@ -317,15 +317,14 @@ async def _handle_extract_file(
             if extra_args:
                 command.extend(extra_args)
 
-            result = await run_sync(
-                subprocess.run,
+            result = await to_process.run_sync(
+                partial(subprocess.run, capture_output=True),
                 command,
-                capture_output=True,
             )
 
             if result.returncode != 0:
                 raise ParsingError(
-                    "Failed to extract file data", context={"file": str(input_file), "error": result.stderr.decode()}
+                    "Failed to extract file data", context={"file": str(input_file), "error": result.stderr}
                 )
 
             text = await AsyncPath(output_file.name).read_text("utf-8")

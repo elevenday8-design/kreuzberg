@@ -4,13 +4,14 @@ import re
 import subprocess
 import sys
 from enum import Enum
+from functools import partial
+from multiprocessing import cpu_count
 from os import PathLike
 from tempfile import NamedTemporaryFile
-from threading import Lock
-from typing import Literal, TypeVar, Union, cast
+from typing import Final, Literal, TypeVar, Union, cast
 
+from anyio import CapacityLimiter, create_task_group, to_process
 from anyio import Path as AsyncPath
-from anyio import create_task_group
 from PIL.Image import Image
 
 from kreuzberg import ExtractionResult, ParsingError
@@ -22,8 +23,7 @@ from kreuzberg.exceptions import MissingDependencyError, OCRError
 if sys.version_info < (3, 11):  # pragma: no cover
     from exceptiongroup import ExceptionGroup  # type: ignore[import-not-found]
 
-thread_lock = Lock()
-
+DEFAULT_MAX_TESSERACT_CONCURRENCY: Final[int] = max(cpu_count() // 2, 1)
 
 version_ref = {"checked": False}
 
@@ -209,7 +209,11 @@ async def validate_tesseract_version() -> None:
 
 
 async def process_file(
-    input_file: str | PathLike[str], *, language: SupportedLanguages, psm: PSMMode
+    input_file: str | PathLike[str],
+    *,
+    language: SupportedLanguages,
+    psm: PSMMode,
+    max_tesseract_concurrency: int = DEFAULT_MAX_TESSERACT_CONCURRENCY,
 ) -> ExtractionResult:
     """Process a single image file using Tesseract OCR.
 
@@ -217,6 +221,7 @@ async def process_file(
         input_file: The path to the image file to process.
         language: The language code for OCR.
         psm: Page segmentation mode.
+        max_tesseract_concurrency: Maximum number of concurrent Tesseract processes.
 
     Raises:
         OCRError: If OCR fails to extract text from the image.
@@ -238,10 +243,10 @@ async def process_file(
                 str(psm.value),
             ]
 
-            result = await run_sync(
-                subprocess.run,
+            result = await to_process.run_sync(
+                partial(subprocess.run, capture_output=True),
                 command,
-                capture_output=True,
+                limiter=CapacityLimiter(max_tesseract_concurrency),
             )
 
             if not result.returncode == 0:
@@ -256,13 +261,20 @@ async def process_file(
             await AsyncPath(output_file.name).unlink(missing_ok=True)
 
 
-async def process_image(image: Image, *, language: SupportedLanguages, psm: PSMMode) -> ExtractionResult:
+async def process_image(
+    image: Image,
+    *,
+    language: SupportedLanguages,
+    psm: PSMMode,
+    max_tesseract_concurrency: int = DEFAULT_MAX_TESSERACT_CONCURRENCY,
+) -> ExtractionResult:
     """Process a single Pillow Image using Tesseract OCR.
 
     Args:
         image: The Pillow Image to process.
         language: The language code for OCR.
         psm: Page segmentation mode.
+        max_tesseract_concurrency: Maximum number of concurrent Tesseract processes.
 
     Returns:
         ExtractionResult: The extracted text from the image.
@@ -270,7 +282,9 @@ async def process_image(image: Image, *, language: SupportedLanguages, psm: PSMM
     with NamedTemporaryFile(suffix=".png", delete=False) as image_file:
         try:
             await run_sync(image.save, image_file.name, format="PNG")
-            return await process_file(image_file.name, language=language, psm=psm)
+            return await process_file(
+                image_file.name, language=language, psm=psm, max_tesseract_concurrency=max_tesseract_concurrency
+            )
         finally:
             await AsyncPath(image_file.name).unlink(missing_ok=True)
 
@@ -280,6 +294,7 @@ async def process_image_with_tesseract(
     *,
     language: SupportedLanguages = "eng",
     psm: PSMMode = PSMMode.AUTO,
+    max_tesseract_concurrency: int = DEFAULT_MAX_TESSERACT_CONCURRENCY,
 ) -> ExtractionResult:
     """Run Tesseract OCR asynchronously on a single Pillow Image or a list of Pillow Images.
 
@@ -287,6 +302,7 @@ async def process_image_with_tesseract(
         image: A single Pillow Image, a pathlike or a string or a list of Pillow Images to process.
         language: The language code for OCR (default: "eng").
         psm: Page segmentation mode (default: PSMMode.AUTO).
+        max_tesseract_concurrency: Maximum number of concurrent Tesseract processes.
 
     Raises:
         ValueError: If the input is not a Pillow Image or a list of Pillow Images.
@@ -297,10 +313,14 @@ async def process_image_with_tesseract(
     await validate_tesseract_version()
 
     if isinstance(image, Image):
-        return await process_image(image, language=language, psm=psm)
+        return await process_image(
+            image, language=language, psm=psm, max_tesseract_concurrency=max_tesseract_concurrency
+        )
 
     if isinstance(image, (PathLike, str)):
-        return await process_file(image, language=language, psm=psm)
+        return await process_file(
+            image, language=language, psm=psm, max_tesseract_concurrency=max_tesseract_concurrency
+        )
 
     raise ValueError("Input must be one of: str, Pathlike or Pillow Image.")
 
@@ -310,7 +330,7 @@ async def batch_process_images(
     *,
     language: SupportedLanguages = "eng",
     psm: PSMMode = PSMMode.AUTO,
-    max_tesseract_concurrency: int,
+    max_tesseract_concurrency: int = DEFAULT_MAX_TESSERACT_CONCURRENCY,
 ) -> list[ExtractionResult]:
     """Run Tesseract OCR asynchronously on multiple images with controlled concurrency.
 
@@ -325,22 +345,19 @@ async def batch_process_images(
 
     Returns:
         List of ExtractionResult objects, one per input image.
-
-    The function uses a semaphore to limit concurrent Tesseract processes,
-    preventing resource exhaustion while still allowing parallel processing.
-    The concurrency limit can be configured via the global config object.
     """
     await validate_tesseract_version()
     results = cast(list[ExtractionResult], list(range(len(images))))
 
     async def _process_image(index: int, image: T) -> None:
-        results[index] = await process_image_with_tesseract(image, language=language, psm=psm)
+        results[index] = await process_image_with_tesseract(
+            image, language=language, psm=psm, max_tesseract_concurrency=max_tesseract_concurrency
+        )
 
     try:
-        with thread_lock:
-            async with create_task_group() as tg:
-                for i, image in enumerate(images):
-                    tg.start_soon(_process_image, i, image)
+        async with create_task_group() as tg:
+            for i, image in enumerate(images):
+                tg.start_soon(_process_image, i, image)
         return results
     except ExceptionGroup as eg:
         raise ParsingError("Failed to process images with Tesseract") from eg

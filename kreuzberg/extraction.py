@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from functools import partial
 from mimetypes import guess_type
-from multiprocessing import cpu_count
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import TYPE_CHECKING, cast
@@ -38,15 +37,13 @@ from kreuzberg._pdf import (
 )
 from kreuzberg._pptx import extract_pptx_file_content
 from kreuzberg._string import safe_decode
-from kreuzberg._tesseract import process_image_with_tesseract
+from kreuzberg._tesseract import DEFAULT_MAX_TESSERACT_CONCURRENCY, process_image_with_tesseract
 from kreuzberg._xlsx import extract_xlsx_content, extract_xlsx_file
 from kreuzberg.exceptions import ValidationError
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from os import PathLike
-
-DEFAULT_MAX_TESSERACT_CONCURRENCY = max(cpu_count() // 2, 1)
 
 
 async def extract_bytes(
