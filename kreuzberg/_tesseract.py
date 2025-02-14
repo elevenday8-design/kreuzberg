@@ -8,7 +8,6 @@ from enum import Enum
 from functools import partial
 from multiprocessing import cpu_count
 from os import PathLike
-from tempfile import NamedTemporaryFile
 from typing import Final, Literal, TypeVar, Union, cast
 
 from anyio import CapacityLimiter, create_task_group, to_process
@@ -230,17 +229,18 @@ async def process_file(
     Returns:
         ExtractionResult: The extracted text from the image.
     """
-    output_file = None
+    from kreuzberg._tmp import create_temp_file
+
+    output_path = None
     try:
         # Create a temporary file for tesseract output
-        output_file = await run_sync(NamedTemporaryFile, suffix=".txt", delete=False)
-        output_file_name = output_file.name.replace(".txt", "")
-        await run_sync(output_file.close)
+        output_path = await create_temp_file(".txt")
+        output_base = str(output_path).replace(".txt", "")
 
         command = [
             "tesseract",
             str(input_file),
-            output_file_name,
+            output_base,
             "-l",
             language,
             "--psm",
@@ -256,14 +256,14 @@ async def process_file(
         if not result.returncode == 0:
             raise OCRError("OCR failed with a non-0 return code.")
 
-        output = await AsyncPath(output_file.name).read_text("utf-8")
+        output = await AsyncPath(output_path).read_text("utf-8")
         return ExtractionResult(content=normalize_spaces(output), mime_type=PLAIN_TEXT_MIME_TYPE, metadata={})
     except (RuntimeError, OSError) as e:
         raise OCRError("Failed to OCR using tesseract") from e
     finally:
-        if output_file:
+        if output_path:
             with suppress(OSError, PermissionError):
-                await AsyncPath(output_file.name).unlink(missing_ok=True)
+                await AsyncPath(output_path).unlink(missing_ok=True)
 
 
 async def process_image(
@@ -284,20 +284,21 @@ async def process_image(
     Returns:
         ExtractionResult: The extracted text from the image.
     """
-    image_file = None
+    from kreuzberg._tmp import create_temp_file
+
+    image_path = None
     try:
         # Create a temporary file for the image
-        image_file = await run_sync(NamedTemporaryFile, suffix=".png", delete=False)
-        await run_sync(image.save, image_file.name, format="PNG")
-        await run_sync(image_file.close)
+        image_path = await create_temp_file(".png")
+        await run_sync(image.save, str(image_path), format="PNG")
 
         return await process_file(
-            image_file.name, language=language, psm=psm, max_tesseract_concurrency=max_tesseract_concurrency
+            image_path, language=language, psm=psm, max_tesseract_concurrency=max_tesseract_concurrency
         )
     finally:
-        if image_file:
+        if image_path:
             with suppress(OSError, PermissionError):
-                await AsyncPath(image_file.name).unlink(missing_ok=True)
+                await AsyncPath(image_path).unlink(missing_ok=True)
 
 
 async def process_image_with_tesseract(

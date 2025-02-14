@@ -58,9 +58,11 @@ def mock_subprocess_run(mocker: MockerFixture) -> Mock:
             raise RuntimeError("Invalid metadata")
 
         # Normal case
-        output_file = next((arg for arg in args[0] if arg.endswith((".md", ".json"))), "")
+        output_file = next((str(arg) for arg in args[0] if str(arg).endswith((".md", ".json"))), "")
         if output_file:
-            content = json.dumps(SAMPLE_PANDOC_JSON) if output_file.endswith(".json") else "Sample processed content"
+            content = (
+                json.dumps(SAMPLE_PANDOC_JSON) if str(output_file).endswith(".json") else "Sample processed content"
+            )
             Path(output_file).write_text(content)
         return result
 
@@ -239,9 +241,9 @@ async def test_process_content_empty_result(mock_subprocess_run: Mock) -> None:
         if args[0][0] == "pandoc" and "--version" in args[0]:
             mock_subprocess_run.return_value.stdout = b"pandoc 3.1.0"
             return cast(Mock, mock_subprocess_run.return_value)
-        output_file = next((arg for arg in args[0] if arg.endswith((".md", ".json"))), "")
+        output_file = next((str(arg) for arg in args[0] if str(arg).endswith((".md", ".json"))), "")
         if output_file:
-            if output_file.endswith(".json"):
+            if str(output_file).endswith(".json"):
                 Path(output_file).write_text('{"pandoc-api-version":[1,22,2,1],"meta":{},"blocks":[]}')
             else:
                 Path(output_file).write_text("")

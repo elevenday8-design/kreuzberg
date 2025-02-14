@@ -5,7 +5,6 @@ import sys
 from contextlib import suppress
 from functools import partial
 from json import JSONDecodeError, loads
-from tempfile import NamedTemporaryFile
 from typing import TYPE_CHECKING, Any, Final, Literal, cast
 
 from anyio import Path as AsyncPath
@@ -14,6 +13,7 @@ from anyio import create_task_group, to_process
 from kreuzberg._mime_types import MARKDOWN_MIME_TYPE
 from kreuzberg._string import normalize_spaces
 from kreuzberg._sync import run_sync
+from kreuzberg._tmp import create_temp_file
 from kreuzberg._types import ExtractionResult, Metadata
 from kreuzberg.exceptions import MissingDependencyError, ParsingError, ValidationError
 
@@ -268,8 +268,7 @@ async def _handle_extract_metadata(input_file: str | PathLike[str], *, mime_type
 
     try:
         # Create a temporary file for metadata output
-        metadata_file = await run_sync(NamedTemporaryFile, suffix=".json", delete=False)
-        await run_sync(metadata_file.close)
+        metadata_file = await create_temp_file(".json")
 
         command = [
             "pandoc",
@@ -279,7 +278,7 @@ async def _handle_extract_metadata(input_file: str | PathLike[str], *, mime_type
             "--standalone",
             "--quiet",
             "--output",
-            metadata_file.name,
+            metadata_file,
         ]
 
         result = await to_process.run_sync(
@@ -290,26 +289,27 @@ async def _handle_extract_metadata(input_file: str | PathLike[str], *, mime_type
         if result.returncode != 0:
             raise ParsingError("Failed to extract file data", context={"file": str(input_file), "error": result.stderr})
 
-        json_data = loads(await AsyncPath(metadata_file.name).read_text("utf-8"))
+        json_data = loads(await AsyncPath(metadata_file).read_text("utf-8"))
         return _extract_metadata(json_data)
     except (RuntimeError, OSError, JSONDecodeError) as e:
         raise ParsingError("Failed to extract file data", context={"file": str(input_file)}) from e
     finally:
         if metadata_file:
             with suppress(OSError, PermissionError):
-                await AsyncPath(metadata_file.name).unlink(missing_ok=True)
+                await AsyncPath(metadata_file).unlink(missing_ok=True)
 
 
 async def _handle_extract_file(
     input_file: str | PathLike[str], *, mime_type: str, extra_args: list[str] | None = None
 ) -> str:
+    from kreuzberg._tmp import create_temp_file
+
     pandoc_type = _get_pandoc_type_from_mime_type(mime_type)
-    output_file = None
+    output_path = None
 
     try:
         # Create a temporary file for pandoc output
-        output_file = await run_sync(NamedTemporaryFile, suffix=".md", delete=False)
-        await run_sync(output_file.close)
+        output_path = await create_temp_file(".md")
 
         command = [
             "pandoc",
@@ -319,12 +319,12 @@ async def _handle_extract_file(
             "--standalone",
             "--wrap=preserve",
             "--quiet",
-            "--output",
-            output_file.name,
         ]
 
         if extra_args:
             command.extend(extra_args)
+
+        command.extend(["--output", str(output_path)])
 
         result = await to_process.run_sync(
             partial(subprocess.run, capture_output=True),
@@ -334,15 +334,15 @@ async def _handle_extract_file(
         if result.returncode != 0:
             raise ParsingError("Failed to extract file data", context={"file": str(input_file), "error": result.stderr})
 
-        text = await AsyncPath(output_file.name).read_text("utf-8")
+        text = await AsyncPath(output_path).read_text("utf-8")
 
         return normalize_spaces(text)
     except (RuntimeError, OSError) as e:
         raise ParsingError("Failed to extract file data", context={"file": str(input_file)}) from e
     finally:
-        if output_file:
+        if output_path:
             with suppress(OSError, PermissionError):
-                await AsyncPath(output_file.name).unlink(missing_ok=True)
+                await AsyncPath(output_path).unlink(missing_ok=True)
 
 
 async def process_file_with_pandoc(
@@ -409,12 +409,11 @@ async def process_content_with_pandoc(
 
     try:
         # Create a temporary file for input content
-        input_file = await run_sync(NamedTemporaryFile, suffix=f".{extension}", delete=False)
-        await AsyncPath(input_file.name).write_bytes(content)
-        await run_sync(input_file.close)
+        input_file = await create_temp_file(f".{extension}")
+        await AsyncPath(input_file).write_bytes(content)
 
-        return await process_file_with_pandoc(input_file.name, mime_type=mime_type, extra_args=extra_args)
+        return await process_file_with_pandoc(input_file, mime_type=mime_type, extra_args=extra_args)
     finally:
         if input_file:
             with suppress(OSError, PermissionError):
-                await AsyncPath(input_file.name).unlink(missing_ok=True)
+                await AsyncPath(input_file).unlink(missing_ok=True)

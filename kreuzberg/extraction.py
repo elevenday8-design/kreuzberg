@@ -12,7 +12,6 @@ from __future__ import annotations
 from functools import partial
 from mimetypes import guess_type
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 from typing import TYPE_CHECKING, cast
 
 import anyio
@@ -38,6 +37,7 @@ from kreuzberg._pdf import (
 from kreuzberg._pptx import extract_pptx_file_content
 from kreuzberg._string import safe_decode
 from kreuzberg._tesseract import DEFAULT_MAX_TESSERACT_CONCURRENCY, process_image_with_tesseract
+from kreuzberg._tmp import create_temp_file
 from kreuzberg._xlsx import extract_xlsx_content, extract_xlsx_file
 from kreuzberg.exceptions import ValidationError
 
@@ -82,12 +82,14 @@ async def extract_bytes(
         return await extract_xlsx_content(content)
 
     if mime_type in IMAGE_MIME_TYPES or any(mime_type.startswith(value) for value in IMAGE_MIME_TYPES):
-        with NamedTemporaryFile(suffix=IMAGE_MIME_TYPE_EXT_MAP[mime_type], delete=False) as temp_file:
-            try:
-                await AsyncPath(temp_file.name).write_bytes(content)
-                return await process_image_with_tesseract(temp_file.name)
-            finally:
-                await AsyncPath(temp_file.name).unlink(missing_ok=True)
+        temp_path = None
+        try:
+            temp_path = await create_temp_file(IMAGE_MIME_TYPE_EXT_MAP[mime_type])
+            await AsyncPath(temp_path).write_bytes(content)
+            return await process_image_with_tesseract(str(temp_path))
+        finally:
+            if temp_path:
+                await AsyncPath(temp_path).unlink(missing_ok=True)
 
     if mime_type in PANDOC_SUPPORTED_MIME_TYPES or any(
         mime_type.startswith(value) for value in PANDOC_SUPPORTED_MIME_TYPES

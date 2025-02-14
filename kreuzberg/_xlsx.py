@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import csv
 from io import StringIO
-from pathlib import Path
-from tempfile import NamedTemporaryFile
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from anyio import Path as AsyncPath
 from anyio import create_task_group
@@ -15,6 +13,9 @@ from kreuzberg._mime_types import MARKDOWN_MIME_TYPE
 from kreuzberg._pandoc import process_file_with_pandoc
 from kreuzberg._string import normalize_spaces
 from kreuzberg._sync import run_sync
+
+if TYPE_CHECKING:  # pragma: no cover
+    from pathlib import Path
 
 
 async def extract_xlsx_file(input_file: Path) -> ExtractionResult:
@@ -47,12 +48,17 @@ async def extract_xlsx_file(input_file: Path) -> ExtractionResult:
             csv_data = csv_buffer.getvalue()
             csv_buffer.close()
 
-            with NamedTemporaryFile(suffix=".csv") as csv_file:
-                await AsyncPath(csv_file.name).write_text(csv_data)
-                result = await process_file_with_pandoc(csv_file.name, mime_type="text/csv")
+            from kreuzberg._tmp import create_temp_file
+
+            csv_path = await create_temp_file(".csv")
+            try:
+                await AsyncPath(csv_path).write_text(csv_data)
+                result = await process_file_with_pandoc(csv_path, mime_type="text/csv")
                 results[workbook.sheet_names.index(sheet_name)] = (
                     f"## {sheet_name}\n\n{normalize_spaces(result.content)}"
                 )
+            finally:
+                await AsyncPath(csv_path).unlink(missing_ok=True)
 
         async with create_task_group() as tg:
             for sheet_name in workbook.sheet_names:
@@ -81,9 +87,13 @@ async def extract_xlsx_content(content: bytes) -> ExtractionResult:
     Returns:
         The extracted text content.
     """
-    with NamedTemporaryFile(suffix=".xlsx", delete=False) as xlsx_file:
-        try:
-            await AsyncPath(xlsx_file.name).write_bytes(content)
-            return await extract_xlsx_file(Path(xlsx_file.name))
-        finally:
-            await AsyncPath(xlsx_file.name).unlink(missing_ok=True)
+    from kreuzberg._tmp import create_temp_file
+
+    xlsx_path = None
+    try:
+        xlsx_path = await create_temp_file(".xlsx")
+        await AsyncPath(xlsx_path).write_bytes(content)
+        return await extract_xlsx_file(xlsx_path)
+    finally:
+        if xlsx_path:
+            await AsyncPath(xlsx_path).unlink(missing_ok=True)

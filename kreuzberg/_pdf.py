@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
 from re import Pattern
 from re import compile as compile_regex
-from tempfile import NamedTemporaryFile
 from typing import TYPE_CHECKING, Final, cast
 
 import pypdfium2
@@ -17,7 +15,10 @@ from kreuzberg._tesseract import batch_process_images
 from kreuzberg.exceptions import ParsingError
 
 if TYPE_CHECKING:  # pragma: no cover
+    from pathlib import Path
+
     from PIL.Image import Image
+
 
 # Pattern to detect common PDF text extraction corruption:
 # - Control and non-printable characters
@@ -151,13 +152,16 @@ async def extract_pdf_content(content: bytes, *, force_ocr: bool, max_tesseract_
     Returns:
         The extracted text.
     """
-    with NamedTemporaryFile(suffix=".pdf", delete=False) as pdf_file:
-        try:
-            file_path = Path(pdf_file.name)
-            await AsyncPath(file_path).write_bytes(content)
+    from kreuzberg._tmp import create_temp_file
 
-            return await extract_pdf_file(
-                file_path, force_ocr=force_ocr, max_tesseract_concurrency=max_tesseract_concurrency
-            )
-        finally:
+    file_path = None
+    try:
+        file_path = await create_temp_file(".pdf")
+        await AsyncPath(file_path).write_bytes(content)
+
+        return await extract_pdf_file(
+            file_path, force_ocr=force_ocr, max_tesseract_concurrency=max_tesseract_concurrency
+        )
+    finally:
+        if file_path:
             await AsyncPath(file_path).unlink(missing_ok=True)
