@@ -238,6 +238,9 @@ async def process_file(
                 subprocess.run,
                 command,
                 capture_output=True,
+                env={
+                    "OMP_THREAD_LIMIT": "1",
+                },
             )
 
             if not result.returncode == 0:
