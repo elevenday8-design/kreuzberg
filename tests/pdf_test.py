@@ -31,7 +31,6 @@ async def test_extract_pdf_text_with_ocr(scanned_pdf: Path) -> None:
     assert result.content.strip()
 
 
-@pytest.mark.timeout(timeout=60)
 async def test_extract_pdf_file(searchable_pdf: Path) -> None:
     """Test extracting text from a PDF file."""
     result = await extract_pdf_file(searchable_pdf, force_ocr=False, max_tesseract_concurrency=1)

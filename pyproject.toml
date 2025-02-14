@@ -56,7 +56,6 @@ dev = [
   "pytest-asyncio>=0.25.3",
   "pytest-cov>=6.0.0",
   "pytest-mock>=3.14.0",
-  "pytest-timeout>=2.3.1",
   "python-dotenv>=1.0.1",
   "ruff>=0.9.6",
 ]
@@ -126,7 +125,7 @@ source = [ "kreuzberg" ]
 
 [tool.coverage.report]
 exclude_lines = [ 'if TYPE_CHECKING:', "except ImportError:" ]
-fail_under = 90
+fail_under = 100
 
 [tool.mypy]
 packages = [ "kreuzberg", "tests" ]
