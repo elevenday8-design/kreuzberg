@@ -188,7 +188,7 @@ async def validate_tesseract_version() -> None:
 
         command = ["tesseract", "--version"]
         result = await run_sync(subprocess.run, command, capture_output=True)
-        version_match = re.search(r"tesseract\s+(\d+)", result.stdout.decode())
+        version_match = re.search(r"tesseract\s+v?(\d+)", result.stdout.decode())
         if not version_match or int(version_match.group(1)) < 5:
             raise MissingDependencyError("Tesseract version 5 or above is required.")
 
@@ -214,10 +214,10 @@ async def process_file(
     Returns:
         str: Extracted text from the image.
     """
-    with NamedTemporaryFile(suffix=".txt") as output_file:
+    with NamedTemporaryFile(suffix=".txt", delete=False) as output_file:
         # this is needed because tesseract adds .txt to the output file
-        output_file_name = output_file.name.replace(".txt", "")
         try:
+            output_file_name = output_file.name.replace(".txt", "")
             command = [
                 "tesseract",
                 str(input_file),
@@ -240,10 +240,14 @@ async def process_file(
             if not result.returncode == 0:
                 raise OCRError("OCR failed with a non-0 return code.")
 
-            output = await AsyncPath(output_file.name).read_text()
+            output = await AsyncPath(output_file.name).read_text("utf-8")
             return output.strip()
         except (RuntimeError, OSError) as e:
             raise OCRError("Failed to OCR using tesseract") from e
+
+        finally:
+            output_file.close()
+            await AsyncPath(output_file.name).unlink()
 
 
 async def process_image(image: Image, *, language: SupportedLanguages, psm: PSMMode, **kwargs: Any) -> str:
@@ -258,9 +262,14 @@ async def process_image(image: Image, *, language: SupportedLanguages, psm: PSMM
     Returns:
         str: Extracted text from the image.
     """
-    with NamedTemporaryFile(suffix=".png") as image_file:
-        await run_sync(image.save, image_file.name, format="PNG")
-        return await process_file(image_file.name, language=language, psm=psm, **kwargs)
+    with NamedTemporaryFile(suffix=".png", delete=False) as image_file:
+        try:
+            await run_sync(image.save, image_file.name, format="PNG")
+            return await process_file(image_file.name, language=language, psm=psm, **kwargs)
+
+        finally:
+            image_file.close()
+            await AsyncPath(image_file.name).unlink()
 
 
 async def process_image_with_tesseract(
