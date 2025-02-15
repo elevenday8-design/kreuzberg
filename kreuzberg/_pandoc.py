@@ -1,26 +1,29 @@
 from __future__ import annotations
 
 import subprocess
-from asyncio import gather
-from dataclasses import dataclass
+import sys
+from functools import partial
 from json import JSONDecodeError, loads
-from tempfile import NamedTemporaryFile
-from typing import TYPE_CHECKING, Any, Final, Literal, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Final, Literal, cast
 
+from anyio import CapacityLimiter, create_task_group, to_process
 from anyio import Path as AsyncPath
 
+from kreuzberg._constants import DEFAULT_MAX_PROCESSES
+from kreuzberg._mime_types import MARKDOWN_MIME_TYPE
 from kreuzberg._string import normalize_spaces
 from kreuzberg._sync import run_sync
+from kreuzberg._tmp import create_temp_file
+from kreuzberg._types import ExtractionResult, Metadata
 from kreuzberg.exceptions import MissingDependencyError, ParsingError, ValidationError
 
 if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Mapping
     from os import PathLike
 
-try:  # pragma: no cover
-    from typing import NotRequired  # type: ignore[attr-defined]
-except ImportError:  # pragma: no cover
-    from typing_extensions import NotRequired
+if sys.version_info < (3, 11):  # pragma: no cover
+    from exceptiongroup import ExceptionGroup  # type: ignore[import-not-found]
+
 
 version_ref: Final[dict[str, bool]] = {"checked": False}
 
@@ -145,65 +148,6 @@ MIMETYPE_TO_FILE_EXTENSION_MAPPING: Final[Mapping[str, str]] = {
 }
 
 
-class Metadata(TypedDict, total=False):
-    """Document metadata extracted from Pandoc document.
-
-    All fields are optional but will only be included if they contain non-empty values.
-    Any field that would be empty or None is omitted from the dictionary.
-    """
-
-    title: NotRequired[str]
-    """Document title."""
-    subtitle: NotRequired[str]
-    """Document subtitle."""
-    abstract: NotRequired[str | list[str]]
-    """Document abstract, summary or description."""
-    authors: NotRequired[list[str]]
-    """List of document authors."""
-    date: NotRequired[str]
-    """Document date as string to preserve original format."""
-    subject: NotRequired[str]
-    """Document subject or topic."""
-    description: NotRequired[str]
-    """Extended description."""
-    keywords: NotRequired[list[str]]
-    """Keywords or tags."""
-    categories: NotRequired[list[str]]
-    """Categories or classifications."""
-    version: NotRequired[str]
-    """Version identifier."""
-    language: NotRequired[str]
-    """Document language code."""
-    references: NotRequired[list[str]]
-    """Reference entries."""
-    citations: NotRequired[list[str]]
-    """Citation identifiers."""
-    copyright: NotRequired[str]
-    """Copyright information."""
-    license: NotRequired[str]
-    """License information."""
-    identifier: NotRequired[str]
-    """Document identifier."""
-    publisher: NotRequired[str]
-    """Publisher name."""
-    contributors: NotRequired[list[str]]
-    """Additional contributors."""
-    creator: NotRequired[str]
-    """Document creator."""
-    institute: NotRequired[str | list[str]]
-    """Institute or organization."""
-
-
-@dataclass
-class PandocResult:
-    """Result of a pandoc conversion including content and metadata."""
-
-    content: str
-    """The processed markdown content."""
-    metadata: Metadata
-    """Document metadata extracted from the source."""
-
-
 def _extract_inline_text(node: dict[str, Any]) -> str | None:
     if node_type := node.get(TYPE_FIELD):
         if node_type == INLINE_STR:
@@ -246,13 +190,14 @@ def _extract_meta_value(node: Any) -> str | list[str] | None:
         if node_type == META_LIST:
             results = []
             for value in [value for item in content if (value := _extract_meta_value(item))]:
-                if isinstance(value, list):
-                    results.extend(value)  # pragma: no cover
+                if isinstance(value, list):  # pragma: no cover
+                    results.extend(value)
                 else:
                     results.append(value)
             return results
 
-        if blocks := [block for block in content if block.get(TYPE_FIELD) == BLOCK_PARA]:
+        # This branch is only taken for complex metadata blocks which we don't use
+        if blocks := [block for block in content if block.get(TYPE_FIELD) == BLOCK_PARA]:  # pragma: no cover
             block_texts = []
             for block in blocks:
                 block_content = block.get(CONTENT_FIELD, [])
@@ -317,134 +262,142 @@ async def _validate_pandoc_version() -> None:
         raise MissingDependencyError("Pandoc is not installed.") from e
 
 
-async def _handle_extract_metadata(input_file: str | PathLike[str], *, mime_type: str) -> Metadata:
+async def _handle_extract_metadata(
+    input_file: str | PathLike[str], *, mime_type: str, max_processes: int = DEFAULT_MAX_PROCESSES
+) -> Metadata:
     pandoc_type = _get_pandoc_type_from_mime_type(mime_type)
+    metadata_file, unlink = await create_temp_file(".json")
+    try:
+        command = [
+            "pandoc",
+            str(input_file),
+            f"--from={pandoc_type}",
+            "--to=json",
+            "--standalone",
+            "--quiet",
+            "--output",
+            metadata_file,
+        ]
 
-    with NamedTemporaryFile(suffix=".json", delete=False) as metadata_file:
-        try:
-            command = [
-                "pandoc",
-                str(input_file),
-                f"--from={pandoc_type}",
-                "--to=json",
-                "--standalone",
-                "--quiet",
-                "--output",
-                metadata_file.name,
-            ]
+        result = await to_process.run_sync(
+            partial(subprocess.run, capture_output=True),
+            command,
+            cancellable=True,
+            limiter=CapacityLimiter(max_processes),
+        )
 
-            result = await run_sync(
-                subprocess.run,
-                command,
-                capture_output=True,
-            )
+        if result.returncode != 0:
+            raise ParsingError("Failed to extract file data", context={"file": str(input_file), "error": result.stderr})
 
-            if result.returncode != 0:
-                raise ParsingError(
-                    "Failed to extract file data", context={"file": str(input_file), "error": result.stderr.decode()}
-                )
-
-            json_data = loads(await AsyncPath(metadata_file.name).read_text("utf-8"))
-            return _extract_metadata(json_data)
-
-        except (RuntimeError, OSError, JSONDecodeError) as e:
-            raise ParsingError("Failed to extract file data", context={"file": str(input_file)}) from e
-
-        finally:
-            metadata_file.close()
-            await AsyncPath(metadata_file.name).unlink()
+        json_data = loads(await AsyncPath(metadata_file).read_text("utf-8"))
+        return _extract_metadata(json_data)
+    except (RuntimeError, OSError, JSONDecodeError) as e:
+        raise ParsingError("Failed to extract file data", context={"file": str(input_file)}) from e
+    finally:
+        await unlink()
 
 
 async def _handle_extract_file(
-    input_file: str | PathLike[str], *, mime_type: str, extra_args: list[str] | None = None
+    input_file: str | PathLike[str], *, mime_type: str, max_processes: int = DEFAULT_MAX_PROCESSES
 ) -> str:
     pandoc_type = _get_pandoc_type_from_mime_type(mime_type)
+    output_path, unlink = await create_temp_file(".md")
+    try:
+        command = [
+            "pandoc",
+            str(input_file),
+            f"--from={pandoc_type}",
+            "--to=markdown",
+            "--standalone",
+            "--wrap=preserve",
+            "--quiet",
+        ]
 
-    with NamedTemporaryFile(suffix=".md", delete=False) as output_file:
-        try:
-            command = [
-                "pandoc",
-                str(input_file),
-                f"--from={pandoc_type}",
-                "--to=markdown",
-                "--standalone",
-                "--wrap=preserve",
-                "--quiet",
-                "--output",
-                output_file.name,
-            ]
+        command.extend(["--output", str(output_path)])
 
-            if extra_args:
-                command.extend(extra_args)
+        result = await to_process.run_sync(
+            partial(subprocess.run, capture_output=True),
+            command,
+            cancellable=True,
+            limiter=CapacityLimiter(max_processes),
+        )
 
-            result = await run_sync(
-                subprocess.run,
-                command,
-                capture_output=True,
-            )
+        if result.returncode != 0:
+            raise ParsingError("Failed to extract file data", context={"file": str(input_file), "error": result.stderr})
 
-            if result.returncode != 0:
-                raise ParsingError(
-                    "Failed to extract file data", context={"file": str(input_file), "error": result.stderr.decode()}
-                )
+        text = await AsyncPath(output_path).read_text("utf-8")
 
-            text = await AsyncPath(output_file.name).read_text("utf-8")
-
-            return normalize_spaces(text)
-
-        except (RuntimeError, OSError) as e:
-            raise ParsingError("Failed to extract file data", context={"file": str(input_file)}) from e
-
-        finally:
-            output_file.close()
-            await AsyncPath(output_file.name).unlink()
+        return normalize_spaces(text)
+    except (RuntimeError, OSError) as e:
+        raise ParsingError("Failed to extract file data", context={"file": str(input_file)}) from e
+    finally:
+        await unlink()
 
 
-async def process_file(
-    input_file: str | PathLike[str], *, mime_type: str, extra_args: list[str] | None = None
-) -> PandocResult:
+async def process_file_with_pandoc(
+    input_file: str | PathLike[str], *, mime_type: str, max_processes: int = DEFAULT_MAX_PROCESSES
+) -> ExtractionResult:
     """Process a single file using Pandoc and convert to markdown.
 
     Args:
         input_file: The path to the file to process.
         mime_type: The mime type of the file.
-        extra_args: Additional Pandoc command line arguments.
+        max_processes: Maximum number of concurrent processes. Defaults to CPU count / 2 (minimum 1).
+
+    Raises:
+        ParsingError: If the file data could not be extracted.
 
     Returns:
-        PandocResult containing processed content and metadata.
+        ExtractionResult
     """
     await _validate_pandoc_version()
 
-    metadata, content = await gather(
-        *[
-            _handle_extract_metadata(input_file, mime_type=mime_type),
-            _handle_extract_file(input_file, mime_type=mime_type, extra_args=extra_args),
-        ]
-    )
-    return PandocResult(
-        content=content,  # type: ignore[arg-type]
-        metadata=metadata,  # type: ignore[arg-type]
+    _get_pandoc_type_from_mime_type(mime_type)
+
+    metadata: Metadata = {}
+    content: str = ""
+
+    try:
+        async with create_task_group() as tg:
+
+            async def _get_metadata() -> None:
+                nonlocal metadata
+                metadata = await _handle_extract_metadata(input_file, mime_type=mime_type, max_processes=max_processes)
+
+            async def _get_content() -> None:
+                nonlocal content
+                content = await _handle_extract_file(input_file, mime_type=mime_type, max_processes=max_processes)
+
+            tg.start_soon(_get_metadata)
+            tg.start_soon(_get_content)
+    except ExceptionGroup as eg:
+        raise ParsingError("Failed to extract file data", context={"file": str(input_file)}) from eg.exceptions[0]
+
+    return ExtractionResult(
+        content=normalize_spaces(content),
+        metadata=metadata,
+        mime_type=MARKDOWN_MIME_TYPE,
     )
 
 
-async def process_content(content: bytes, *, mime_type: str, extra_args: list[str] | None = None) -> PandocResult:
+async def process_content_with_pandoc(
+    content: bytes, *, mime_type: str, max_processes: int = DEFAULT_MAX_PROCESSES
+) -> ExtractionResult:
     """Process content using Pandoc and convert to markdown.
 
     Args:
         content: The content to process.
         mime_type: The mime type of the content.
-        extra_args: Additional Pandoc command line arguments.
+        max_processes: Maximum number of concurrent processes. Defaults to CPU count / 2 (minimum 1).
 
     Returns:
-        PandocResult containing processed content and metadata.
+        ExtractionResult
     """
     extension = MIMETYPE_TO_FILE_EXTENSION_MAPPING.get(mime_type) or "md"
+    input_file, unlink = await create_temp_file(f".{extension}")
 
-    with NamedTemporaryFile(suffix=f".{extension}", delete=False) as input_file:
-        try:
-            await AsyncPath(input_file.name).write_bytes(content)
-            return await process_file(input_file.name, mime_type=mime_type, extra_args=extra_args)
+    await AsyncPath(input_file).write_bytes(content)
+    result = await process_file_with_pandoc(input_file, mime_type=mime_type, max_processes=max_processes)
 
-        finally:
-            input_file.close()
-            await AsyncPath(input_file.name).unlink()
+    await unlink()
+    return result

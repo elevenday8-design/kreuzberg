@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+import sys
 from functools import partial
 from typing import TYPE_CHECKING, TypeVar, cast
 
 from anyio.to_thread import run_sync as any_io_run_sync
-from typing_extensions import ParamSpec
 
 if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Callable
+
+if sys.version_info >= (3, 10):
+    from typing import ParamSpec
+else:  # pragma: no cover
+    from typing_extensions import ParamSpec
 
 T = TypeVar("T")
 P = ParamSpec("P")
