@@ -111,22 +111,47 @@ Kreuzberg provides both async and sync APIs for text extraction, including batch
   - `batch_extract_file_sync()`: Synchronous version of `batch_extract_file()`
   - `batch_extract_bytes_sync()`: Synchronous version of `batch_extract_bytes()`
 
+### Configuration Parameters
+
+All extraction functions accept the following optional parameters for configuring OCR and performance:
+
+#### OCR Configuration
+
+- `language` (default: "eng"): Specifies the language model for Tesseract OCR. This affects text recognition accuracy for non-English documents. Examples:
+  - "eng" for English
+  - "deu" for German
+  - "fra" for French
+
+Consult the [Tesseract documentation](https://tesseract-ocr.github.io/tessdoc/) for more information.
+
+- `psm` (Page Segmentation Mode, default: PSM.AUTO): Controls how Tesseract analyzes page layout. In most cases you do not need to change this to a different value.
+
+#### Performance Configuration
+
+- `max_processes` (default: CPU count / 2): Maximum number of concurrent processes for Tesseract and Pandoc. Higher values can lead to performance improvements, but may cause resource exhaustion and deadlocks (especially for tesseract).
+
 ### Quick Start
 
 ```python
 from pathlib import Path
 from kreuzberg import extract_file
 from kreuzberg.extraction import ExtractionResult
+from kreuzberg._tesseract import PSMMode, SupportedLanguage
 
 
 # Basic file extraction
 async def extract_document():
-    # Extract from a PDF file
+    # Extract from a PDF file with default settings
     pdf_result: ExtractionResult = await extract_file("document.pdf")
     print(f"Content: {pdf_result.content}")
 
-    # Extract from an image
-    img_result = await extract_file("scan.png")
+    # Extract from an image with German language model
+    img_result = await extract_file(
+        "scan.png",
+        language="deu",  # German language model
+        psm=PSMMode.SINGLE_BLOCK,  # Treat as single block of text
+        max_processes=4  # Limit concurrent processes
+    )
     print(f"Image text: {img_result.content}")
 
     # Extract from Word document with metadata
