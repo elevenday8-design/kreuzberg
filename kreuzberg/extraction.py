@@ -38,7 +38,7 @@ from kreuzberg._pdf import (
 )
 from kreuzberg._pptx import extract_pptx_file_content
 from kreuzberg._string import safe_decode
-from kreuzberg._tesseract import PSMMode, SupportedLanguage, process_image_with_tesseract
+from kreuzberg._tesseract import PSMMode, process_image_with_tesseract
 from kreuzberg._xlsx import extract_xlsx_content, extract_xlsx_file
 from kreuzberg.exceptions import ValidationError
 
@@ -52,7 +52,7 @@ async def extract_bytes(
     mime_type: str,
     *,
     force_ocr: bool = False,
-    language: SupportedLanguage = "eng",
+    language: str = "eng",
     max_processes: int = DEFAULT_MAX_PROCESSES,
     psm: PSMMode = PSMMode.AUTO,
 ) -> ExtractionResult:
@@ -114,7 +114,7 @@ async def extract_file(
     mime_type: str | None = None,
     *,
     force_ocr: bool = False,
-    language: SupportedLanguage = "eng",
+    language: str = "eng",
     max_processes: int = DEFAULT_MAX_PROCESSES,
     psm: PSMMode = PSMMode.AUTO,
 ) -> ExtractionResult:
@@ -170,7 +170,7 @@ async def batch_extract_file(
     file_paths: Sequence[PathLike[str] | str],
     *,
     force_ocr: bool = False,
-    language: SupportedLanguage = "eng",
+    language: str = "eng",
     max_processes: int = DEFAULT_MAX_PROCESSES,
     psm: PSMMode = PSMMode.AUTO,
 ) -> list[ExtractionResult]:
@@ -209,7 +209,7 @@ async def batch_extract_bytes(
     contents: Sequence[tuple[bytes, str]],
     *,
     force_ocr: bool = False,
-    language: SupportedLanguage = "eng",
+    language: str = "eng",
     max_processes: int = DEFAULT_MAX_PROCESSES,
     psm: PSMMode = PSMMode.AUTO,
 ) -> list[ExtractionResult]:
@@ -253,7 +253,7 @@ def extract_bytes_sync(
     mime_type: str,
     *,
     force_ocr: bool = False,
-    language: SupportedLanguage = "eng",
+    language: str = "eng",
     max_processes: int = DEFAULT_MAX_PROCESSES,
     psm: PSMMode = PSMMode.AUTO,
 ) -> ExtractionResult:
@@ -281,7 +281,7 @@ def extract_file_sync(
     mime_type: str | None = None,
     *,
     force_ocr: bool = False,
-    language: SupportedLanguage = "eng",
+    language: str = "eng",
     max_processes: int = DEFAULT_MAX_PROCESSES,
     psm: PSMMode = PSMMode.AUTO,
 ) -> ExtractionResult:
@@ -308,7 +308,7 @@ def batch_extract_file_sync(
     file_paths: Sequence[PathLike[str] | str],
     *,
     force_ocr: bool = False,
-    language: SupportedLanguage = "eng",
+    language: str = "eng",
     max_processes: int = DEFAULT_MAX_PROCESSES,
     psm: PSMMode = PSMMode.AUTO,
 ) -> list[ExtractionResult]:
@@ -339,7 +339,7 @@ def batch_extract_bytes_sync(
     contents: Sequence[tuple[bytes, str]],
     *,
     force_ocr: bool = False,
-    language: SupportedLanguage = "eng",
+    language: str = "eng",
     max_processes: int = DEFAULT_MAX_PROCESSES,
     psm: PSMMode = PSMMode.AUTO,
 ) -> list[ExtractionResult]:
