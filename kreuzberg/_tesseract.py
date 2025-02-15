@@ -6,7 +6,7 @@ import sys
 from enum import Enum
 from functools import partial
 from os import PathLike
-from typing import Literal, TypeVar, Union, cast
+from typing import Final, Literal, TypeVar, Union, cast
 
 from anyio import CapacityLimiter, create_task_group, to_process
 from anyio import Path as AsyncPath
@@ -22,6 +22,8 @@ from kreuzberg.exceptions import MissingDependencyError, OCRError
 
 if sys.version_info < (3, 11):  # pragma: no cover
     from exceptiongroup import ExceptionGroup  # type: ignore[import-not-found]
+
+MINIMAL_SUPPORTED_TESSERACT_VERSION: Final[int] = 5
 
 version_ref = {"checked": False}
 
@@ -198,7 +200,7 @@ async def validate_tesseract_version() -> None:
         command = ["tesseract", "--version"]
         result = await run_sync(subprocess.run, command, capture_output=True)
         version_match = re.search(r"tesseract\s+v?(\d+)", result.stdout.decode())
-        if not version_match or int(version_match.group(1)) < 5:
+        if not version_match or int(version_match.group(1)) < MINIMAL_SUPPORTED_TESSERACT_VERSION:
             raise MissingDependencyError("Tesseract version 5 or above is required.")
 
         version_ref["checked"] = True

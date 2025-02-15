@@ -1,6 +1,6 @@
 [project]
 name = "kreuzberg"
-version = "1.7.0"
+version = "2.0.0"
 description = "A text extraction library supporting PDFs, images, office documents and more"
 readme = "README.md"
 keywords = [
@@ -75,32 +75,26 @@ format.docstring-code-line-length = 120
 format.docstring-code-format = true
 lint.select = [ "ALL" ]
 lint.ignore = [
-  "ANN401",   # Dynamically typed ANY
-  "ASYNC110", # Use Event instead of sleep in async loop
-  "C901",     # Cognitive Complexity
-  "COM812",   # Conflicts with formatter
-  "D100",     # Missing docstring in public module
-  "D104",     # Missing docstring in public package
-  "D107",     # Missing docstring in __init__
-  "D205",     # 1 blank line required between summary line and description
-  "E501",     # Line too long, handled by ruff format
-  "EM",       # Exception messages,
-  "FBT",      # Boolean-typed positional argument in function definition
-  "FIX",      # We allow todo and fixme comments
-  "ISC001",   # Conflicts with formatter
-  "PD011",    # Creates false positives
-  "PGH003",   # Required specific mypy ignores
-  "PLR0911",  # Pylint too many return statements
-  "PLR0912",  # Pylint too many branches
-  "PLR0913",  # Pylint too many arguments
-  "PLR2004",  # Magic variables, we allow them
-  "TD",       # We allow todo and fixme comments
-  "TRY",      # Try except block, rules are too strict
+  "ANN401", # Dynamically typed ANY for kwargs
+  "COM812", # Conflicts with formatter
+  "D100",   # Missing docstring in public module
+  "D104",   # Missing docstring in public package
+  "D107",   # Missing docstring in __init__
+  "D205",   # 1 blank line required between summary line and description
+  "E501",   # Line too long, handled by ruff format
+  "EM",     # Exception messages,
+  "FBT",    # Boolean-typed positional argument in function definition
+  "FIX",    # We allow todo and fixme comments
+  "ISC001", # Conflicts with formatter
+  "TD",     # We allow todo and fixme comments
+  "TRY",    # Try except block, rules are too strict
 ]
 lint.per-file-ignores."tests/**/*.*" = [
   "ARG001",
   "D",
   "N815",
+  "PGH003",
+  "PLR2004",
   "PT006",
   "PT007",
   "PT013",
@@ -108,7 +102,12 @@ lint.per-file-ignores."tests/**/*.*" = [
   "S",
 ]
 lint.isort.known-first-party = [ "kreuzberg", "tests" ]
+lint.mccabe.max-complexity = 15
 lint.pydocstyle.convention = "google"
+
+lint.pylint.max-args = 10
+lint.pylint.max-branches = 15
+lint.pylint.max-returns = 10
 
 [tool.pyproject-fmt]
 keep_full_version = true
