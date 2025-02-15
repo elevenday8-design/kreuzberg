@@ -27,7 +27,7 @@ version_ref = {"checked": False}
 
 T = TypeVar("T", bound=Union[Image, PathLike[str], str])
 
-SupportedLanguages = Literal[
+SupportedLanguage = Literal[
     "afr",
     "amh",
     "ara",
@@ -209,7 +209,7 @@ async def validate_tesseract_version() -> None:
 async def process_file(
     input_file: str | PathLike[str],
     *,
-    language: SupportedLanguages,
+    language: SupportedLanguage,
     psm: PSMMode,
     max_processes: int = DEFAULT_MAX_PROCESSES,
 ) -> ExtractionResult:
@@ -261,7 +261,7 @@ async def process_file(
 async def process_image(
     image: Image,
     *,
-    language: SupportedLanguages,
+    language: SupportedLanguage,
     psm: PSMMode,
     max_processes: int = DEFAULT_MAX_PROCESSES,
 ) -> ExtractionResult:
@@ -286,7 +286,7 @@ async def process_image(
 async def process_image_with_tesseract(
     image: Image | PathLike[str] | str,
     *,
-    language: SupportedLanguages = "eng",
+    language: SupportedLanguage = "eng",
     psm: PSMMode = PSMMode.AUTO,
     max_processes: int = DEFAULT_MAX_PROCESSES,
 ) -> ExtractionResult:
@@ -318,7 +318,7 @@ async def process_image_with_tesseract(
 async def batch_process_images(
     images: list[T],
     *,
-    language: SupportedLanguages = "eng",
+    language: SupportedLanguage = "eng",
     psm: PSMMode = PSMMode.AUTO,
     max_processes: int = DEFAULT_MAX_PROCESSES,
 ) -> list[ExtractionResult]:

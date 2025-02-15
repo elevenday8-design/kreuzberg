@@ -92,8 +92,8 @@ lint.ignore = [
   "PGH003",   # Required specific mypy ignores
   "PLR0911",  # Pylint too many return statements
   "PLR0912",  # Pylint too many branches
+  "PLR0913",  # Pylint too many arguments
   "PLR2004",  # Magic variables, we allow them
-  "S104",     # Disallows using '0.0.0.0' as a host
   "TD",       # We allow todo and fixme comments
   "TRY",      # Try except block, rules are too strict
 ]
