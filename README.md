@@ -236,27 +236,27 @@ from kreuzberg import extract_file
 
 
 async def process_pdf():
-    # Default behavior: auto-detect and use OCR if needed
-    # By default, max_tesseract_concurrency=1 for safe operation
-    result = await extract_file("document.pdf")
-    print(result.content)
+  # Default behavior: auto-detect and use OCR if needed
+  # By default, max_processes=1 for safe operation
+  result = await extract_file("document.pdf")
+  print(result.content)
 
-    # Force OCR even for searchable PDFs
-    result = await extract_file("document.pdf", force_ocr=True)
-    print(result.content)
+  # Force OCR even for searchable PDFs
+  result = await extract_file("document.pdf", force_ocr=True)
+  print(result.content)
 
-    # Control OCR concurrency for large documents
-    # Warning: High concurrency values can cause system resource exhaustion
-    # Start with a low value and increase based on your system's capabilities
-    result = await extract_file(
-        "large_document.pdf",
-        max_tesseract_concurrency=4  # Process up to 4 pages concurrently
-    )
-    print(result.content)
+  # Control OCR concurrency for large documents
+  # Warning: High concurrency values can cause system resource exhaustion
+  # Start with a low value and increase based on your system's capabilities
+  result = await extract_file(
+    "large_document.pdf",
+    max_processes=4  # Process up to 4 pages concurrently
+  )
+  print(result.content)
 
-    # Process a scanned PDF (automatically uses OCR)
-    result = await extract_file("scanned.pdf")
-    print(result.content)
+  # Process a scanned PDF (automatically uses OCR)
+  result = await extract_file("scanned.pdf")
+  print(result.content)
 ```
 
 ### ExtractionResult Object

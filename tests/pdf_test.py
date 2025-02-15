@@ -26,14 +26,14 @@ async def test_extract_pdf_searchable_text(searchable_pdf: Path) -> None:
 
 async def test_extract_pdf_text_with_ocr(scanned_pdf: Path) -> None:
     """Test extracting text from a scanned PDF using OCR."""
-    result = await _extract_pdf_text_with_ocr(scanned_pdf, max_tesseract_concurrency=1)
+    result = await _extract_pdf_text_with_ocr(scanned_pdf, max_processes=1)
     assert isinstance(result, ExtractionResult)
     assert result.content.strip()
 
 
 async def test_extract_pdf_file(searchable_pdf: Path) -> None:
     """Test extracting text from a PDF file."""
-    result = await extract_pdf_file(searchable_pdf, force_ocr=False, max_tesseract_concurrency=1)
+    result = await extract_pdf_file(searchable_pdf, force_ocr=False, max_processes=1)
     assert isinstance(result.content, str)
     assert result.content.strip()
     assert result.mime_type == "text/plain"
@@ -41,7 +41,7 @@ async def test_extract_pdf_file(searchable_pdf: Path) -> None:
 
 async def test_extract_pdf_file_non_searchable(non_searchable_pdf: Path) -> None:
     """Test extracting text from a non-searchable PDF file."""
-    result = await extract_pdf_file(non_searchable_pdf, force_ocr=False, max_tesseract_concurrency=1)
+    result = await extract_pdf_file(non_searchable_pdf, force_ocr=False, max_processes=1)
     assert isinstance(result.content, str)
     assert result.content.strip()
     assert result.mime_type == "text/plain"
@@ -50,7 +50,7 @@ async def test_extract_pdf_file_non_searchable(non_searchable_pdf: Path) -> None
 async def test_extract_pdf_file_invalid() -> None:
     """Test that attempting to extract from an invalid PDF raises an error."""
     with pytest.raises(FileNotFoundError):
-        await extract_pdf_file(Path("/invalid/path.pdf"), force_ocr=False, max_tesseract_concurrency=1)
+        await extract_pdf_file(Path("/invalid/path.pdf"), force_ocr=False, max_processes=1)
 
 
 async def test_convert_pdf_to_images_raises_parsing_error(tmp_path: Path) -> None:

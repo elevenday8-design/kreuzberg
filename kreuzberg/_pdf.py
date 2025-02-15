@@ -77,18 +77,18 @@ async def _convert_pdf_to_images(input_file: Path) -> list[Image]:
             await run_sync(document.close)
 
 
-async def _extract_pdf_text_with_ocr(input_file: Path, *, max_tesseract_concurrency: int) -> ExtractionResult:
+async def _extract_pdf_text_with_ocr(input_file: Path, *, max_processes: int) -> ExtractionResult:
     """Extract text from a scanned PDF file using pytesseract.
 
     Args:
         input_file: The path to the PDF file.
-        max_tesseract_concurrency: Maximum number of concurrent Tesseract processes.
+        max_processes: Maximum number of concurrent Tesseract processes.
 
     Returns:
         The extracted text.
     """
     images = await _convert_pdf_to_images(input_file)
-    ocr_results = await batch_process_images(images, max_tesseract_concurrency=max_tesseract_concurrency)
+    ocr_results = await batch_process_images(images, max_processes=max_processes)
     return ExtractionResult(
         content="\n".join([v.content for v in ocr_results]), mime_type=PLAIN_TEXT_MIME_TYPE, metadata={}
     )
@@ -120,13 +120,13 @@ async def _extract_pdf_searchable_text(input_file: Path) -> str:
             await run_sync(document.close)
 
 
-async def extract_pdf_file(input_file: Path, *, force_ocr: bool, max_tesseract_concurrency: int) -> ExtractionResult:
+async def extract_pdf_file(input_file: Path, *, force_ocr: bool, max_processes: int) -> ExtractionResult:
     """Extract text from a PDF file.
 
     Args:
         input_file: The path to the PDF file.
         force_ocr: Whether to force OCR on the PDF file.
-        max_tesseract_concurrency: Maximum number of concurrent Tesseract processes.
+        max_processes: Maximum number of concurrent Tesseract processes.
 
     Returns:
         The extracted text.
@@ -138,16 +138,16 @@ async def extract_pdf_file(input_file: Path, *, force_ocr: bool, max_tesseract_c
     ):
         return ExtractionResult(content=content, mime_type=PLAIN_TEXT_MIME_TYPE, metadata={})
 
-    return await _extract_pdf_text_with_ocr(input_file, max_tesseract_concurrency=max_tesseract_concurrency)
+    return await _extract_pdf_text_with_ocr(input_file, max_processes=max_processes)
 
 
-async def extract_pdf_content(content: bytes, *, force_ocr: bool, max_tesseract_concurrency: int) -> ExtractionResult:
+async def extract_pdf_content(content: bytes, *, force_ocr: bool, max_processes: int) -> ExtractionResult:
     """Extract text from a PDF file content.
 
     Args:
         content: The PDF file content.
         force_ocr: Whether to force OCR on the PDF file.
-        max_tesseract_concurrency: Maximum number of concurrent Tesseract processes.
+        max_processes: Maximum number of concurrent Tesseract processes.
 
     Returns:
         The extracted text.
@@ -156,6 +156,6 @@ async def extract_pdf_content(content: bytes, *, force_ocr: bool, max_tesseract_
 
     file_path, unlink = await create_temp_file(".pdf")
     await AsyncPath(file_path).write_bytes(content)
-    result = await extract_pdf_file(file_path, force_ocr=force_ocr, max_tesseract_concurrency=max_tesseract_concurrency)
+    result = await extract_pdf_file(file_path, force_ocr=force_ocr, max_processes=max_processes)
     await unlink()
     return result

@@ -6,9 +6,10 @@ from functools import partial
 from json import JSONDecodeError, loads
 from typing import TYPE_CHECKING, Any, Final, Literal, cast
 
+from anyio import CapacityLimiter, create_task_group, to_process
 from anyio import Path as AsyncPath
-from anyio import create_task_group, to_process
 
+from kreuzberg._constants import DEFAULT_MAX_PROCESSES
 from kreuzberg._mime_types import MARKDOWN_MIME_TYPE
 from kreuzberg._string import normalize_spaces
 from kreuzberg._sync import run_sync
@@ -261,7 +262,9 @@ async def _validate_pandoc_version() -> None:
         raise MissingDependencyError("Pandoc is not installed.") from e
 
 
-async def _handle_extract_metadata(input_file: str | PathLike[str], *, mime_type: str) -> Metadata:
+async def _handle_extract_metadata(
+    input_file: str | PathLike[str], *, mime_type: str, max_processes: int = DEFAULT_MAX_PROCESSES
+) -> Metadata:
     pandoc_type = _get_pandoc_type_from_mime_type(mime_type)
     metadata_file, unlink = await create_temp_file(".json")
     try:
@@ -280,6 +283,7 @@ async def _handle_extract_metadata(input_file: str | PathLike[str], *, mime_type
             partial(subprocess.run, capture_output=True),
             command,
             cancellable=True,
+            limiter=CapacityLimiter(max_processes),
         )
 
         if result.returncode != 0:
@@ -293,7 +297,9 @@ async def _handle_extract_metadata(input_file: str | PathLike[str], *, mime_type
         await unlink()
 
 
-async def _handle_extract_file(input_file: str | PathLike[str], *, mime_type: str) -> str:
+async def _handle_extract_file(
+    input_file: str | PathLike[str], *, mime_type: str, max_processes: int = DEFAULT_MAX_PROCESSES
+) -> str:
     pandoc_type = _get_pandoc_type_from_mime_type(mime_type)
     output_path, unlink = await create_temp_file(".md")
     try:
@@ -313,6 +319,7 @@ async def _handle_extract_file(input_file: str | PathLike[str], *, mime_type: st
             partial(subprocess.run, capture_output=True),
             command,
             cancellable=True,
+            limiter=CapacityLimiter(max_processes),
         )
 
         if result.returncode != 0:
@@ -327,12 +334,15 @@ async def _handle_extract_file(input_file: str | PathLike[str], *, mime_type: st
         await unlink()
 
 
-async def process_file_with_pandoc(input_file: str | PathLike[str], *, mime_type: str) -> ExtractionResult:
+async def process_file_with_pandoc(
+    input_file: str | PathLike[str], *, mime_type: str, max_processes: int = DEFAULT_MAX_PROCESSES
+) -> ExtractionResult:
     """Process a single file using Pandoc and convert to markdown.
 
     Args:
         input_file: The path to the file to process.
         mime_type: The mime type of the file.
+        max_processes: Maximum number of concurrent processes. Defaults to CPU count / 2 (minimum 1).
 
     Raises:
         ParsingError: If the file data could not be extracted.
@@ -352,11 +362,11 @@ async def process_file_with_pandoc(input_file: str | PathLike[str], *, mime_type
 
             async def _get_metadata() -> None:
                 nonlocal metadata
-                metadata = await _handle_extract_metadata(input_file, mime_type=mime_type)
+                metadata = await _handle_extract_metadata(input_file, mime_type=mime_type, max_processes=max_processes)
 
             async def _get_content() -> None:
                 nonlocal content
-                content = await _handle_extract_file(input_file, mime_type=mime_type)
+                content = await _handle_extract_file(input_file, mime_type=mime_type, max_processes=max_processes)
 
             tg.start_soon(_get_metadata)
             tg.start_soon(_get_content)
@@ -370,12 +380,15 @@ async def process_file_with_pandoc(input_file: str | PathLike[str], *, mime_type
     )
 
 
-async def process_content_with_pandoc(content: bytes, *, mime_type: str) -> ExtractionResult:
+async def process_content_with_pandoc(
+    content: bytes, *, mime_type: str, max_processes: int = DEFAULT_MAX_PROCESSES
+) -> ExtractionResult:
     """Process content using Pandoc and convert to markdown.
 
     Args:
         content: The content to process.
         mime_type: The mime type of the content.
+        max_processes: Maximum number of concurrent processes. Defaults to CPU count / 2 (minimum 1).
 
     Returns:
         ExtractionResult
@@ -384,7 +397,7 @@ async def process_content_with_pandoc(content: bytes, *, mime_type: str) -> Extr
     input_file, unlink = await create_temp_file(f".{extension}")
 
     await AsyncPath(input_file).write_bytes(content)
-    result = await process_file_with_pandoc(input_file, mime_type=mime_type)
+    result = await process_file_with_pandoc(input_file, mime_type=mime_type, max_processes=max_processes)
 
     await unlink()
     return result

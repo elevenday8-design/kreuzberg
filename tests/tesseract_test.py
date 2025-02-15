@@ -150,7 +150,7 @@ async def test_process_image_with_tesseract_invalid_input() -> None:
 
 async def test_batch_process_images_pillow(mock_subprocess_run: Mock) -> None:
     images = [Image.new("RGB", (100, 100)) for _ in range(3)]
-    results = await batch_process_images(images, language="eng", psm=PSMMode.AUTO, max_tesseract_concurrency=1)
+    results = await batch_process_images(images, language="eng", psm=PSMMode.AUTO, max_processes=1)
     assert isinstance(results, list)
     assert all(isinstance(result, ExtractionResult) for result in results)
     assert all(result.content.strip() == "Sample OCR text" for result in results)
@@ -158,7 +158,7 @@ async def test_batch_process_images_pillow(mock_subprocess_run: Mock) -> None:
 
 async def test_batch_process_images_paths(mock_subprocess_run: Mock, ocr_image: Path) -> None:
     images = [str(ocr_image)] * 3
-    results = await batch_process_images(images, language="eng", psm=PSMMode.AUTO, max_tesseract_concurrency=1)
+    results = await batch_process_images(images, language="eng", psm=PSMMode.AUTO, max_processes=1)
     assert isinstance(results, list)
     assert all(isinstance(result, ExtractionResult) for result in results)
     assert all(result.content.strip() == "Sample OCR text" for result in results)
@@ -170,7 +170,7 @@ async def test_batch_process_images_mixed(mock_subprocess_run: Mock, ocr_image: 
         str(ocr_image),
         str(ocr_image),
     ]
-    results = await batch_process_images(images, language="eng", psm=PSMMode.AUTO, max_tesseract_concurrency=1)
+    results = await batch_process_images(images, language="eng", psm=PSMMode.AUTO, max_processes=1)
     assert isinstance(results, list)
     assert all(isinstance(result, ExtractionResult) for result in results)
     assert all(result.content.strip() == "Sample OCR text" for result in results)
@@ -218,7 +218,7 @@ async def test_integration_batch_process_images_pillow(ocr_image: Path) -> None:
     image = Image.open(ocr_image)
     with image:
         images = [image.copy() for _ in range(3)]
-        results = await batch_process_images(images, language="eng", psm=PSMMode.AUTO, max_tesseract_concurrency=1)
+        results = await batch_process_images(images, language="eng", psm=PSMMode.AUTO, max_processes=1)
         assert isinstance(results, list)
         assert len(results) == 3
         assert all(isinstance(result, ExtractionResult) for result in results)
@@ -227,7 +227,7 @@ async def test_integration_batch_process_images_pillow(ocr_image: Path) -> None:
 
 async def test_integration_batch_process_images_paths(ocr_image: Path) -> None:
     images = [str(ocr_image)] * 3
-    results = await batch_process_images(images, language="eng", psm=PSMMode.AUTO, max_tesseract_concurrency=1)
+    results = await batch_process_images(images, language="eng", psm=PSMMode.AUTO, max_processes=1)
     assert isinstance(results, list)
     assert len(results) == 3
     assert all(isinstance(result, ExtractionResult) for result in results)
@@ -238,7 +238,7 @@ async def test_integration_batch_process_images_mixed(ocr_image: Path) -> None:
     image = Image.open(ocr_image)
     with image:
         images: list[Image.Image | PathLike[str] | str] = [image.copy(), ocr_image, str(ocr_image)]
-        results = await batch_process_images(images, language="eng", psm=PSMMode.AUTO, max_tesseract_concurrency=1)
+        results = await batch_process_images(images, language="eng", psm=PSMMode.AUTO, max_processes=1)
         assert isinstance(results, list)
         assert len(results) == 3
         assert all(isinstance(result, ExtractionResult) for result in results)
@@ -258,4 +258,4 @@ async def test_batch_process_images_exception_group(mock_subprocess_run: Mock) -
     image = Image.new("RGB", (100, 100))
 
     with pytest.raises(ParsingError, match="Failed to process images with Tesseract"):
-        await batch_process_images([image], language="eng", psm=PSMMode.AUTO, max_tesseract_concurrency=1)
+        await batch_process_images([image], language="eng", psm=PSMMode.AUTO, max_processes=1)

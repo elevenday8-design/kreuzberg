@@ -5,15 +5,15 @@ import subprocess
 import sys
 from enum import Enum
 from functools import partial
-from multiprocessing import cpu_count
 from os import PathLike
-from typing import Final, Literal, TypeVar, Union, cast
+from typing import Literal, TypeVar, Union, cast
 
 from anyio import CapacityLimiter, create_task_group, to_process
 from anyio import Path as AsyncPath
 from PIL.Image import Image
 
 from kreuzberg import ExtractionResult, ParsingError
+from kreuzberg._constants import DEFAULT_MAX_PROCESSES
 from kreuzberg._mime_types import PLAIN_TEXT_MIME_TYPE
 from kreuzberg._string import normalize_spaces
 from kreuzberg._sync import run_sync
@@ -22,8 +22,6 @@ from kreuzberg.exceptions import MissingDependencyError, OCRError
 
 if sys.version_info < (3, 11):  # pragma: no cover
     from exceptiongroup import ExceptionGroup  # type: ignore[import-not-found]
-
-DEFAULT_MAX_TESSERACT_CONCURRENCY: Final[int] = max(cpu_count() // 2, 1)
 
 version_ref = {"checked": False}
 
@@ -213,7 +211,7 @@ async def process_file(
     *,
     language: SupportedLanguages,
     psm: PSMMode,
-    max_tesseract_concurrency: int = DEFAULT_MAX_TESSERACT_CONCURRENCY,
+    max_processes: int = DEFAULT_MAX_PROCESSES,
 ) -> ExtractionResult:
     """Process a single image file using Tesseract OCR.
 
@@ -221,7 +219,7 @@ async def process_file(
         input_file: The path to the image file to process.
         language: The language code for OCR.
         psm: Page segmentation mode.
-        max_tesseract_concurrency: Maximum number of concurrent Tesseract processes.
+        max_processes: Maximum number of concurrent processes. Defaults to CPU count / 2 (minimum 1).
 
     Raises:
         OCRError: If OCR fails to extract text from the image.
@@ -245,7 +243,7 @@ async def process_file(
         result = await to_process.run_sync(
             partial(subprocess.run, capture_output=True),
             command,
-            limiter=CapacityLimiter(max_tesseract_concurrency),
+            limiter=CapacityLimiter(max_processes),
             cancellable=True,
         )
 
@@ -265,7 +263,7 @@ async def process_image(
     *,
     language: SupportedLanguages,
     psm: PSMMode,
-    max_tesseract_concurrency: int = DEFAULT_MAX_TESSERACT_CONCURRENCY,
+    max_processes: int = DEFAULT_MAX_PROCESSES,
 ) -> ExtractionResult:
     """Process a single Pillow Image using Tesseract OCR.
 
@@ -273,16 +271,14 @@ async def process_image(
         image: The Pillow Image to process.
         language: The language code for OCR.
         psm: Page segmentation mode.
-        max_tesseract_concurrency: Maximum number of concurrent Tesseract processes.
+        max_processes: Maximum number of concurrent processes. Defaults to CPU count / 2 (minimum 1).
 
     Returns:
         ExtractionResult: The extracted text from the image.
     """
     image_path, unlink = await create_temp_file(".png")
     await run_sync(image.save, str(image_path), format="PNG")
-    result = await process_file(
-        image_path, language=language, psm=psm, max_tesseract_concurrency=max_tesseract_concurrency
-    )
+    result = await process_file(image_path, language=language, psm=psm, max_processes=max_processes)
     await unlink()
     return result
 
@@ -292,7 +288,7 @@ async def process_image_with_tesseract(
     *,
     language: SupportedLanguages = "eng",
     psm: PSMMode = PSMMode.AUTO,
-    max_tesseract_concurrency: int = DEFAULT_MAX_TESSERACT_CONCURRENCY,
+    max_processes: int = DEFAULT_MAX_PROCESSES,
 ) -> ExtractionResult:
     """Run Tesseract OCR asynchronously on a single Pillow Image or a list of Pillow Images.
 
@@ -300,7 +296,7 @@ async def process_image_with_tesseract(
         image: A single Pillow Image, a pathlike or a string or a list of Pillow Images to process.
         language: The language code for OCR (default: "eng").
         psm: Page segmentation mode (default: PSMMode.AUTO).
-        max_tesseract_concurrency: Maximum number of concurrent Tesseract processes.
+        max_processes: Maximum number of concurrent processes. Defaults to CPU count / 2 (minimum 1).
 
     Raises:
         ValueError: If the input is not a Pillow Image or a list of Pillow Images.
@@ -311,14 +307,10 @@ async def process_image_with_tesseract(
     await validate_tesseract_version()
 
     if isinstance(image, Image):
-        return await process_image(
-            image, language=language, psm=psm, max_tesseract_concurrency=max_tesseract_concurrency
-        )
+        return await process_image(image, language=language, psm=psm, max_processes=max_processes)
 
     if isinstance(image, (PathLike, str)):
-        return await process_file(
-            image, language=language, psm=psm, max_tesseract_concurrency=max_tesseract_concurrency
-        )
+        return await process_file(image, language=language, psm=psm, max_processes=max_processes)
 
     raise ValueError("Input must be one of: str, Pathlike or Pillow Image.")
 
@@ -328,7 +320,7 @@ async def batch_process_images(
     *,
     language: SupportedLanguages = "eng",
     psm: PSMMode = PSMMode.AUTO,
-    max_tesseract_concurrency: int = DEFAULT_MAX_TESSERACT_CONCURRENCY,
+    max_processes: int = DEFAULT_MAX_PROCESSES,
 ) -> list[ExtractionResult]:
     """Run Tesseract OCR asynchronously on multiple images with controlled concurrency.
 
@@ -336,7 +328,7 @@ async def batch_process_images(
         images: A list of Pillow Images, paths or strings to process.
         language: The language code for OCR (default: "eng").
         psm: Page segmentation mode (default: PSMMode.AUTO).
-        max_tesseract_concurrency: Maximum number of concurrent Tesseract processes.
+        max_processes: Maximum number of concurrent processes. Defaults to CPU count / 2 (minimum 1).
 
     Raises:
         ParsingError: If OCR fails to extract text from any of the images.
@@ -349,7 +341,7 @@ async def batch_process_images(
 
     async def _process_image(index: int, image: T) -> None:
         results[index] = await process_image_with_tesseract(
-            image, language=language, psm=psm, max_tesseract_concurrency=max_tesseract_concurrency
+            image, language=language, psm=psm, max_processes=max_processes
         )
 
     try:
