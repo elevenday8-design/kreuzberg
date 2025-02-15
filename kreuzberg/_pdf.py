@@ -11,7 +11,7 @@ from kreuzberg import ExtractionResult
 from kreuzberg._mime_types import PLAIN_TEXT_MIME_TYPE
 from kreuzberg._string import normalize_spaces
 from kreuzberg._sync import run_sync
-from kreuzberg._tesseract import PSMMode, SupportedLanguage, batch_process_images
+from kreuzberg._tesseract import PSMMode, batch_process_images
 from kreuzberg.exceptions import ParsingError
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -80,7 +80,7 @@ async def _convert_pdf_to_images(input_file: Path) -> list[Image]:
 async def _extract_pdf_text_with_ocr(
     input_file: Path,
     *,
-    language: SupportedLanguage = "eng",
+    language: str = "eng",
     max_processes: int,
     psm: PSMMode = PSMMode.AUTO,
 ) -> ExtractionResult:
@@ -132,7 +132,7 @@ async def extract_pdf_file(
     input_file: Path,
     *,
     force_ocr: bool,
-    language: SupportedLanguage = "eng",
+    language: str = "eng",
     max_processes: int,
     psm: PSMMode = PSMMode.AUTO,
 ) -> ExtractionResult:
@@ -162,7 +162,7 @@ async def extract_pdf_content(
     content: bytes,
     *,
     force_ocr: bool,
-    language: SupportedLanguage = "eng",
+    language: str = "eng",
     max_processes: int,
     psm: PSMMode = PSMMode.AUTO,
 ) -> ExtractionResult:
