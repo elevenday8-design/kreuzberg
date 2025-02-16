@@ -5,15 +5,18 @@ import subprocess
 import sys
 from enum import Enum
 from functools import partial
+from io import BytesIO
 from os import PathLike
 from typing import Final, TypeVar, Union, cast
 
 from anyio import CapacityLimiter, create_task_group, to_process
 from anyio import Path as AsyncPath
 from PIL.Image import Image
+from PIL.Image import open as open_image
 
 from kreuzberg._constants import DEFAULT_MAX_PROCESSES
 from kreuzberg._mime_types import PLAIN_TEXT_MIME_TYPE
+from kreuzberg._ocr_pre_processing import preprocess_image
 from kreuzberg._string import normalize_spaces
 from kreuzberg._sync import run_sync
 from kreuzberg._tmp import create_temp_file
@@ -120,7 +123,10 @@ async def process_file(
         )
 
         if not result.returncode == 0:
-            raise OCRError("OCR failed with a non-0 return code.")
+            raise OCRError(
+                "OCR failed with a non-0 return code.",
+                context={"error": result.stderr.decode() if isinstance(result.stderr, bytes) else result.stderr},
+            )
 
         output = await AsyncPath(output_path).read_text("utf-8")
         return ExtractionResult(content=normalize_spaces(output), mime_type=PLAIN_TEXT_MIME_TYPE, metadata={})
@@ -148,8 +154,9 @@ async def process_image(
     Returns:
         ExtractionResult: The extracted text from the image.
     """
-    image_path, unlink = await create_temp_file(f".{image.format.lower() if image.format else 'png'}")
-    await run_sync(image.save, str(image_path))
+    binary_image = preprocess_image(image)
+    image_path, unlink = await create_temp_file(".png")
+    await run_sync(binary_image.save, str(image_path), format="PNG")
     result = await process_file(image_path, language=language, psm=psm, max_processes=max_processes)
     await unlink()
     return result
@@ -182,7 +189,9 @@ async def process_image_with_tesseract(
         return await process_image(image, language=language, psm=psm, max_processes=max_processes)
 
     if isinstance(image, (PathLike, str)):
-        return await process_file(image, language=language, psm=psm, max_processes=max_processes)
+        contents = BytesIO(await AsyncPath(image).read_bytes())
+        image = await run_sync(open_image, contents)
+        return await process_image(image, language=language, psm=psm, max_processes=max_processes)
 
     raise ValueError("Input must be one of: str, Pathlike or Pillow Image.")
 
