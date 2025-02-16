@@ -12,6 +12,7 @@ from kreuzberg._xlsx import extract_xlsx_file
 from kreuzberg.exceptions import ParsingError
 
 
+@pytest.mark.anyio
 async def test_extract_xlsx_file(excel_document: Path) -> None:
     """Test extracting text from an Excel file."""
     result = await extract_xlsx_file(excel_document)
@@ -20,6 +21,7 @@ async def test_extract_xlsx_file(excel_document: Path) -> None:
     assert result.mime_type == "text/markdown"
 
 
+@pytest.mark.anyio
 async def test_extract_xlsx_file_invalid() -> None:
     """Test that attempting to extract from an invalid Excel file raises an error."""
     with pytest.raises(ParsingError) as exc_info:
@@ -28,6 +30,7 @@ async def test_extract_xlsx_file_invalid() -> None:
     assert "Could not extract text from XLSX" in str(exc_info.value)
 
 
+@pytest.mark.anyio
 async def test_extract_xlsx_multi_sheet_file(excel_multi_sheet_document: Path) -> None:
     """Test extracting text from an Excel file with multiple sheets."""
     result = await extract_xlsx_file(excel_multi_sheet_document)

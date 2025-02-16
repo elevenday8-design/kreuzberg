@@ -94,21 +94,25 @@ def reset_version_ref(mocker: MockerFixture) -> None:
     mocker.patch("kreuzberg._pandoc.version_ref", {"checked": False})
 
 
+@pytest.mark.anyio
 async def test_validate_pandoc_version(mock_subprocess_run: Mock) -> None:
     await _validate_pandoc_version()
     mock_subprocess_run.assert_called_with(["pandoc", "--version"], capture_output=True)
 
 
+@pytest.mark.anyio
 async def test_validate_pandoc_version_invalid(mock_subprocess_run_invalid: Mock) -> None:
     with pytest.raises(MissingDependencyError, match="Pandoc version 3 or above is required"):
         await _validate_pandoc_version()
 
 
+@pytest.mark.anyio
 async def test_validate_pandoc_version_missing(mock_subprocess_run_error: Mock) -> None:
     with pytest.raises(MissingDependencyError, match="Pandoc is not installed"):
         await _validate_pandoc_version()
 
 
+@pytest.mark.anyio
 async def test_get_pandoc_type_from_mime_type_valid() -> None:
     for mime_type in MIMETYPE_TO_PANDOC_TYPE_MAPPING:
         extension = _get_pandoc_type_from_mime_type(mime_type)
@@ -116,11 +120,13 @@ async def test_get_pandoc_type_from_mime_type_valid() -> None:
         assert extension
 
 
+@pytest.mark.anyio
 async def test_get_pandoc_type_from_mime_type_invalid() -> None:
     with pytest.raises(ValidationError, match="Unsupported mime type"):
         _get_pandoc_type_from_mime_type("invalid/mime-type")
 
 
+@pytest.mark.anyio
 async def test_process_file_success(mock_subprocess_run: Mock, docx_document: Path) -> None:
     result = await process_file_with_pandoc(
         docx_document, mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -129,6 +135,7 @@ async def test_process_file_success(mock_subprocess_run: Mock, docx_document: Pa
     assert result.content.strip() == "Sample processed content"
 
 
+@pytest.mark.anyio
 async def test_process_file_error(mock_subprocess_run: Mock, docx_document: Path) -> None:
     def side_effect(*args: list[Any], **_: Any) -> Mock:
         if args[0][0] == "pandoc" and "--version" in args[0]:
@@ -145,6 +152,7 @@ async def test_process_file_error(mock_subprocess_run: Mock, docx_document: Path
         )
 
 
+@pytest.mark.anyio
 async def test_process_content_success(mock_subprocess_run: Mock) -> None:
     result = await process_content_with_pandoc(
         b"test content", mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -153,6 +161,7 @@ async def test_process_content_success(mock_subprocess_run: Mock) -> None:
     assert result.content.strip() == "Sample processed content"
 
 
+@pytest.mark.anyio
 async def test_extract_metadata_error(mock_subprocess_run: Mock, docx_document: Path) -> None:
     def side_effect(*args: list[Any], **_: Any) -> Mock:
         if args[0][0] == "pandoc" and "--version" in args[0]:
@@ -169,6 +178,7 @@ async def test_extract_metadata_error(mock_subprocess_run: Mock, docx_document: 
         )
 
 
+@pytest.mark.anyio
 async def test_extract_metadata_runtime_error(mock_subprocess_run: Mock, docx_document: Path) -> None:
     mock_subprocess_run.side_effect = RuntimeError("Command failed")
 
@@ -178,10 +188,12 @@ async def test_extract_metadata_runtime_error(mock_subprocess_run: Mock, docx_do
         )
 
 
+@pytest.mark.anyio
 async def test_integration_validate_pandoc_version() -> None:
     await _validate_pandoc_version()
 
 
+@pytest.mark.anyio
 async def test_integration_process_file(markdown_document: Path) -> None:
     result = await process_file_with_pandoc(markdown_document, mime_type="text/x-markdown")
     assert isinstance(result, ExtractionResult)
@@ -189,6 +201,7 @@ async def test_integration_process_file(markdown_document: Path) -> None:
     assert result.content.strip()
 
 
+@pytest.mark.anyio
 async def test_integration_process_content() -> None:
     content = b"# Test\nThis is a test file."
     result = await process_content_with_pandoc(content, mime_type="text/x-markdown")
@@ -197,11 +210,13 @@ async def test_integration_process_content() -> None:
     assert result.content.strip()
 
 
+@pytest.mark.anyio
 async def test_integration_extract_metadata(markdown_document: Path) -> None:
     result = await _handle_extract_metadata(markdown_document, mime_type="text/x-markdown")
     assert isinstance(result, dict)
 
 
+@pytest.mark.anyio
 async def test_process_file_runtime_error(mock_subprocess_run: Mock, docx_document: Path) -> None:
     def side_effect(*args: list[Any], **_: Any) -> Mock:
         if args[0][0] == "pandoc" and "--version" in args[0]:
@@ -216,6 +231,7 @@ async def test_process_file_runtime_error(mock_subprocess_run: Mock, docx_docume
         )
 
 
+@pytest.mark.anyio
 async def test_process_content_empty_result(mock_subprocess_run: Mock) -> None:
     def side_effect(*args: list[Any], **_: Any) -> Mock:
         if args[0][0] == "pandoc" and "--version" in args[0]:
@@ -240,16 +256,19 @@ async def test_process_content_empty_result(mock_subprocess_run: Mock) -> None:
     assert result.metadata == {}
 
 
+@pytest.mark.anyio
 async def test_process_file_invalid_mime_type(mock_subprocess_run: Mock, docx_document: Path) -> None:
     with pytest.raises(ValidationError, match="Unsupported mime type"):
         await process_file_with_pandoc(docx_document, mime_type="invalid/mime-type")
 
 
+@pytest.mark.anyio
 async def test_process_content_invalid_mime_type(mock_subprocess_run: Mock) -> None:
     with pytest.raises(ValidationError, match="Unsupported mime type"):
         await process_content_with_pandoc(b"content", mime_type="invalid/mime-type")
 
 
+@pytest.mark.anyio
 async def test_handle_extract_metadata_os_error(
     mock_subprocess_run: Mock, mocker: MockerFixture, docx_document: Path
 ) -> None:
@@ -265,6 +284,7 @@ async def test_handle_extract_metadata_os_error(
     assert "Failed to extract file data" in str(exc_info.value)
 
 
+@pytest.mark.anyio
 async def test_handle_extract_file_os_error(
     mock_subprocess_run: Mock, mocker: MockerFixture, docx_document: Path
 ) -> None:
