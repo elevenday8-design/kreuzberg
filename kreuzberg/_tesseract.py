@@ -150,7 +150,6 @@ async def process_image(
     """
     image_path, unlink = await create_temp_file(f".{image.format.lower() if image.format else 'png'}")
     await run_sync(image.save, str(image_path))
-    print(f"created image file: {image_path}")
     result = await process_file(image_path, language=language, psm=psm, max_processes=max_processes)
     await unlink()
     return result
@@ -213,14 +212,11 @@ async def batch_process_images(
     results = cast(list[ExtractionResult], list(range(len(images))))
 
     async def _process_image(index: int, image: T) -> None:
-        print(f"processing image {index}")
         results[index] = await process_image_with_tesseract(
             image, language=language, psm=psm, max_processes=max_processes
         )
-        print(f"processed image {index}")
 
     try:
-        print("processing images")
         async with create_task_group() as tg:
             for i, image in enumerate(images):
                 tg.start_soon(_process_image, i, image)
