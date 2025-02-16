@@ -11,12 +11,12 @@ from typing import Final, TypeVar, Union, cast
 
 from anyio import CapacityLimiter, create_task_group, to_process
 from anyio import Path as AsyncPath
-from PIL.Image import Image
+from PIL import ImageOps
+from PIL.Image import Image, Resampling
 from PIL.Image import open as open_image
 
 from kreuzberg._constants import DEFAULT_MAX_PROCESSES
 from kreuzberg._mime_types import PLAIN_TEXT_MIME_TYPE
-from kreuzberg._ocr_pre_processing import preprocess_image
 from kreuzberg._string import normalize_spaces
 from kreuzberg._sync import run_sync
 from kreuzberg._tmp import create_temp_file
@@ -27,6 +27,12 @@ if sys.version_info < (3, 11):  # pragma: no cover
     from exceptiongroup import ExceptionGroup  # type: ignore[import-not-found]
 
 MINIMAL_SUPPORTED_TESSERACT_VERSION: Final[int] = 5
+
+
+DEFAULT_DPI: Final[int] = 72
+TARGET_DPI: Final[int] = 300
+BINARIZATION_THRESHOLD: Final[int] = 0
+BINARIZATION_MAX_VALUE: Final[int] = 255
 
 version_ref = {"checked": False}
 
@@ -58,6 +64,33 @@ class PSMMode(Enum):
     """Treat the image as a single word in a circle."""
     SINGLE_CHAR = 10
     """Treat the image as a single character."""
+
+
+def resize_for_ocr(image: Image) -> Image:
+    """Resize the image to ensure sufficient DPI for OCR.
+
+    Args:
+        image: Input Pillow image.
+
+    Returns:
+        The resized image.
+    """
+    width, height = image.size
+    scale_factor = TARGET_DPI / DEFAULT_DPI
+    new_size = (int(width * scale_factor), int(height * scale_factor))
+    return image.resize(new_size, Resampling.LANCZOS)
+
+
+def preprocess_image(image: Image) -> Image:
+    """Preprocess the input image for OCR.
+
+    Args:
+        image: Input Pillow image.
+
+    Returns:
+        The preprocessed version of the input image.
+    """
+    return resize_for_ocr(ImageOps.grayscale(image))
 
 
 async def validate_tesseract_version() -> None:
