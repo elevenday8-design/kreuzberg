@@ -12,13 +12,13 @@ from anyio import CapacityLimiter, create_task_group, to_process
 from anyio import Path as AsyncPath
 from PIL.Image import Image
 
-from kreuzberg import ExtractionResult, ParsingError
 from kreuzberg._constants import DEFAULT_MAX_PROCESSES
 from kreuzberg._mime_types import PLAIN_TEXT_MIME_TYPE
 from kreuzberg._string import normalize_spaces
 from kreuzberg._sync import run_sync
 from kreuzberg._tmp import create_temp_file
-from kreuzberg.exceptions import MissingDependencyError, OCRError
+from kreuzberg._types import ExtractionResult
+from kreuzberg.exceptions import MissingDependencyError, OCRError, ParsingError
 
 if sys.version_info < (3, 11):  # pragma: no cover
     from exceptiongroup import ExceptionGroup  # type: ignore[import-not-found]
