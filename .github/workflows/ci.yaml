@@ -54,10 +54,8 @@ jobs:
   test:
     strategy:
       matrix:
-        os: [ ubuntu-latest ]
-        python: [ 3.9 ]
-        #os: [ ubuntu-latest, macOS-latest, windows-latest ]
-        #python: [ 3.9, 3.10, 3.11, 3.12, 3.13 ]
+        os: [ ubuntu-latest, macOS-latest, windows-latest ]
+        python: [ 3.9, 3.10, 3.11, 3.12, 3.13 ]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 5
     steps:
@@ -122,5 +120,4 @@ jobs:
           pandoc --version
 
       - name: Run Tests
-        run: uv run pytest tests/extraction_test.py::test_extract_bytes_pdf -vvv -s
-        #run: uv run pytest tests -vvv -n auto --dist=loadfile
+        run: uv run pytest tests -v -n auto --dist=loadfile
