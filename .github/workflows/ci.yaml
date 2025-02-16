@@ -120,4 +120,4 @@ jobs:
           pandoc --version
 
       - name: Run Tests
-        run: uv run pytest tests -v -n auto --dist=loadfile
+        run: uv run pytest tests -v -n auto --dist=loadfile --timeout 30
