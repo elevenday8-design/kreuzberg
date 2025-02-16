@@ -30,4 +30,4 @@ async def run_sync(sync_fn: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -
         The result of the synchronous function.
     """
     handler = partial(sync_fn, **kwargs)
-    return cast(T, await any_io_run_sync(handler, *args))  # pyright: ignore [reportCallIssue]
+    return cast(T, await any_io_run_sync(handler, *args, cancellable=True))  # pyright: ignore [reportCallIssue]

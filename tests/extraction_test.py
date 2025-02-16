@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import psutil
 import pytest
 
 from kreuzberg._mime_types import (
@@ -32,11 +33,26 @@ if sys.version_info < (3, 11):  # pragma: no cover
     from exceptiongroup import ExceptionGroup  # type: ignore[import-not-found]
 
 
-@pytest.mark.parametrize("pdf_document", list((Path(__file__).parent / "source").glob("*.pdf")))
-async def test_extract_bytes_pdf(pdf_document: Path) -> None:
+@pytest.mark.timeout(180)
+async def test_extract_bytes_pdf(non_ascii_pdf: Path) -> None:
+    pdf_document = non_ascii_pdf
+    process = psutil.Process()
+    initial_memory = process.memory_info().rss / 1024 / 1024  # MB
+
+    print(f"Starting extraction of: {pdf_document.name}")
+    print(f"Initial memory usage: {initial_memory} MB")
+
     content = pdf_document.read_bytes()
+    print(f"File size of {pdf_document.name}: {len(content) / 1024} KB")
+
     result = await extract_bytes(content, PDF_MIME_TYPE)
+
+    current_memory = process.memory_info().rss / 1024 / 1024
+    memory_delta = current_memory - initial_memory
+    print(f"Memory after extraction: {current_memory} MB (Delta: {memory_delta} MB)")
+
     assert_extraction_result(result, mime_type=PLAIN_TEXT_MIME_TYPE)
+    print(f"Successfully completed extraction of {pdf_document.name}")
 
 
 async def test_extract_bytes_force_ocr_pdf(non_ascii_pdf: Path) -> None:

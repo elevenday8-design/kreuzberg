@@ -95,7 +95,9 @@ async def _extract_pdf_text_with_ocr(
     Returns:
         The extracted text.
     """
+    print("converting to images")
     images = await _convert_pdf_to_images(input_file)
+    print(f"images: {len(images)}")
     ocr_results = await batch_process_images(images, max_processes=max_processes, psm=psm, language=language)
     return ExtractionResult(
         content="\n".join([v.content for v in ocr_results]), mime_type=PLAIN_TEXT_MIME_TYPE, metadata={}
@@ -148,13 +150,15 @@ async def extract_pdf_file(
     Returns:
         The extracted text.
     """
+    print(f"extract_pdf_file. force_ocr: {force_ocr}")
     if (
         not force_ocr
         and (content := await _extract_pdf_searchable_text(input_file))
         and _validate_extracted_text(content)
     ):
+        print(f"extracted using pypdfium. content: {content}")
         return ExtractionResult(content=content, mime_type=PLAIN_TEXT_MIME_TYPE, metadata={})
-
+    print("extracting using ocr")
     return await _extract_pdf_text_with_ocr(input_file, max_processes=max_processes, language=language, psm=psm)
 
 

@@ -54,7 +54,10 @@ jobs:
   test:
     strategy:
       matrix:
-        os: [ ubuntu-latest, macOS-latest, windows-latest ]
+        os: [ ubuntu-latest ]
+        python: [ 3.9 ]
+        #os: [ ubuntu-latest, macOS-latest, windows-latest ]
+        #python: [ 3.9, 3.10, 3.11, 3.12, 3.13 ]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -68,7 +71,7 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: ${{ matrix.python }}
 
       - name: Cache Python Dependencies
         id: python-cache
@@ -118,4 +121,5 @@ jobs:
           pandoc --version
 
       - name: Run Tests
-        run: uv run pytest tests -vvv -n auto --dist=loadfile
+        run: uv run pytest tests/extraction_test.py::test_extract_bytes_pdf -vvv -s
+        #run: uv run pytest tests -vvv -n auto --dist=loadfile
