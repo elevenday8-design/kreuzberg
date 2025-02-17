@@ -26,8 +26,8 @@ pip install kreuzberg
 
 Kreuzberg requires two system level dependencies:
 
-- [Pandoc](https://pandoc.org/installing.html) - For document format conversion
-- [Tesseract OCR](https://tesseract-ocr.github.io/) - For image and PDF OCR
+- [Pandoc](https://pandoc.org/installing.html) - For document format conversion. Minimum required version is Pandoc 2.
+- [Tesseract OCR](https://tesseract-ocr.github.io/) - For image and PDF OCR. Minimum required version is Tesseract 4.
 
 You can install these with:
 
@@ -40,7 +40,7 @@ sudo apt-get install pandoc tesseract-ocr
 #### MacOS
 
 ```shell
-# MacOS
+#
 brew install tesseract pandoc
 ```
 
@@ -54,6 +54,7 @@ Notes:
 
 - in most distributions the tesseract-ocr package is split into multiple packages, you may need to install any language models you need aside from English separately.
 - please consult the official documentation for these libraries for the most up-to-date installation instructions for your platform.
+- th
 
 ## Architecture
 

@@ -67,7 +67,7 @@ async def _convert_pdf_to_images(input_file: Path) -> list[Image]:
     document: pypdfium2.PdfDocument | None = None
     try:
         document = await run_sync(pypdfium2.PdfDocument, str(input_file))
-        return [page.render(scale=2.0).to_pil() for page in cast(pypdfium2.PdfDocument, document)]
+        return [page.render(scale=4.25).to_pil() for page in cast(pypdfium2.PdfDocument, document)]
     except pypdfium2.PdfiumError as e:
         raise ParsingError(
             "Could not convert PDF to images", context={"file_path": str(input_file), "error": str(e)}

@@ -38,7 +38,7 @@ async def extract_xlsx_file(input_file: Path) -> ExtractionResult:
 
         async def convert_sheet_to_text(sheet_name: str) -> None:
             nonlocal results
-            values = await run_sync(workbook.get_sheet_by_name(sheet_name).to_python)
+            values = workbook.get_sheet_by_name(sheet_name).to_python()
 
             csv_buffer = StringIO()
             writer = csv.writer(csv_buffer)
@@ -49,11 +49,11 @@ async def extract_xlsx_file(input_file: Path) -> ExtractionResult:
             csv_data = csv_buffer.getvalue()
             csv_buffer.close()
 
-            from kreuzberg._tmp import create_temp_file
-
             csv_path, unlink = await create_temp_file(".csv")
             await AsyncPath(csv_path).write_text(csv_data)
+
             result = await process_file_with_pandoc(csv_path, mime_type="text/csv")
+
             results[workbook.sheet_names.index(sheet_name)] = f"## {sheet_name}\n\n{normalize_spaces(result.content)}"
             await unlink()
 
@@ -66,13 +66,11 @@ async def extract_xlsx_file(input_file: Path) -> ExtractionResult:
             mime_type=MARKDOWN_MIME_TYPE,
             metadata={},
         )
-    except Exception as e:
+    except ExceptionGroup as eg:
         raise ParsingError(
-            "Could not extract text from XLSX",
-            context={
-                "error": str(e),
-            },
-        ) from e
+            "Failed to extract file data",
+            context={"file": str(input_file), "errors": ",".join([str(e) for e in eg.exceptions])},
+        ) from eg.exceptions[0]
 
 
 async def extract_xlsx_content(content: bytes) -> ExtractionResult:

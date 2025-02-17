@@ -6,13 +6,12 @@ from functools import partial
 from json import JSONDecodeError, loads
 from typing import TYPE_CHECKING, Any, Final, Literal, cast
 
-from anyio import CapacityLimiter, create_task_group, to_process
+from anyio import CapacityLimiter, create_task_group, run_process, to_process
 from anyio import Path as AsyncPath
 
 from kreuzberg._constants import DEFAULT_MAX_PROCESSES
 from kreuzberg._mime_types import MARKDOWN_MIME_TYPE
 from kreuzberg._string import normalize_spaces
-from kreuzberg._sync import run_sync
 from kreuzberg._tmp import create_temp_file
 from kreuzberg._types import ExtractionResult, Metadata
 from kreuzberg.exceptions import MissingDependencyError, ParsingError, ValidationError
@@ -251,10 +250,11 @@ async def _validate_pandoc_version() -> None:
             return
 
         command = ["pandoc", "--version"]
-        result = await run_sync(subprocess.run, command, capture_output=True)
+        result = await run_process(command)
         version = result.stdout.decode().split("\n")[0].split()[1]
-        if not version.startswith("3."):
-            raise MissingDependencyError("Pandoc version 3 or above is required.")
+        major_version = int(version.split(".")[0])
+        if major_version < 2:
+            raise MissingDependencyError("Pandoc version 2 or above is required.")
 
         version_ref["checked"] = True
 
@@ -371,7 +371,10 @@ async def process_file_with_pandoc(
             tg.start_soon(_get_metadata)
             tg.start_soon(_get_content)
     except ExceptionGroup as eg:
-        raise ParsingError("Failed to extract file data", context={"file": str(input_file)}) from eg.exceptions[0]
+        raise ParsingError(
+            "Failed to extract file data",
+            context={"file": str(input_file), "errors": ",".join([str(e) for e in eg.exceptions])},
+        ) from eg.exceptions[0]
 
     return ExtractionResult(
         content=normalize_spaces(content),

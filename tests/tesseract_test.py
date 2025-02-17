@@ -26,62 +26,75 @@ if TYPE_CHECKING:
 
 @pytest.fixture
 def mock_subprocess_run(mocker: MockerFixture) -> Mock:
-    def run_sync(*args: list[Any], **kwargs: dict[str, Any]) -> Mock:
+    def run_sync(command: list[str], **kwargs: Any) -> Mock:
         result = Mock()
         result.stdout = b"tesseract 5.0.0"
         result.returncode = 0
         result.stderr = b""
 
-        if isinstance(args[0], list) and "--version" in args[0]:
+        if "--version" in command and command[0].endswith("tesseract"):
             return result
 
         # Handle error test cases
         if "test_process_file_error" in str(kwargs.get("cwd")):
             result.returncode = 1
             result.stderr = b"Error processing file"
-            raise RuntimeError("Error processing file")
+            raise OCRError("Error processing file")
 
         if "test_process_file_runtime_error" in str(kwargs.get("cwd")):
             raise RuntimeError("Command failed")
 
         # Normal case
-        if isinstance(args[0], list) and len(args[0]) >= 3:
-            output_file = args[0][2]
+        if len(command) >= 3 and command[0].endswith("tesseract"):
+            output_file = command[2]
             if "test_process_image_with_tesseract_invalid_input" in str(kwargs.get("cwd")):
                 result.returncode = 1
                 result.stderr = b"Error processing file"
-                raise RuntimeError("Error processing file")
+                raise OCRError("Error processing file")
+
+            # Verify required tesseract arguments
+            if not all(arg in command for arg in ["--oem", "1", "--loglevel", "OFF", "-c", "thresholding_method=1"]):
+                result.returncode = 1
+                result.stderr = b"Missing required tesseract arguments"
+                return result
+
             Path(f"{output_file}.txt").write_text("Sample OCR text")
             result.returncode = 0
             return result
 
         return result
 
-    # Mock both subprocess.run and anyio.to_process.run_sync
-    mock = mocker.patch("subprocess.run", side_effect=run_sync)
-    mocker.patch("anyio.to_process.run_sync", side_effect=lambda func, *args, **kwargs: func(*args, **kwargs))
+    # Mock run_process
+    mock = mocker.patch("kreuzberg._tesseract.run_process", side_effect=run_sync)
     return mock
 
 
 @pytest.fixture
 def mock_subprocess_run_invalid(mocker: MockerFixture) -> Mock:
-    mock = mocker.patch("subprocess.run")
-    mock.return_value.stdout = b"tesseract 4.0.0"
-    mock.return_value.returncode = 0
+    def run_sync(command: list[str], **kwargs: Any) -> Mock:
+        result = Mock()
+        result.stdout = b"tesseract 4.0.0"
+        result.returncode = 0
+        result.stderr = b""
+        return result
+
+    mock = mocker.patch("kreuzberg._tesseract.run_process", side_effect=run_sync)
     return mock
 
 
 @pytest.fixture
 def mock_subprocess_run_error(mocker: MockerFixture) -> Mock:
-    mock = mocker.patch("subprocess.run")
-    mock.side_effect = FileNotFoundError()
+    def run_sync(command: list[str], **kwargs: Any) -> Mock:
+        raise FileNotFoundError
+
+    mock = mocker.patch("kreuzberg._tesseract.run_process", side_effect=run_sync)
     return mock
 
 
 @pytest.mark.anyio
 async def test_validate_tesseract_version(mock_subprocess_run: Mock) -> None:
     await validate_tesseract_version()
-    mock_subprocess_run.assert_called_with(["tesseract", "--version"], capture_output=True)
+    mock_subprocess_run.assert_called_with(["tesseract", "--version"])
 
 
 @pytest.fixture(autouse=True)
@@ -90,13 +103,13 @@ def reset_version_ref(mocker: MockerFixture) -> None:
 
 
 @pytest.mark.anyio
-async def test_validate_tesseract_version_invalid(mock_subprocess_run_invalid: Mock) -> None:
+async def test_validate_tesseract_version_invalid(mock_subprocess_run_invalid: Mock, reset_version_ref: None) -> None:
     with pytest.raises(MissingDependencyError, match="Tesseract version 5 or above is required"):
         await validate_tesseract_version()
 
 
 @pytest.mark.anyio
-async def test_validate_tesseract_version_missing(mock_subprocess_run_error: Mock) -> None:
+async def test_validate_tesseract_version_missing(mock_subprocess_run_error: Mock, reset_version_ref: None) -> None:
     with pytest.raises(MissingDependencyError, match="Tesseract is not installed"):
         await validate_tesseract_version()
 

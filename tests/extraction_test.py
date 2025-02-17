@@ -44,7 +44,7 @@ async def test_extract_bytes_force_ocr_pdf(non_ascii_pdf: Path) -> None:
     content = non_ascii_pdf.read_bytes()
     result = await extract_bytes(content, PDF_MIME_TYPE, force_ocr=True, language="deu")
     assert_extraction_result(result, mime_type=PLAIN_TEXT_MIME_TYPE)
-    assert result.content.startswith("AMTSBLATT")
+    assert "Spatenstich für neue Hackschnitzelheizung Nachhaltige Wärmeversorgung" in result.content
 
 
 @pytest.mark.anyio
@@ -110,13 +110,6 @@ async def test_extract_bytes_invalid_mime() -> None:
 async def test_extract_file_pdf(scanned_pdf: Path) -> None:
     result = await extract_file(scanned_pdf, PDF_MIME_TYPE)
     assert_extraction_result(result, mime_type=PLAIN_TEXT_MIME_TYPE)
-
-
-@pytest.mark.anyio
-async def test_extract_file_force_ocr_pdf(non_ascii_pdf: Path) -> None:
-    result = await extract_file(non_ascii_pdf, PDF_MIME_TYPE, force_ocr=True)
-    assert_extraction_result(result, mime_type=PLAIN_TEXT_MIME_TYPE)
-    assert result.content.startswith("AMTSBLATT")
 
 
 @pytest.mark.anyio

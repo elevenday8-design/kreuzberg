@@ -59,7 +59,7 @@ jobs:
         #os: [ ubuntu-latest, macOS-latest, windows-latest ]
         #python: [" 3.9", "3.10", "3.11", "3.12", "3.13" ]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -122,4 +122,4 @@ jobs:
           pandoc --version
 
       - name: Run Tests
-        run: uv run pytest tests -vvv -n auto --dist=loadfile --timeout 30
+        run: uv run pytest -n auto

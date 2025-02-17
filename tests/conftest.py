@@ -5,6 +5,12 @@ from pathlib import Path
 import pytest
 
 
+@pytest.fixture
+def anyio_backend() -> str:
+    """override anyio to test only against asyncio"""
+    return "asyncio"
+
+
 @pytest.fixture(scope="session")
 def searchable_pdf() -> Path:
     return Path(__file__).parent / "source" / "searchable.pdf"

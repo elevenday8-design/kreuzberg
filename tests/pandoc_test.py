@@ -32,35 +32,39 @@ SAMPLE_PANDOC_JSON = {
 
 @pytest.fixture
 def mock_subprocess_run(mocker: MockerFixture) -> Mock:
-    def run_sync(*args: list[Any], **kwargs: Any) -> Mock:
+    def run_sync(command: list[str], **kwargs: Any) -> Mock:
         result = Mock()
-        result.stdout = b"pandoc 3.1.0"
         result.returncode = 0
         result.stderr = b""
 
-        if isinstance(args[0], list) and "--version" in args[0]:
+        if "--version" in command:
+            result.stdout = b"pandoc 3.1.0"
             return result
 
         # Handle error test cases
         if "test_process_file_error" in str(kwargs.get("cwd")):
             result.returncode = 1
             result.stderr = b"Error processing file"
-            raise RuntimeError("Error processing file")
+            raise ParsingError("Error processing file", context={"error": "Error processing file"})
 
         # Handle empty result test case
         if "test_process_content_empty_result" in str(kwargs.get("cwd")):
             result.returncode = 1
             result.stderr = b"Empty content"
-            raise RuntimeError("Empty content")
+            raise ParsingError("Empty content", context={"error": "Empty content"})
 
         # Handle metadata error test case
         if "test_extract_metadata_error" in str(kwargs.get("cwd")):
             result.returncode = 1
             result.stderr = b"Invalid metadata"
-            raise RuntimeError("Invalid metadata")
+            raise ParsingError("Invalid metadata", context={"error": "Invalid metadata"})
+
+        # Handle runtime error test case
+        if "test_process_file_runtime_error" in str(kwargs.get("cwd")):
+            raise RuntimeError("Command failed")
 
         # Normal case
-        output_file = next((str(arg) for arg in args[0] if str(arg).endswith((".md", ".json"))), "")
+        output_file = next((str(arg) for arg in command if str(arg).endswith((".md", ".json"))), "")
         if output_file:
             content = (
                 json.dumps(SAMPLE_PANDOC_JSON) if str(output_file).endswith(".json") else "Sample processed content"
@@ -68,24 +72,30 @@ def mock_subprocess_run(mocker: MockerFixture) -> Mock:
             Path(output_file).write_text(content)
         return result
 
-    # Mock both subprocess.run and anyio.to_process.run_sync
-    mock = mocker.patch("subprocess.run", side_effect=run_sync)
-    mocker.patch("anyio.to_process.run_sync", side_effect=lambda func, *args, **kwargs: func(*args, **kwargs))
+    # Mock anyio.run_process
+    mock = mocker.patch("anyio.run_process", side_effect=run_sync)
     return mock
 
 
 @pytest.fixture
 def mock_subprocess_run_invalid(mocker: MockerFixture) -> Mock:
-    mock = mocker.patch("subprocess.run")
-    mock.return_value.stdout = b"pandoc 2.0.0"
-    mock.return_value.returncode = 0
+    def run_sync(command: list[str], **kwargs: Any) -> Mock:
+        result = Mock()
+        result.stdout = b"pandoc 1.0.0"
+        result.returncode = 0
+        result.stderr = b""
+        return result
+
+    mock = mocker.patch("anyio.run_process", side_effect=run_sync)
     return mock
 
 
 @pytest.fixture
 def mock_subprocess_run_error(mocker: MockerFixture) -> Mock:
-    mock = mocker.patch("subprocess.run")
-    mock.side_effect = FileNotFoundError()
+    def run_sync(command: list[str], **kwargs: Any) -> Mock:
+        raise FileNotFoundError
+
+    mock = mocker.patch("anyio.run_process", side_effect=run_sync)
     return mock
 
 
@@ -97,7 +107,7 @@ def reset_version_ref(mocker: MockerFixture) -> None:
 @pytest.mark.anyio
 async def test_validate_pandoc_version(mock_subprocess_run: Mock) -> None:
     await _validate_pandoc_version()
-    mock_subprocess_run.assert_called_with(["pandoc", "--version"], capture_output=True)
+    mock_subprocess_run.assert_called_with(["pandoc", "--version"])
 
 
 @pytest.mark.anyio

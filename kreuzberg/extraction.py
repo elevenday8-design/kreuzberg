@@ -87,9 +87,7 @@ async def extract_bytes(
         return await extract_xlsx_content(content)
 
     if mime_type in IMAGE_MIME_TYPES or any(mime_type.startswith(value) for value in IMAGE_MIME_TYPES):
-        return await process_image_with_tesseract(
-            open_image(BytesIO(content)), max_processes=max_processes, psm=psm, language=language
-        )
+        return await process_image_with_tesseract(open_image(BytesIO(content)), psm=psm, language=language)
 
     if mime_type in PANDOC_SUPPORTED_MIME_TYPES or any(
         mime_type.startswith(value) for value in PANDOC_SUPPORTED_MIME_TYPES
@@ -150,7 +148,7 @@ async def extract_file(
         return await extract_xlsx_file(Path(input_file))
 
     if mime_type in IMAGE_MIME_TYPES or any(mime_type.startswith(value) for value in IMAGE_MIME_TYPES):
-        return await process_image_with_tesseract(input_file, max_processes=max_processes, psm=psm, language=language)
+        return await process_image_with_tesseract(input_file, psm=psm, language=language)
 
     if mime_type in PANDOC_SUPPORTED_MIME_TYPES or any(
         mime_type.startswith(value) for value in PANDOC_SUPPORTED_MIME_TYPES

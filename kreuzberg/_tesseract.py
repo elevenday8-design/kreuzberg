@@ -1,24 +1,20 @@
 from __future__ import annotations
 
 import re
-import subprocess
 import sys
 from enum import Enum
 from functools import partial
-from io import BytesIO
 from os import PathLike
-from typing import Final, TypeVar, Union, cast
+from typing import Any, Final, TypeVar, Union
 
-from anyio import CapacityLimiter, create_task_group, to_process
 from anyio import Path as AsyncPath
-from PIL import ImageOps
-from PIL.Image import Image, Resampling
-from PIL.Image import open as open_image
+from anyio import run_process
+from PIL.Image import Image
 
 from kreuzberg._constants import DEFAULT_MAX_PROCESSES
 from kreuzberg._mime_types import PLAIN_TEXT_MIME_TYPE
 from kreuzberg._string import normalize_spaces
-from kreuzberg._sync import run_sync
+from kreuzberg._sync import run_sync, run_taskgroup_batched
 from kreuzberg._tmp import create_temp_file
 from kreuzberg._types import ExtractionResult
 from kreuzberg.exceptions import MissingDependencyError, OCRError, ParsingError
@@ -27,12 +23,6 @@ if sys.version_info < (3, 11):  # pragma: no cover
     from exceptiongroup import ExceptionGroup  # type: ignore[import-not-found]
 
 MINIMAL_SUPPORTED_TESSERACT_VERSION: Final[int] = 5
-
-
-DEFAULT_DPI: Final[int] = 72
-TARGET_DPI: Final[int] = 300
-BINARIZATION_THRESHOLD: Final[int] = 0
-BINARIZATION_MAX_VALUE: Final[int] = 255
 
 version_ref = {"checked": False}
 
@@ -66,33 +56,6 @@ class PSMMode(Enum):
     """Treat the image as a single character."""
 
 
-def resize_for_ocr(image: Image) -> Image:
-    """Resize the image to ensure sufficient DPI for OCR.
-
-    Args:
-        image: Input Pillow image.
-
-    Returns:
-        The resized image.
-    """
-    width, height = image.size
-    scale_factor = TARGET_DPI / DEFAULT_DPI
-    new_size = (int(width * scale_factor), int(height * scale_factor))
-    return image.resize(new_size, Resampling.LANCZOS)
-
-
-def preprocess_image(image: Image) -> Image:
-    """Preprocess the input image for OCR.
-
-    Args:
-        image: Input Pillow image.
-
-    Returns:
-        The preprocessed version of the input image.
-    """
-    return resize_for_ocr(ImageOps.grayscale(image))
-
-
 async def validate_tesseract_version() -> None:
     """Validate that Tesseract is installed and is version 5 or above.
 
@@ -104,14 +67,16 @@ async def validate_tesseract_version() -> None:
             return
 
         command = ["tesseract", "--version"]
-        result = await run_sync(subprocess.run, command, capture_output=True)
-        version_match = re.search(r"tesseract\s+v?(\d+)", result.stdout.decode())
+        result = await run_process(command)
+        version_match = re.search(r"tesseract\s+v?(\d+)\.\d+\.\d+", result.stdout.decode())
         if not version_match or int(version_match.group(1)) < MINIMAL_SUPPORTED_TESSERACT_VERSION:
             raise MissingDependencyError("Tesseract version 5 or above is required.")
 
         version_ref["checked"] = True
     except FileNotFoundError as e:
-        raise MissingDependencyError("Tesseract is not installed.") from e
+        raise MissingDependencyError(
+            "Tesseract is not installed or not in path. Please install tesseract 5 and above on your system."
+        ) from e
 
 
 async def process_file(
@@ -119,7 +84,6 @@ async def process_file(
     *,
     language: str,
     psm: PSMMode,
-    max_processes: int = DEFAULT_MAX_PROCESSES,
 ) -> ExtractionResult:
     """Process a single image file using Tesseract OCR.
 
@@ -127,7 +91,6 @@ async def process_file(
         input_file: The path to the image file to process.
         language: The language code for OCR.
         psm: Page segmentation mode.
-        max_processes: Maximum number of concurrent processes. Defaults to CPU count / 2 (minimum 1).
 
     Raises:
         OCRError: If OCR fails to extract text from the image.
@@ -138,6 +101,7 @@ async def process_file(
     output_path, unlink = await create_temp_file(".txt")
     try:
         output_base = str(output_path).replace(".txt", "")
+
         command = [
             "tesseract",
             str(input_file),
@@ -146,14 +110,33 @@ async def process_file(
             language,
             "--psm",
             str(psm.value),
+            "--oem",
+            "1",
+            "--loglevel",
+            "OFF",
+            "-c",
+            "thresholding_method=1",
+            "-c",
+            "tessedit_enable_dict_correction=1",
+            "-c",
+            "language_model_ngram_on=1",
+            "-c",
+            "textord_space_size_is_variable=1",
+            "-c",
+            "classify_use_pre_adapted_templates=1",
+            "-c",
+            "tessedit_dont_blkrej_good_wds=1",
+            "-c",
+            "tessedit_dont_rowrej_good_wds=1",
+            "-c",
+            "tessedit_use_primary_params_model=1",
         ]
 
-        result = await to_process.run_sync(
-            partial(subprocess.run, capture_output=True),
-            command,
-            limiter=CapacityLimiter(max_processes),
-            cancellable=True,
-        )
+        env: dict[str, Any] | None = None
+        if sys.platform.startswith("linux"):
+            env = {"OMP_THREAD_LIMIT": "1"}
+
+        result = await run_process(command, env=env)
 
         if not result.returncode == 0:
             raise OCRError(
@@ -164,7 +147,7 @@ async def process_file(
         output = await AsyncPath(output_path).read_text("utf-8")
         return ExtractionResult(content=normalize_spaces(output), mime_type=PLAIN_TEXT_MIME_TYPE, metadata={})
     except (RuntimeError, OSError) as e:
-        raise OCRError("Failed to OCR using tesseract") from e
+        raise OCRError(f"Failed to OCR using tesseract: {e}") from e
     finally:
         await unlink()
 
@@ -174,7 +157,6 @@ async def process_image(
     *,
     language: str,
     psm: PSMMode,
-    max_processes: int = DEFAULT_MAX_PROCESSES,
 ) -> ExtractionResult:
     """Process a single Pillow Image using Tesseract OCR.
 
@@ -182,15 +164,13 @@ async def process_image(
         image: The Pillow Image to process.
         language: The language code for OCR.
         psm: Page segmentation mode.
-        max_processes: Maximum number of concurrent processes. Defaults to CPU count / 2 (minimum 1).
 
     Returns:
         ExtractionResult: The extracted text from the image.
     """
-    binary_image = preprocess_image(image)
     image_path, unlink = await create_temp_file(".png")
-    await run_sync(binary_image.save, str(image_path), format="PNG")
-    result = await process_file(image_path, language=language, psm=psm, max_processes=max_processes)
+    await run_sync(image.save, str(image_path), format="PNG")
+    result = await process_file(image_path, language=language, psm=psm)
     await unlink()
     return result
 
@@ -200,7 +180,6 @@ async def process_image_with_tesseract(
     *,
     language: str = "eng",
     psm: PSMMode = PSMMode.AUTO,
-    max_processes: int = DEFAULT_MAX_PROCESSES,
 ) -> ExtractionResult:
     """Run Tesseract OCR asynchronously on a single Pillow Image or a list of Pillow Images.
 
@@ -208,7 +187,6 @@ async def process_image_with_tesseract(
         image: A single Pillow Image, a pathlike or a string or a list of Pillow Images to process.
         language: The language code for OCR (default: "eng").
         psm: Page segmentation mode (default: PSMMode.AUTO).
-        max_processes: Maximum number of concurrent processes. Defaults to CPU count / 2 (minimum 1).
 
     Raises:
         ValueError: If the input is not a Pillow Image or a list of Pillow Images.
@@ -219,12 +197,10 @@ async def process_image_with_tesseract(
     await validate_tesseract_version()
 
     if isinstance(image, Image):
-        return await process_image(image, language=language, psm=psm, max_processes=max_processes)
+        return await process_image(image, language=language, psm=psm)
 
     if isinstance(image, (PathLike, str)):
-        contents = BytesIO(await AsyncPath(image).read_bytes())
-        image = await run_sync(open_image, contents)
-        return await process_image(image, language=language, psm=psm, max_processes=max_processes)
+        return await process_file(image, language=language, psm=psm)
 
     raise ValueError("Input must be one of: str, Pathlike or Pillow Image.")
 
@@ -242,7 +218,7 @@ async def batch_process_images(
         images: A list of Pillow Images, paths or strings to process.
         language: The language code for OCR (default: "eng").
         psm: Page segmentation mode (default: PSMMode.AUTO).
-        max_processes: Maximum number of concurrent processes. Defaults to CPU count / 2 (minimum 1).
+        max_processes: Maximum number of concurrent processes (default: CPU count / 2).
 
     Raises:
         ParsingError: If OCR fails to extract text from any of the images.
@@ -251,17 +227,12 @@ async def batch_process_images(
         List of ExtractionResult objects, one per input image.
     """
     await validate_tesseract_version()
-    results = cast(list[ExtractionResult], list(range(len(images))))
-
-    async def _process_image(index: int, image: T) -> None:
-        results[index] = await process_image_with_tesseract(
-            image, language=language, psm=psm, max_processes=max_processes
-        )
-
     try:
-        async with create_task_group() as tg:
-            for i, image in enumerate(images):
-                tg.start_soon(_process_image, i, image)
-        return results
+        return await run_taskgroup_batched(
+            *[partial(process_image_with_tesseract, image, language=language, psm=psm) for image in images],
+            batch_size=max_processes,
+        )
     except ExceptionGroup as eg:
-        raise ParsingError("Failed to process images with Tesseract") from eg
+        raise ParsingError(
+            "Failed to process images with Tesseract", context={"errors": ",".join([str(e) for e in eg.exceptions])}
+        ) from eg
