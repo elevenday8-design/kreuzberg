@@ -228,6 +228,9 @@ def assert_extraction_result(result: ExtractionResult, *, mime_type: str) -> Non
     Args:
         result: The extraction result to check.
         mime_type: The expected mime type.
+
+    Raises:
+        AssertionError: If the extraction result does not have the expected properties.
     """
     assert isinstance(result.content, str)
     assert result.content.strip()

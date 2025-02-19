@@ -5,13 +5,13 @@ import sys
 from enum import Enum
 from functools import partial
 from os import PathLike
-from typing import Any, Final, TypeVar, Union
+from typing import Any, TypeVar, Union
 
 from anyio import Path as AsyncPath
 from anyio import run_process
 from PIL.Image import Image
 
-from kreuzberg._constants import DEFAULT_MAX_PROCESSES
+from kreuzberg._constants import DEFAULT_MAX_PROCESSES, MINIMAL_SUPPORTED_TESSERACT_VERSION
 from kreuzberg._mime_types import PLAIN_TEXT_MIME_TYPE
 from kreuzberg._string import normalize_spaces
 from kreuzberg._sync import run_sync, run_taskgroup_batched
@@ -21,8 +21,6 @@ from kreuzberg.exceptions import MissingDependencyError, OCRError, ParsingError
 
 if sys.version_info < (3, 11):  # pragma: no cover
     from exceptiongroup import ExceptionGroup  # type: ignore[import-not-found]
-
-MINIMAL_SUPPORTED_TESSERACT_VERSION: Final[int] = 5
 
 version_ref = {"checked": False}
 
@@ -233,6 +231,4 @@ async def batch_process_images(
             batch_size=max_processes,
         )
     except ExceptionGroup as eg:
-        raise ParsingError(
-            "Failed to process images with Tesseract", context={"errors": ",".join([str(e) for e in eg.exceptions])}
-        ) from eg
+        raise ParsingError("Failed to process images with Tesseract", context={"errors": eg.exceptions}) from eg

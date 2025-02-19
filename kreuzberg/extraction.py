@@ -92,7 +92,7 @@ async def extract_bytes(
     if mime_type in PANDOC_SUPPORTED_MIME_TYPES or any(
         mime_type.startswith(value) for value in PANDOC_SUPPORTED_MIME_TYPES
     ):
-        return await process_content_with_pandoc(content=content, mime_type=mime_type, max_processes=max_processes)
+        return await process_content_with_pandoc(content=content, mime_type=mime_type)
 
     if mime_type == POWER_POINT_MIME_TYPE or mime_type.startswith(POWER_POINT_MIME_TYPE):
         return await extract_pptx_file_content(content)
@@ -153,7 +153,7 @@ async def extract_file(
     if mime_type in PANDOC_SUPPORTED_MIME_TYPES or any(
         mime_type.startswith(value) for value in PANDOC_SUPPORTED_MIME_TYPES
     ):
-        return await process_file_with_pandoc(input_file=input_file, mime_type=mime_type, max_processes=max_processes)
+        return await process_file_with_pandoc(input_file=input_file, mime_type=mime_type)
 
     if mime_type == POWER_POINT_MIME_TYPE or mime_type.startswith(POWER_POINT_MIME_TYPE):
         return await extract_pptx_file_content(Path(input_file))

@@ -101,6 +101,7 @@ lint.per-file-ignores."tests/**/*.*" = [
   "PT013",
   "RUF012",
   "S",
+  "SLF001",
 ]
 lint.isort.known-first-party = [ "kreuzberg", "tests" ]
 lint.mccabe.max-complexity = 15
