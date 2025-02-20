@@ -24,23 +24,11 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          # we have to run this with >=3.11, otherwise we might get failures due to unused type ignore comments
-          python-version: "3.13"
-
-      - name: Cache Python Dependencies
-        id: python-cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/uv
-            .venv
-          key: python-dependencies-${{ runner.os }}-3.13-${{ hashFiles('uv.lock') }}
-          restore-keys: |
-            python-dependencies-${{ runner.os }}-
+          python-version-file: "pyproject.toml"
 
       - name: Install Dependencies
         if: steps.python-cache.outputs.cache-hit != 'true'
-        run: uv sync --all-extras --dev
+        run: uv sync
 
       - name: Load Cached Pre-Commit Dependencies
         id: cached-pre-commit-dependencies
@@ -56,6 +44,7 @@ jobs:
     strategy:
       matrix:
         os: [ ubuntu-latest, macOS-latest, windows-latest ]
+        python: [ "3.9", "3.10", "3.11", "3.12", "3.13" ]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
@@ -70,8 +59,7 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v5
         with:
-          # we test on the lowest supported version to ensure all typing works as intended without breaking
-          python-version: "3.9"
+          python-version: ${{ matrix.python }}
 
       - name: Cache Python Dependencies
         id: python-cache
