@@ -24,7 +24,8 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version-file: "3.13"
+          # we have to run this with >=3.11, otherwise we might get failures due to unused type ignore comments
+          python-version: "3.13"
 
       - name: Cache Python Dependencies
         id: python-cache
@@ -69,6 +70,7 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v5
         with:
+          # we test on the lowest supported version to ensure all typing works as intended without breaking
           python-version: "3.9"
 
       - name: Cache Python Dependencies
