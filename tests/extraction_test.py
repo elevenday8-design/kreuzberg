@@ -40,6 +40,10 @@ async def test_extract_bytes_pdf(scanned_pdf: Path) -> None:
 
 
 @pytest.mark.anyio
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Tesseract Languages not installed on Windows due to complexity of installation in CI",
+)
 async def test_extract_bytes_force_ocr_pdf(non_ascii_pdf: Path) -> None:
     content = non_ascii_pdf.read_bytes()
     result = await extract_bytes(content, PDF_MIME_TYPE, force_ocr=True, language="deu")
