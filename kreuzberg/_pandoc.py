@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 import sys
-from functools import partial
 from json import JSONDecodeError, loads
 from typing import TYPE_CHECKING, Any, Final, Literal, cast
 
@@ -333,14 +332,14 @@ async def process_file_with_pandoc(input_file: str | PathLike[str], *, mime_type
     _get_pandoc_type_from_mime_type(mime_type)
 
     try:
-        metadata, content = await run_taskgroup(
-            partial(_handle_extract_metadata, input_file, mime_type=mime_type),
-            partial(_handle_extract_file, input_file, mime_type=mime_type),
-        )
+        metadata_task = _handle_extract_metadata(input_file, mime_type=mime_type)
+        content_task = _handle_extract_file(input_file, mime_type=mime_type)
+        results = await run_taskgroup(metadata_task, content_task)
+        metadata, content = cast(tuple[Metadata, str], results)
 
         return ExtractionResult(
-            content=normalize_spaces(cast(str, content)),
-            metadata=cast(Metadata, metadata),
+            content=normalize_spaces(content),
+            metadata=metadata,
             mime_type=MARKDOWN_MIME_TYPE,
         )
     except ExceptionGroup as eg:

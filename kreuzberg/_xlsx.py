@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import csv
 import sys
-from functools import partial
 from io import StringIO
 from typing import TYPE_CHECKING
 
@@ -57,9 +56,8 @@ async def extract_xlsx_file(input_file: Path) -> ExtractionResult:
     """
     try:
         workbook: CalamineWorkbook = await run_sync(CalamineWorkbook.from_path, str(input_file))
-        results = await run_taskgroup(
-            *[partial(convert_sheet_to_text, workbook, sheet_name) for sheet_name in workbook.sheet_names]
-        )
+        tasks = [convert_sheet_to_text(workbook, sheet_name) for sheet_name in workbook.sheet_names]
+        results: list[str] = await run_taskgroup(*tasks)
 
         return ExtractionResult(
             content="\n\n".join(results),
