@@ -32,7 +32,7 @@ MINIMUM_CORRUPTED_RESULTS: Final[int] = 2
 def _validate_extracted_text(text: str, corruption_threshold: float = 0.05) -> bool:
     """Check if text extracted from PDF is valid or corrupted.
 
-    This checks for definitive indicators of corrupted PDF text extraction:
+    This checks for indicators of corrupted PDF text extraction:
     1. Empty or whitespace-only text
     2. High concentration of control characters and null bytes
     3. High concentration of Unicode replacement characters
