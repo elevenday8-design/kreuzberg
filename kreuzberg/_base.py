@@ -4,6 +4,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from kreuzberg._constants import DEFAULT_MAX_PROCESSES
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -12,21 +14,26 @@ if TYPE_CHECKING:
 
 @dataclass
 class ExtractionConfig:
-    force_ocr: bool
-    language: str
-    max_processes: int
+    force_ocr: bool = False
+    language: str = "eng"
+    max_processes: int = DEFAULT_MAX_PROCESSES
     psm: PSMMode | None = None
 
 
 class BaseExtractor(ABC):
-    @abstractmethod
-    async def extract_bytes_async(self, content: bytes, config: ExtractionConfig) -> ExtractionResult: ...
+    __slots__ = ("config",)
+
+    def __init__(self, config: ExtractionConfig) -> None:
+        self.config = config
 
     @abstractmethod
-    async def extract_path_async(self, path: Path, config: ExtractionConfig) -> ExtractionResult: ...
+    async def extract_bytes_async(self, content: bytes) -> ExtractionResult: ...
 
     @abstractmethod
-    def extract_bytes_sync(self, content: bytes, config: ExtractionConfig) -> ExtractionResult: ...
+    async def extract_path_async(self, path: Path) -> ExtractionResult: ...
 
     @abstractmethod
-    def extract_path_sync(self, path: Path, config: ExtractionConfig) -> ExtractionResult: ...
+    def extract_bytes_sync(self, content: bytes) -> ExtractionResult: ...
+
+    @abstractmethod
+    def extract_path_sync(self, path: Path) -> ExtractionResult: ...

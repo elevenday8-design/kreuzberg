@@ -10,54 +10,64 @@ else:  # pragma: no cover
 
 
 class Metadata(TypedDict, total=False):
-    """Document metadata.
+    """Base metadata common to all document types.
 
-    All fields are optional but will only be included if they contain non-empty values.
+    All fields will only be included if they contain non-empty values.
     Any field that would be empty or None is omitted from the dictionary.
-
-    Different documents and extraction methods will yield different metadata.
     """
 
-    title: NotRequired[str]
-    """Document title."""
-    subtitle: NotRequired[str]
-    """Document subtitle."""
-    abstract: NotRequired[str | list[str]]
-    """Document abstract, summary or description."""
     authors: NotRequired[list[str]]
     """List of document authors."""
-    date: NotRequired[str]
-    """Document date as string to preserve original format."""
-    subject: NotRequired[str]
-    """Document subject or topic."""
-    description: NotRequired[str]
-    """Extended description."""
-    keywords: NotRequired[list[str]]
-    """Keywords or tags."""
     categories: NotRequired[list[str]]
     """Categories or classifications."""
-    version: NotRequired[str]
-    """Version identifier."""
-    language: NotRequired[str]
-    """Document language code."""
-    references: NotRequired[list[str]]
-    """Reference entries."""
     citations: NotRequired[list[str]]
     """Citation identifiers."""
+    comments: NotRequired[str]
+    """General comments."""
     copyright: NotRequired[str]
     """Copyright information."""
+    created_at: NotRequired[str]
+    """Creation timestamp in ISO format."""
+    created_by: NotRequired[str]
+    """Document creator."""
+    description: NotRequired[str]
+    """Document description."""
+    fonts: NotRequired[list[str]]
+    """List of fonts used in the document."""
+    height: NotRequired[int]
+    """Height of the document page/slide/image, if applicable."""
+    identifier: NotRequired[str]
+    """Unique document identifier."""
+    keywords: NotRequired[list[str]]
+    """Keywords or tags."""
+    languages: NotRequired[list[str]]
+    """Document language code."""
     license: NotRequired[str]
     """License information."""
-    identifier: NotRequired[str]
-    """Document identifier."""
+    modified_at: NotRequired[str]
+    """Last modification timestamp in ISO format."""
+    modified_by: NotRequired[str]
+    """Username of last modifier."""
+    organization: NotRequired[str | list[str]]
+    """Organizational affiliation."""
     publisher: NotRequired[str]
-    """Publisher name."""
-    contributors: NotRequired[list[str]]
-    """Additional contributors."""
-    creator: NotRequired[str]
-    """Document creator."""
-    institute: NotRequired[str | list[str]]
-    """Institute or organization."""
+    """Publisher or organization name."""
+    references: NotRequired[list[str]]
+    """Reference entries."""
+    status: NotRequired[str]
+    """Document status (e.g., draft, final)."""
+    subject: NotRequired[str]
+    """Document subject or topic."""
+    subtitle: NotRequired[str]
+    """Document subtitle."""
+    summary: NotRequired[str]
+    """Document Summary"""
+    title: NotRequired[str]
+    """Document title."""
+    version: NotRequired[str]
+    """Version identifier or revision number."""
+    width: NotRequired[int]
+    """Width of the document page/slide/image, if applicable."""
 
 
 class ExtractionResult(NamedTuple):

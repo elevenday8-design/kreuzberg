@@ -206,12 +206,33 @@ def _extract_meta_value(node: Any) -> str | list[str] | None:
     return None
 
 
+def _get_pandoc_key(key: str) -> str | None:
+    if key == "abstract":
+        return "summary"
+
+    if key == "date":
+        return "created_at"
+
+    if key == "contributors":
+        return "authors"
+
+    if key == "institute":
+        return "organization"
+
+    if key not in Metadata.__annotations__:
+        return None
+
+    return key
+
+
 def _extract_metadata(raw_meta: dict[str, Any]) -> Metadata:
     meta: Metadata = {}
 
     for key, value in raw_meta.items():
-        if extracted := _extract_meta_value(value):
-            meta[key] = extracted  # type: ignore[literal-required]
+        if (pandoc_key := _get_pandoc_key(key)) and (extracted := _extract_meta_value(value)):
+            if pandoc_key == "languages":
+                extracted = [extracted]
+            meta[pandoc_key] = extracted
 
     citations = [
         cite["citationId"]
