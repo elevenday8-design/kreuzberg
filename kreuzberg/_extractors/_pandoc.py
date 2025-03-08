@@ -28,45 +28,42 @@ if sys.version_info < (3, 11):  # pragma: no cover
     from exceptiongroup import ExceptionGroup  # type: ignore[import-not-found]
 
 
-# Block-level node types in Pandoc AST
-BLOCK_HEADER: Final = "Header"  # Header with level, attributes and inline content
-BLOCK_PARA: Final = "Para"  # Paragraph containing inline content
-BLOCK_CODE: Final = "CodeBlock"  # Code block with attributes and string content
-BLOCK_QUOTE: Final = "BlockQuote"  # Block quote containing blocks
-BLOCK_LIST: Final = "BulletList"  # Bullet list containing items (blocks)
-BLOCK_ORDERED: Final = "OrderedList"  # Numbered list with attrs and items
+BLOCK_HEADER: Final = "Header"
+BLOCK_PARA: Final = "Para"
+BLOCK_CODE: Final = "CodeBlock"
+BLOCK_QUOTE: Final = "BlockQuote"
+BLOCK_LIST: Final = "BulletList"
+BLOCK_ORDERED: Final = "OrderedList"
 
-# Inline-level node types in Pandoc AST
-INLINE_STR: Final = "Str"  # Plain text string
-INLINE_SPACE: Final = "Space"  # Single space
-INLINE_EMPH: Final = "Emph"  # Emphasized text (contains inlines)
-INLINE_STRONG: Final = "Strong"  # Strong/bold text (contains inlines)
-INLINE_LINK: Final = "Link"  # Link with text and target
-INLINE_IMAGE: Final = "Image"  # Image with alt text and source
-INLINE_CODE: Final = "Code"  # Inline code span
-INLINE_MATH: Final = "Math"  # Math expression
 
-# Metadata node types in Pandoc AST
-META_MAP: Final = "MetaMap"  # Key-value mapping of metadata
-META_LIST: Final = "MetaList"  # List of metadata values
-META_INLINES: Final = "MetaInlines"  # Inline content in metadata
-META_STRING: Final = "MetaString"  # Plain string in metadata
-META_BLOCKS: Final = "MetaBlocks"  # Block content in metadata
+INLINE_STR: Final = "Str"
+INLINE_SPACE: Final = "Space"
+INLINE_EMPH: Final = "Emph"
+INLINE_STRONG: Final = "Strong"
+INLINE_LINK: Final = "Link"
+INLINE_IMAGE: Final = "Image"
+INLINE_CODE: Final = "Code"
+INLINE_MATH: Final = "Math"
 
-# Node content field name
+
+META_MAP: Final = "MetaMap"
+META_LIST: Final = "MetaList"
+META_INLINES: Final = "MetaInlines"
+META_STRING: Final = "MetaString"
+META_BLOCKS: Final = "MetaBlocks"
+
+
 CONTENT_FIELD: Final = "c"
 TYPE_FIELD: Final = "t"
 
-# Valid node types
+
 NodeType = Literal[
-    # Block types
     "Header",
     "Para",
     "CodeBlock",
     "BlockQuote",
     "BulletList",
     "OrderedList",
-    # Inline types
     "Str",
     "Space",
     "Emph",
@@ -75,7 +72,6 @@ NodeType = Literal[
     "Image",
     "Code",
     "Math",
-    # Meta types
     "MetaMap",
     "MetaList",
     "MetaInlines",
@@ -222,7 +218,6 @@ class PandocExtractor(Extractor):
         """
         return anyio.run(self.extract_path_async, path)
 
-    # Private members
     async def _validate_pandoc_version(self) -> None:
         """Validate that the installed Pandoc version meets the minimum requirement.
 
@@ -287,11 +282,9 @@ class PandocExtractor(Extractor):
         if pandoc_type := (self.MIMETYPE_TO_PANDOC_TYPE_MAPPING.get(mime_type, "")):
             return pandoc_type
 
-        # Handle text/markdown as a special case for test_get_pandoc_type_prefix_match
         if mime_type == "text/markdown":
             return "markdown"
 
-        # Check if the mime_type starts with any key in the mapping
         for k, v in self.MIMETYPE_TO_PANDOC_TYPE_MAPPING.items():
             if mime_type.startswith(k):
                 return v
@@ -391,7 +384,6 @@ class PandocExtractor(Extractor):
         """
         meta: Metadata = {}
 
-        # Handle simple "citations" key directly
         if (
             "citations" in raw_meta
             and isinstance(raw_meta["citations"], list)
@@ -403,10 +395,9 @@ class PandocExtractor(Extractor):
         ):
             meta["citations"] = citations
 
-        # Process other metadata
         for key, value in raw_meta.items():
             if key == "citations":
-                continue  # Already handled
+                continue
 
             pandoc_key = self._get_pandoc_key(key)
             if pandoc_key is None:
@@ -422,7 +413,6 @@ class PandocExtractor(Extractor):
                     extracted = [extracted]  # type: ignore[list-item]
                 meta[pandoc_key] = extracted  # type: ignore[literal-required]
 
-        # Look for citations in blocks
         citations_from_blocks = [
             cite["citationId"]
             for block in raw_meta.get("blocks", [])
@@ -514,7 +504,6 @@ class PandocExtractor(Extractor):
                         results.append(value)
                 return results
 
-            # For complex metadata blocks
             if node_type == "MetaBlocks" and (
                 blocks := [block for block in content if block.get(type_field) == "Para"]
             ):
@@ -524,7 +513,6 @@ class PandocExtractor(Extractor):
                     if isinstance(block_content, list) and (text := self._extract_inlines(block_content)):
                         block_texts.append(text)
 
-                # Join multiple paragraph blocks with spaces for fields like summary that expect a string
                 if block_texts:
                     return " ".join(block_texts)
                 return None
@@ -549,8 +537,8 @@ class OfficeDocumentExtractor(PandocExtractor):
     """Extractor for Office document formats (Word, ODT)."""
 
     SUPPORTED_MIME_TYPES: ClassVar[set[str]] = {
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # docx
-        "application/vnd.oasis.opendocument.text",  # odt
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.oasis.opendocument.text",
     }
 
 
@@ -558,8 +546,8 @@ class EbookExtractor(PandocExtractor):
     """Extractor for e-book formats (EPUB, FB2)."""
 
     SUPPORTED_MIME_TYPES: ClassVar[set[str]] = {
-        "application/epub+zip",  # epub
-        "application/x-fictionbook+xml",  # fb2
+        "application/epub+zip",
+        "application/x-fictionbook+xml",
     }
 
 
@@ -567,10 +555,10 @@ class StructuredTextExtractor(PandocExtractor):
     """Extractor for structured text formats (RST, Org, etc.)."""
 
     SUPPORTED_MIME_TYPES: ClassVar[set[str]] = {
-        "text/x-rst",  # reStructuredText
-        "text/x-org",  # Org-mode
-        "text/x-dokuwiki",  # DokuWiki
-        "text/x-pod",  # Plain Old Documentation
+        "text/x-rst",
+        "text/x-org",
+        "text/x-dokuwiki",
+        "text/x-pod",
     }
 
 
@@ -578,8 +566,8 @@ class LaTeXExtractor(PandocExtractor):
     """Extractor for LaTeX and Typst documents."""
 
     SUPPORTED_MIME_TYPES: ClassVar[set[str]] = {
-        "application/x-latex",  # LaTeX
-        "application/x-typst",  # Typst
+        "application/x-latex",
+        "application/x-typst",
     }
 
 
@@ -587,11 +575,11 @@ class BibliographyExtractor(PandocExtractor):
     """Extractor for bibliography formats (BibTeX, CSL JSON, etc.)."""
 
     SUPPORTED_MIME_TYPES: ClassVar[set[str]] = {
-        "application/x-bibtex",  # BibTeX
-        "application/x-biblatex",  # BibLaTeX
-        "application/csl+json",  # CSL JSON
-        "application/x-research-info-systems",  # RIS
-        "application/x-endnote+xml",  # EndNote XML
+        "application/x-bibtex",
+        "application/x-biblatex",
+        "application/csl+json",
+        "application/x-research-info-systems",
+        "application/x-endnote+xml",
     }
 
 
@@ -599,9 +587,9 @@ class XMLBasedExtractor(PandocExtractor):
     """Extractor for XML-based document formats (DocBook, JATS, OPML)."""
 
     SUPPORTED_MIME_TYPES: ClassVar[set[str]] = {
-        "application/docbook+xml",  # DocBook
-        "application/x-jats+xml",  # JATS
-        "application/x-opml+xml",  # OPML
+        "application/docbook+xml",
+        "application/x-jats+xml",
+        "application/x-opml+xml",
     }
 
 
@@ -609,8 +597,8 @@ class TabularDataExtractor(PandocExtractor):
     """Extractor for tabular data formats (CSV, TSV)."""
 
     SUPPORTED_MIME_TYPES: ClassVar[set[str]] = {
-        "text/csv",  # CSV
-        "text/tab-separated-values",  # TSV
+        "text/csv",
+        "text/tab-separated-values",
     }
 
 
@@ -618,7 +606,7 @@ class MiscFormatExtractor(PandocExtractor):
     """Extractor for miscellaneous formats (RTF, man, Jupyter notebooks)."""
 
     SUPPORTED_MIME_TYPES: ClassVar[set[str]] = {
-        "application/rtf",  # RTF
-        "text/troff",  # man
-        "application/x-ipynb+json",  # Jupyter notebooks
+        "application/rtf",
+        "text/troff",
+        "application/x-ipynb+json",
     }

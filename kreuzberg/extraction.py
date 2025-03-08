@@ -49,7 +49,6 @@ def get_extractor(mime_type: str | None, config: ExtractionConfig) -> Extractor 
     """
     if mime_type:
         for extractor in [
-            # order by how likely the mimetype is to match first.
             PDFExtractor,
             OfficeDocumentExtractor,
             PresentationExtractor,
@@ -168,9 +167,6 @@ async def batch_extract_bytes(
             tg.start_soon(_extract_bytes, content, mime_type, i)
 
     return results
-
-
-### Sync proxies
 
 
 def extract_bytes_sync(content: bytes, mime_type: str, config: ExtractionConfig = DEFAULT_CONFIG) -> ExtractionResult:

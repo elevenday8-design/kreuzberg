@@ -35,7 +35,6 @@ def mock_run_process(mocker: MockerFixture) -> Mock:
         if "--version" in command and command[0].endswith("tesseract"):
             return result
 
-        # Handle error test cases
         if "test_process_file_error" in str(kwargs.get("cwd")):
             result.returncode = 1
             result.stderr = b"Error processing file"
@@ -44,7 +43,6 @@ def mock_run_process(mocker: MockerFixture) -> Mock:
         if "test_process_file_runtime_error" in str(kwargs.get("cwd")):
             raise RuntimeError("Command failed")
 
-        # Normal case
         if len(command) >= 3 and command[0].endswith("tesseract"):
             output_file = command[2]
             if "test_process_image_with_tesseract_invalid_input" in str(kwargs.get("cwd")):
@@ -52,7 +50,6 @@ def mock_run_process(mocker: MockerFixture) -> Mock:
                 result.stderr = b"Error processing file"
                 raise OCRError("Error processing file")
 
-            # Verify required tesseract arguments
             if not all(arg in command for arg in ["--oem", "1", "--loglevel", "OFF", "-c", "thresholding_method=1"]):
                 result.returncode = 1
                 result.stderr = b"Missing required tesseract arguments"
@@ -295,7 +292,6 @@ async def test_batch_process_images_exception_group(mock_run_process: Mock) -> N
 
 @pytest.mark.anyio
 async def test_process_file_linux(mocker: MockerFixture) -> None:
-    # Mock sys.platform to simulate Linux
     mocker.patch("sys.platform", "linux")
 
     mock_run = mocker.patch("kreuzberg._ocr._tesseract.run_process")
@@ -304,6 +300,5 @@ async def test_process_file_linux(mocker: MockerFixture) -> None:
 
     await process_file("test.png", language="eng", psm=PSMMode.AUTO)
 
-    # Verify that OMP_THREAD_LIMIT was set for Linux
     mock_run.assert_called_once()
     assert mock_run.call_args[1]["env"] == {"OMP_THREAD_LIMIT": "1"}

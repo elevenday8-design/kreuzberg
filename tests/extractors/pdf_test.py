@@ -116,38 +116,33 @@ def test_validate_normal_text(extractor: PDFExtractor) -> None:
 
 def test_validate_short_corrupted_text(extractor: PDFExtractor) -> None:
     """Test validation of short text with corruption matches."""
-    # Test text shorter than SHORT_TEXT_THRESHOLD with corruption matches
-    assert not extractor._validate_extracted_text("\x00\x00\x00")  # Three null bytes (> MINIMUM_CORRUPTED_RESULTS)
-    assert extractor._validate_extracted_text("Hi\x00\x00")  # Two null bytes (= MINIMUM_CORRUPTED_RESULTS)
-    assert extractor._validate_extracted_text("Hi\x00")  # One null byte (< MINIMUM_CORRUPTED_RESULTS)
-    assert extractor._validate_extracted_text("Short \ufffd")  # One replacement char (< MINIMUM_CORRUPTED_RESULTS)
+
+    assert not extractor._validate_extracted_text("\x00\x00\x00")
+    assert extractor._validate_extracted_text("Hi\x00\x00")
+    assert extractor._validate_extracted_text("Hi\x00")
+    assert extractor._validate_extracted_text("Short \ufffd")
 
 
 def test_validate_long_corrupted_text(extractor: PDFExtractor) -> None:
     """Test validation of long text with corruption threshold."""
-    # Create a long text with varying levels of corruption
-    base_text = "A" * 1000  # Long text to exceed SHORT_TEXT_THRESHOLD
 
-    # Test with corruption below threshold (5%)
-    text_low_corruption = base_text + ("\x00" * 40)  # 4% corruption
+    base_text = "A" * 1000
+
+    text_low_corruption = base_text + ("\x00" * 40)
     assert extractor._validate_extracted_text(text_low_corruption)
 
-    # Test with corruption above threshold (5%)
-    text_high_corruption = base_text + ("\x00" * 60)  # 6% corruption
+    text_high_corruption = base_text + ("\x00" * 60)
     assert not extractor._validate_extracted_text(text_high_corruption)
 
 
 def test_validate_custom_corruption_threshold(extractor: PDFExtractor) -> None:
     """Test validation with custom corruption threshold."""
     base_text = "A" * 1000
-    corrupted_chars = "\x00" * 100  # 10% corruption
+    corrupted_chars = "\x00" * 100
     text = base_text + corrupted_chars
 
-    # Should fail with default threshold (5%)
     assert not extractor._validate_extracted_text(text)
 
-    # Should pass with higher threshold (15%)
     assert extractor._validate_extracted_text(text, corruption_threshold=0.15)
 
-    # Should fail with lower threshold (3%)
     assert not extractor._validate_extracted_text(text, corruption_threshold=0.03)

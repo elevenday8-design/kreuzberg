@@ -96,7 +96,6 @@ class SpreadSheetExtractor(Extractor):
         csv_buffer = StringIO()
         writer = csv.writer(csv_buffer)
 
-        # Convert all cell values to strings before writing
         for row in values:
             writer.writerow([self._convert_cell_to_str(cell) for cell in row])
 
@@ -106,7 +105,6 @@ class SpreadSheetExtractor(Extractor):
         csv_path, unlink = await create_temp_file(".csv")
         await AsyncPath(csv_path).write_text(csv_data)
 
-        # Convert CSV data to markdown table format
         csv_reader = csv.reader(StringIO(csv_data))
         rows = list(csv_reader)
         result = ""

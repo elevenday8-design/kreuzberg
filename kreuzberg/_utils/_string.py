@@ -18,14 +18,12 @@ def safe_decode(byte_data: bytes, encoding: str | None = None) -> str:
     if not byte_data:
         return ""
 
-    # We try each encoding in order until one works
     encodings = [encoding, detect(byte_data).get("encoding", ""), "utf-8"]
 
     for enc in [e for e in encodings if e]:  # pragma: no cover
         with suppress(UnicodeDecodeError, LookupError):
             return byte_data.decode(enc)
 
-    # If all encodings fail, fall back to latin-1 which can handle any byte
     return byte_data.decode("latin-1", errors="replace")
 
 

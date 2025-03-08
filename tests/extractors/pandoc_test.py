@@ -71,7 +71,6 @@ def test_config() -> ExtractionConfig:
 async def test_validate_pandoc_version(
     mocker: MockerFixture, mock_run_process: Mock, major_version: int, should_raise: bool, test_config: ExtractionConfig
 ) -> None:
-    # Create a test extractor instance
     extractor = MarkdownExtractor(mime_type="text/x-markdown", config=test_config)
     extractor._checked_version = False
 
@@ -146,7 +145,6 @@ def test_get_pandoc_type_from_mime_type(
     assert extractor._get_pandoc_type_from_mime_type(mime_type) == expected_type
 
 
-# Mock the Pandoc version check
 @pytest.fixture(autouse=True)
 def mock_pandoc_version(mocker: MockerFixture) -> None:
     mocker.patch("kreuzberg._extractors._pandoc.PandocExtractor._checked_version", True)

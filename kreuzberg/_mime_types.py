@@ -16,7 +16,7 @@ PDF_MIME_TYPE: Final = "application/pdf"
 PLAIN_TEXT_MIME_TYPE: Final = "text/plain"
 POWER_POINT_MIME_TYPE: Final = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 DOCX_MIME_TYPE: Final = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-# Excel formats
+
 EXCEL_MIME_TYPE: Final = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 EXCEL_BINARY_MIME_TYPE: Final = "application/vnd.ms-excel"
 EXCEL_MACRO_MIME_TYPE: Final = "application/vnd.ms-excel.sheet.macroEnabled.12"
@@ -24,8 +24,8 @@ EXCEL_BINARY_2007_MIME_TYPE: Final = "application/vnd.ms-excel.sheet.binary.macr
 EXCEL_ADDON_MIME_TYPE: Final = "application/vnd.ms-excel.addin.macroEnabled.12"
 EXCEL_TEMPLATE_MIME_TYPE: Final = "application/vnd.ms-excel.template.macroEnabled.12"
 
-# OpenDocument spreadsheet format
-OPENDOC_SPREADSHEET_MIME_TYPE: Final = "application/vnd.oasis.opendocument.spreadsheet"  # ods
+
+OPENDOC_SPREADSHEET_MIME_TYPE: Final = "application/vnd.oasis.opendocument.spreadsheet"
 PLAIN_TEXT_MIME_TYPES: Final[set[str]] = {PLAIN_TEXT_MIME_TYPE, MARKDOWN_MIME_TYPE}
 
 IMAGE_MIME_TYPES: Final[set[str]] = {
@@ -172,7 +172,7 @@ def validate_mime_type(
                 "Could not determine mime type.",
             )
         path = Path(file_path)
-        # Try to determine MIME type from file extension first
+
         ext = path.suffix.lower()
         mime_type = EXT_TO_MIME_TYPE.get(ext) or guess_type(path.name)[0]
 

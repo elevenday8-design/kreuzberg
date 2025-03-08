@@ -170,7 +170,6 @@ async def test_extract_file_html(html_document: Path) -> None:
 
 @pytest.mark.anyio
 async def test_extract_file_invalid_mime(tmp_path: Path) -> None:
-    # Create a valid path but use an invalid mime type
     test_file = tmp_path / "valid-file.txt"
     test_file.write_text("test content")
 
@@ -224,7 +223,6 @@ def test_extract_bytes_sync_invalid_mime() -> None:
 
 
 def test_extract_file_sync_invalid_mime(tmp_path: Path) -> None:
-    # Create a valid path but use an invalid mime type
     test_file = tmp_path / "valid-file.txt"
     test_file.write_text("test content")
 
@@ -265,7 +263,7 @@ async def test_batch_extract_pdf_files(scanned_pdf: Path, test_article: Path) ->
 @pytest.mark.anyio
 async def test_batch_extract_file_mixed(test_article: Path) -> None:
     """Test batch extraction of multiple files of different types."""
-    # Get paths to different types of files
+
     test_files = [test_article]
     test_files.extend((Path(__file__).parent / "source").glob("*.docx"))
     test_files.extend((Path(__file__).parent / "source").glob("*.xlsx"))
@@ -303,7 +301,7 @@ async def test_batch_extract_file_invalid(tmp_path: Path) -> None:
 @pytest.mark.anyio
 async def test_batch_extract_bytes_mixed(searchable_pdf: Path, docx_document: Path) -> None:
     """Test batch extraction of multiple byte contents of different types."""
-    # Create test content pairs
+
     contents = [
         (b"This is plain text", PLAIN_TEXT_MIME_TYPE),
         (
@@ -341,7 +339,7 @@ async def test_batch_extract_bytes_invalid() -> None:
 
 def test_batch_extract_file_sync_mixed(test_article: Path) -> None:
     """Test synchronous batch extraction of multiple files of different types."""
-    # Get paths to different types of files
+
     test_files = [test_article]
     test_files.extend((Path(__file__).parent / "source").glob("*.docx"))
     test_files.extend((Path(__file__).parent / "source").glob("*.xlsx"))
@@ -357,7 +355,7 @@ def test_batch_extract_file_sync_mixed(test_article: Path) -> None:
 
 def test_batch_extract_bytes_sync_mixed(searchable_pdf: Path, docx_document: Path) -> None:
     """Test synchronous batch extraction of multiple byte contents of different types."""
-    # Create test content pairs
+
     contents = [
         (b"This is plain text", PLAIN_TEXT_MIME_TYPE),
         (

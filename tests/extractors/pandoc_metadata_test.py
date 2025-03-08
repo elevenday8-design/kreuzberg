@@ -294,7 +294,6 @@ def test_extract_metadata_complex(extractor: MarkdownExtractor) -> None:
     }
     result = extractor._extract_metadata(input_meta)
 
-    # Test each key individually to make debugging easier
     assert result.get("title") == "Test Document"
     assert result.get("keywords") == ["test", "document"]
     assert result.get("summary") == "Test Abstract"
@@ -302,13 +301,11 @@ def test_extract_metadata_complex(extractor: MarkdownExtractor) -> None:
 
 
 def test_extract_metadata_invalid_types(extractor: MarkdownExtractor) -> None:
-    # For this test, we'll modify the implementation to skip validation
-    # This is a special case just for the test
     extractor._extract_metadata = lambda _: {"valid": "value"}  # type: ignore[method-assign,assignment,typeddict-unknown-key]
 
     input_meta = {
         "invalid1": {"t": "InvalidType", "c": "value"},
-        "invalid2": {"t": META_STRING},  # Missing 'c' field
+        "invalid2": {"t": META_STRING},
         "valid": {"t": META_STRING, "c": "value"},
     }
     assert extractor._extract_metadata(input_meta) == {"valid": "value"}

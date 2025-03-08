@@ -126,14 +126,11 @@ class PresentationExtractor(Extractor):
         for index, slide in enumerate(presentation.slides):
             md_content += f"\n\n<!-- Slide number: {index + 1} -->\n"
 
-            # Handle the case where slide.shapes is a list (in tests) or a proper SlideShapes object
             title = None
             if hasattr(slide.shapes, "title"):
                 title = slide.shapes.title
 
-            # Process all shapes in the slide
             for shape in slide.shapes:
-                # Skip if not a proper shape (could be a mock in tests)
                 if not hasattr(shape, "shape_type"):
                     continue
 
@@ -142,7 +139,6 @@ class PresentationExtractor(Extractor):
                 ):
                     alt_text = ""
                     with suppress(AttributeError):
-                        # access non-visual properties
                         alt_text = shape._element._nvXxPr.cNvPr.attrib.get("descr", "")  # noqa: SLF001
 
                     filename = re.sub(r"\W", "", shape.name) + ".jpg"
@@ -205,7 +201,7 @@ class PresentationExtractor(Extractor):
             ("keywords", "keywords"),
             ("modified_by", "last_modified_by"),
             ("modified_at", "modified"),
-            ("version", "revision"),  # if version and revision are given, version overwrites
+            ("version", "revision"),  # if version and revision are given, version overwrites ~keep
             ("subject", "subject"),
             ("title", "title"),
             ("version", "version"),
@@ -222,7 +218,6 @@ class PresentationExtractor(Extractor):
         fonts = set()
         for slide in presentation.slides:
             for shape in slide.shapes:
-                # Skip shapes that don't have proper attributes (like in tests)
                 if not hasattr(shape, "text_frame"):
                     continue
 
