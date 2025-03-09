@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from kreuzberg._extractors._base import ExtractionConfig
 from kreuzberg._mime_types import (
     DOCX_MIME_TYPE,
     EXCEL_MIME_TYPE,
@@ -15,6 +14,7 @@ from kreuzberg._mime_types import (
     PLAIN_TEXT_MIME_TYPE,
     POWER_POINT_MIME_TYPE,
 )
+from kreuzberg._types import ExtractionConfig
 from kreuzberg.exceptions import ValidationError
 from kreuzberg.extraction import (
     batch_extract_bytes,

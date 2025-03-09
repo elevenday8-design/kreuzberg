@@ -2,7 +2,6 @@ from typing import Any, cast
 
 import pytest
 
-from kreuzberg._extractors._base import ExtractionConfig
 from kreuzberg._extractors._pandoc import (
     BLOCK_PARA,
     META_BLOCKS,
@@ -11,6 +10,7 @@ from kreuzberg._extractors._pandoc import (
     META_STRING,
     MarkdownExtractor,
 )
+from kreuzberg._types import ExtractionConfig
 from kreuzberg.extraction import DEFAULT_CONFIG
 
 AST_FIXTURE_META: dict[str, Any] = {

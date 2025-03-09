@@ -1,12 +1,41 @@
 from __future__ import annotations
 
 import sys
+from dataclasses import dataclass
+from enum import Enum
 from typing import NamedTuple, TypedDict
 
 if sys.version_info < (3, 11):  # pragma: no cover
     from typing_extensions import NotRequired
 else:  # pragma: no cover
     from typing import NotRequired
+
+
+class PSMMode(Enum):
+    """Enum for Tesseract Page Segmentation Modes (PSM) with human-readable values."""
+
+    OSD_ONLY = 0
+    """Orientation and script detection only."""
+    AUTO_OSD = 1
+    """Automatic page segmentation with orientation and script detection."""
+    AUTO_ONLY = 2
+    """Automatic page segmentation without OSD."""
+    AUTO = 3
+    """Fully automatic page segmentation (default)."""
+    SINGLE_COLUMN = 4
+    """Assume a single column of text."""
+    SINGLE_BLOCK_VERTICAL = 5
+    """Assume a single uniform block of vertically aligned text."""
+    SINGLE_BLOCK = 6
+    """Assume a single uniform block of text."""
+    SINGLE_LINE = 7
+    """Treat the image as a single text line."""
+    SINGLE_WORD = 8
+    """Treat the image as a single word."""
+    CIRCLE_WORD = 9
+    """Treat the image as a single word in a circle."""
+    SINGLE_CHAR = 10
+    """Treat the image as a single character."""
 
 
 class Metadata(TypedDict, total=False):
@@ -79,3 +108,18 @@ class ExtractionResult(NamedTuple):
     """The mime type of the content."""
     metadata: Metadata
     """The metadata of the content."""
+
+
+@dataclass(unsafe_hash=True, frozen=True)
+class ExtractionConfig:
+    """Configuration options for the extraction process.
+
+    Attributes:
+        force_ocr (bool): Whether to force OCR (Optical Character Recognition) even when text exists.
+        language (str): The language to be used for OCR, default is English ("eng").
+        psm (PSMMode): Page Segmentation Mode for Tesseract OCR.
+    """
+
+    force_ocr: bool = False
+    language: str = "eng"
+    psm: PSMMode = PSMMode.AUTO

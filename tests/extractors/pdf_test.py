@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 
 from kreuzberg import ExtractionResult
-from kreuzberg._extractors._base import ExtractionConfig
 from kreuzberg._extractors._pdf import PDFExtractor
+from kreuzberg._types import ExtractionConfig
 from kreuzberg.exceptions import ParsingError
 from kreuzberg.extraction import DEFAULT_CONFIG
 

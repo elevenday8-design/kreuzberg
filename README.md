@@ -161,9 +161,8 @@ Consult the [Tesseract documentation](https://tesseract-ocr.github.io/tessdoc/) 
 
 ```python
 from pathlib import Path
-from kreuzberg import extract_file
+from kreuzberg import extract_file, PSMMode
 from kreuzberg import ExtractionResult
-from kreuzberg import PSMMode
 
 
 # Basic file extraction

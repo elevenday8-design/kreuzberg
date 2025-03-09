@@ -8,7 +8,7 @@ from anyio import Path as AsyncPath
 from kreuzberg import ExtractionResult, ValidationError
 from kreuzberg._extractors._base import Extractor
 from kreuzberg._mime_types import IMAGE_MIME_TYPES
-from kreuzberg._ocr._tesseract import process_image_with_tesseract
+from kreuzberg._ocr._tesseract import TesseractBackend
 from kreuzberg._utils._tmp import create_temp_file
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -50,7 +50,7 @@ class ImageExtractor(Extractor):
             await unlink()
 
     async def extract_path_async(self, path: Path) -> ExtractionResult:
-        return await process_image_with_tesseract(path, language=self.config.language, psm=self.config.psm)
+        return await TesseractBackend().process_file(path, language=self.config.language, psm=self.config.psm)
 
     def extract_bytes_sync(self, content: bytes) -> ExtractionResult:
         return anyio.run(self.extract_bytes_async, content)

@@ -1,33 +1,13 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
-
-from kreuzberg._constants import DEFAULT_MAX_PROCESSES
-from kreuzberg._ocr._tesseract import PSMMode
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from kreuzberg import ExtractionResult
-
-
-@dataclass(unsafe_hash=True, frozen=True)
-class ExtractionConfig:
-    """Configuration options for the extraction process.
-
-    Attributes:
-        force_ocr (bool): Whether to force OCR (Optical Character Recognition) even when text exists.
-        language (str): The language to be used for OCR, default is English ("eng").
-        max_processes (int): Maximum number of parallel processes allowed during extraction.
-        psm (PSMMode | None): Page Segmentation Mode for OCR, if applicable; otherwise, None.
-    """
-
-    force_ocr: bool = False
-    language: str = "eng"
-    max_processes: int = DEFAULT_MAX_PROCESSES
-    psm: PSMMode = PSMMode.AUTO
+    from kreuzberg._types import ExtractionConfig
 
 
 class Extractor(ABC):

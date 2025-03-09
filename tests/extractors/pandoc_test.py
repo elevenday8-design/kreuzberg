@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from collections.abc import Coroutine
     from unittest.mock import Mock
 
-    from kreuzberg._extractors._base import ExtractionConfig
+    from kreuzberg._types import ExtractionConfig
 
 import pytest
 

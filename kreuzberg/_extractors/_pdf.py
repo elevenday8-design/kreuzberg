@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from multiprocessing import cpu_count
 from re import Pattern
 from re import compile as compile_regex
 from typing import TYPE_CHECKING, ClassVar, cast
@@ -8,12 +9,12 @@ import anyio
 import pypdfium2
 from anyio import Path as AsyncPath
 
-from kreuzberg import ExtractionResult
 from kreuzberg._extractors._base import Extractor
 from kreuzberg._mime_types import PDF_MIME_TYPE, PLAIN_TEXT_MIME_TYPE
-from kreuzberg._ocr._tesseract import PSMMode, batch_process_images
+from kreuzberg._ocr._tesseract import TesseractBackend
+from kreuzberg._types import ExtractionResult, PSMMode
 from kreuzberg._utils._string import normalize_spaces
-from kreuzberg._utils._sync import run_sync
+from kreuzberg._utils._sync import run_sync, run_taskgroup_batched
 from kreuzberg._utils._tmp import create_temp_file
 from kreuzberg.exceptions import ParsingError
 
@@ -25,7 +26,6 @@ if TYPE_CHECKING:  # pragma: no cover
 
 class PDFExtractor(Extractor):
     SUPPORTED_MIME_TYPES: ClassVar[set[str]] = {PDF_MIME_TYPE}
-
     CORRUPTED_PATTERN: ClassVar[Pattern[str]] = compile_regex(r"[\x00-\x08\x0B-\x0C\x0E-\x1F]|\uFFFD")
     SHORT_TEXT_THRESHOLD: ClassVar[int] = 50
     MINIMUM_CORRUPTED_RESULTS: ClassVar[int] = 2
@@ -114,11 +114,13 @@ class PDFExtractor(Extractor):
             The extracted text.
         """
         images = await self._convert_pdf_to_images(input_file)
-        ocr_results = await batch_process_images(
-            images,
-            max_processes=self.config.max_processes,
-            psm=self.config.psm or PSMMode.AUTO,
-            language=self.config.language,
+        backend = TesseractBackend()
+        ocr_results = await run_taskgroup_batched(
+            *[
+                backend.process_image(image, psm=self.config.psm or PSMMode.AUTO, language=self.config.language)
+                for image in images
+            ],
+            batch_size=cpu_count(),
         )
         return ExtractionResult(
             content="\n".join([v.content for v in ocr_results]), mime_type=PLAIN_TEXT_MIME_TYPE, metadata={}

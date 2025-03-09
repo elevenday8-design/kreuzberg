@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Final, cast
 import anyio
 
 from kreuzberg import ExtractionResult
-from kreuzberg._extractors._base import ExtractionConfig, Extractor
 from kreuzberg._extractors._html import HTMLExtractor
 from kreuzberg._extractors._image import ImageExtractor
 from kreuzberg._extractors._pandoc import (
@@ -27,11 +26,15 @@ from kreuzberg._extractors._spread_sheet import SpreadSheetExtractor
 from kreuzberg._mime_types import (
     validate_mime_type,
 )
+from kreuzberg._types import ExtractionConfig
 from kreuzberg._utils._string import safe_decode
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from os import PathLike
+
+    from kreuzberg._extractors._base import Extractor
+
 
 DEFAULT_CONFIG: Final[ExtractionConfig] = ExtractionConfig()
 
