@@ -7,13 +7,12 @@ from typing import TYPE_CHECKING, Any, ClassVar, Final, TypedDict
 import numpy as np
 from PIL import Image
 
-from kreuzberg import MissingDependencyError
 from kreuzberg._mime_types import PLAIN_TEXT_MIME_TYPE
 from kreuzberg._ocr._base import OCRBackend
 from kreuzberg._types import ExtractionResult, Metadata
 from kreuzberg._utils._string import normalize_spaces
 from kreuzberg._utils._sync import run_sync
-from kreuzberg.exceptions import OCRError, ValidationError
+from kreuzberg.exceptions import MissingDependencyError, OCRError, ValidationError
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -29,10 +28,11 @@ except ImportError:  # pragma: no cover
     from typing_extensions import Unpack
 
 
-PADDLEOCR_SUPPORTED_LANGUAGE_CODES: Final[set[str]] = {"ch", "en", "french", "german", "japan", "korean"}
+PaddleOCRLanguage = Literal["ch", "en", "french", "german", "japan", "korean"]
+PADDLEOCR_SUPPORTED_LANGUAGE_CODES: Final[set[str]] = set(PaddleOCRLanguage.__args__)  # type: ignore[attr-defined]
 
 
-class PaddleConfig(TypedDict):
+class PaddleOCRConfig(TypedDict, total=False):
     """Configuration options for PaddleOCR.
 
     This TypedDict provides type hints and documentation for all PaddleOCR parameters.
@@ -64,7 +64,7 @@ class PaddleConfig(TypedDict):
     """Whether to enable MKL-DNN acceleration (Intel CPU only). Default: False"""
     gpu_mem: NotRequired[int]
     """GPU memory size (in MB) to use for initialization. Default: 8000"""
-    language: NotRequired[str]
+    language: NotRequired[PaddleOCRLanguage]
     """Language to use for OCR."""
     max_text_length: NotRequired[int]
     """Maximum text length that the recognition algorithm can recognize. Default: 25"""
@@ -102,10 +102,10 @@ class PaddleConfig(TypedDict):
     """Whether to enable zero_copy_run for inference optimization. Default: False"""
 
 
-class PaddleBackend(OCRBackend[PaddleConfig]):
+class PaddleBackend(OCRBackend[PaddleOCRConfig]):
     _paddle_ocr: ClassVar[Any] = None
 
-    async def process_image(self, image: Image.Image, **kwargs: Unpack[PaddleConfig]) -> ExtractionResult:
+    async def process_image(self, image: Image.Image, **kwargs: Unpack[PaddleOCRConfig]) -> ExtractionResult:
         """Asynchronously process an image and extract its text and metadata using PaddleOCR.
 
         Args:
@@ -126,7 +126,7 @@ class PaddleBackend(OCRBackend[PaddleConfig]):
         except Exception as e:
             raise OCRError(f"Failed to OCR using PaddleOCR: {e}") from e
 
-    async def process_file(self, path: Path, **kwargs: Unpack[PaddleConfig]) -> ExtractionResult:
+    async def process_file(self, path: Path, **kwargs: Unpack[PaddleOCRConfig]) -> ExtractionResult:
         """Asynchronously process a file and extract its text and metadata using PaddleOCR.
 
         Args:
@@ -231,7 +231,7 @@ class PaddleBackend(OCRBackend[PaddleConfig]):
         return False
 
     @classmethod
-    async def _init_paddle_ocr(cls, **kwargs: Unpack[PaddleConfig]) -> None:
+    async def _init_paddle_ocr(cls, **kwargs: Unpack[PaddleOCRConfig]) -> None:
         """Initialize PaddleOCR with the provided configuration.
 
         Args:

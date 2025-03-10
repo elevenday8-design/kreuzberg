@@ -50,7 +50,7 @@ class ImageExtractor(Extractor):
             await unlink()
 
     async def extract_path_async(self, path: Path) -> ExtractionResult:
-        return await TesseractBackend().process_file(path, language=self.config.language, psm=self.config.psm)
+        return await TesseractBackend().process_file(path, **(self.config.ocr_config or {}))
 
     def extract_bytes_sync(self, content: bytes) -> ExtractionResult:
         return anyio.run(self.extract_bytes_async, content)

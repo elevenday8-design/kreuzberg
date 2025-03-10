@@ -12,7 +12,7 @@ from anyio import Path as AsyncPath
 from kreuzberg._extractors._base import Extractor
 from kreuzberg._mime_types import PDF_MIME_TYPE, PLAIN_TEXT_MIME_TYPE
 from kreuzberg._ocr._tesseract import TesseractBackend
-from kreuzberg._types import ExtractionResult, PSMMode
+from kreuzberg._types import ExtractionResult
 from kreuzberg._utils._string import normalize_spaces
 from kreuzberg._utils._sync import run_sync, run_taskgroup_batched
 from kreuzberg._utils._tmp import create_temp_file
@@ -116,10 +116,7 @@ class PDFExtractor(Extractor):
         images = await self._convert_pdf_to_images(input_file)
         backend = TesseractBackend()
         ocr_results = await run_taskgroup_batched(
-            *[
-                backend.process_image(image, psm=self.config.psm or PSMMode.AUTO, language=self.config.language)
-                for image in images
-            ],
+            *[backend.process_image(image, **(self.config.ocr_config or {})) for image in images],
             batch_size=cpu_count(),
         )
         return ExtractionResult(

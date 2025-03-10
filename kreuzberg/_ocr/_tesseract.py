@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import re
 import sys
-from typing import TYPE_CHECKING, Any, ClassVar, Final, TypedDict
+from enum import Enum
+from typing import TYPE_CHECKING, Any, ClassVar, Final, Literal, TypedDict
 
 from anyio import Path as AsyncPath
 from anyio import run_process
 
 from kreuzberg._mime_types import PLAIN_TEXT_MIME_TYPE
 from kreuzberg._ocr._base import OCRBackend
-from kreuzberg._types import ExtractionResult, PSMMode
+from kreuzberg._types import ExtractionResult
 from kreuzberg._utils._string import normalize_spaces
 from kreuzberg._utils._sync import run_sync
 from kreuzberg._utils._tmp import create_temp_file
@@ -30,7 +31,7 @@ try:  # pragma: no cover
 except ImportError:  # pragma: no cover
     from typing_extensions import Unpack
 
-TESSERACT_SUPPORTED_LANGUAGE_CODES: Final[set[str]] = {
+TesseractLanguage = Literal[
     "afr",
     "amh",
     "ara",
@@ -158,18 +159,47 @@ TESSERACT_SUPPORTED_LANGUAGE_CODES: Final[set[str]] = {
     "vie",  # codespell:ignore
     "yid",
     "yor",
-}
+]
+
+TESSERACT_SUPPORTED_LANGUAGE_CODES: Final[set[str]] = set(TesseractLanguage.__args__)  # type: ignore[attr-defined]
 
 MINIMAL_SUPPORTED_TESSERACT_VERSION: Final[int] = 5
 
 
-class TesseractConfig(TypedDict):
+class PSMMode(Enum):
+    """Enum for Tesseract Page Segmentation Modes (PSM) with human-readable values."""
+
+    OSD_ONLY = 0
+    """Orientation and script detection only."""
+    AUTO_OSD = 1
+    """Automatic page segmentation with orientation and script detection."""
+    AUTO_ONLY = 2
+    """Automatic page segmentation without OSD."""
+    AUTO = 3
+    """Fully automatic page segmentation (default)."""
+    SINGLE_COLUMN = 4
+    """Assume a single column of text."""
+    SINGLE_BLOCK_VERTICAL = 5
+    """Assume a single uniform block of vertically aligned text."""
+    SINGLE_BLOCK = 6
+    """Assume a single uniform block of text."""
+    SINGLE_LINE = 7
+    """Treat the image as a single text line."""
+    SINGLE_WORD = 8
+    """Treat the image as a single word."""
+    CIRCLE_WORD = 9
+    """Treat the image as a single word in a circle."""
+    SINGLE_CHAR = 10
+    """Treat the image as a single character."""
+
+
+class TesseractConfig(TypedDict, total=False):
     """Configuration options for Tesseract OCR engine."""
 
     classify_use_pre_adapted_templates: NotRequired[bool]
     """Whether to use pre-adapted templates during classification to improve recognition accuracy."""
-    language: NotRequired[str]
-    """Language code to use for OCR (e.g., 'eng' for English, 'deu' for German)."""
+    language: NotRequired[TesseractLanguage]
+    """Language code to use for OCR (e.g., 'eng' for English, 'deu' for German etc.)"""
     language_model_ngram_on: NotRequired[bool]
     """Enable or disable the use of n-gram-based language models for improved text recognition."""
     psm: NotRequired[PSMMode]

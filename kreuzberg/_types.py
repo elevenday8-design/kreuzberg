@@ -2,40 +2,17 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
-from enum import Enum
-from typing import NamedTuple, TypedDict
+from typing import TYPE_CHECKING, Literal, NamedTuple, TypedDict
 
 if sys.version_info < (3, 11):  # pragma: no cover
     from typing_extensions import NotRequired
 else:  # pragma: no cover
     from typing import NotRequired
 
-
-class PSMMode(Enum):
-    """Enum for Tesseract Page Segmentation Modes (PSM) with human-readable values."""
-
-    OSD_ONLY = 0
-    """Orientation and script detection only."""
-    AUTO_OSD = 1
-    """Automatic page segmentation with orientation and script detection."""
-    AUTO_ONLY = 2
-    """Automatic page segmentation without OSD."""
-    AUTO = 3
-    """Fully automatic page segmentation (default)."""
-    SINGLE_COLUMN = 4
-    """Assume a single column of text."""
-    SINGLE_BLOCK_VERTICAL = 5
-    """Assume a single uniform block of vertically aligned text."""
-    SINGLE_BLOCK = 6
-    """Assume a single uniform block of text."""
-    SINGLE_LINE = 7
-    """Treat the image as a single text line."""
-    SINGLE_WORD = 8
-    """Treat the image as a single word."""
-    CIRCLE_WORD = 9
-    """Treat the image as a single word in a circle."""
-    SINGLE_CHAR = 10
-    """Treat the image as a single character."""
+if TYPE_CHECKING:
+    from kreuzberg._ocr._easyocr import EasyOCRConfig
+    from kreuzberg._ocr._paddleocr import PaddleOCRConfig
+    from kreuzberg._ocr._tesseract import TesseractConfig
 
 
 class Metadata(TypedDict, total=False):
@@ -112,14 +89,22 @@ class ExtractionResult(NamedTuple):
 
 @dataclass(unsafe_hash=True, frozen=True)
 class ExtractionConfig:
-    """Configuration options for the extraction process.
+    """Represents configuration settings for an extraction process.
+
+    This class encapsulates the configuration options for extracting text
+    from images or documents using Optical Character Recognition (OCR). It
+    provides options to customize the OCR behavior, select the backend
+    engine, and configure engine-specific parameters.
 
     Attributes:
-        force_ocr (bool): Whether to force OCR (Optical Character Recognition) even when text exists.
-        language (str): The language to be used for OCR, default is English ("eng").
-        psm (PSMMode): Page Segmentation Mode for Tesseract OCR.
+        force_ocr (bool): Determines whether OCR is forcibly applied regardless
+            of other conditions.
+        ocr_backend (Literal["tesseract", "easyOCR", "paddleOCR"] | None): Specifies
+            the OCR engine to use for text extraction. Defaults to "tesseract".
+        ocr_config (TesseractConfig | PaddleOCRConfig | EasyOCRConfig | None):
+            Holds the specific configuration for the selected OCR backend.
     """
 
     force_ocr: bool = False
-    language: str = "eng"
-    psm: PSMMode = PSMMode.AUTO
+    ocr_backend: Literal["tesseract", "easyOCR", "paddleOCR"] | None = "tesseract"
+    ocr_config: TesseractConfig | PaddleOCRConfig | EasyOCRConfig | None = None

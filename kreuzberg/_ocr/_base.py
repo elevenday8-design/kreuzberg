@@ -4,7 +4,7 @@ from typing import Generic, TypeVar
 
 from PIL.Image import Image
 
-from kreuzberg import ExtractionResult
+from kreuzberg._types import ExtractionResult
 
 try:  # pragma: no cover
     from typing import Unpack  # type: ignore[attr-defined]

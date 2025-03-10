@@ -5,13 +5,12 @@ from typing import TYPE_CHECKING, Any, ClassVar, Final, Literal, TypedDict
 import numpy as np
 from PIL import Image
 
-from kreuzberg import ValidationError
 from kreuzberg._mime_types import PLAIN_TEXT_MIME_TYPE
 from kreuzberg._ocr._base import OCRBackend
 from kreuzberg._types import ExtractionResult, Metadata
 from kreuzberg._utils._string import normalize_spaces
 from kreuzberg._utils._sync import run_sync
-from kreuzberg.exceptions import MissingDependencyError, OCRError
+from kreuzberg.exceptions import MissingDependencyError, OCRError, ValidationError
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -26,7 +25,7 @@ try:  # pragma: no cover
 except ImportError:  # pragma: no cover
     from typing_extensions import Unpack
 
-EASYOCR_SUPPORTED_LANGUAGE_CODES: Final[set[str]] = {
+EasyOCRLanguage = Literal[
     "abq",
     "ady",
     "af",
@@ -110,10 +109,12 @@ EASYOCR_SUPPORTED_LANGUAGE_CODES: Final[set[str]] = {
     "ur",
     "uz",
     "vi",
-}
+]
+
+EASYOCR_SUPPORTED_LANGUAGE_CODES: Final[set[str]] = set(EasyOCRLanguage.__args__)  # type: ignore[attr-defined]
 
 
-class EasyOCRConfig(TypedDict):
+class EasyOCRConfig(TypedDict, total=False):
     """Configuration options for EasyOCR."""
 
     add_margin: NotRequired[float]
@@ -130,7 +131,7 @@ class EasyOCRConfig(TypedDict):
     """Decoder method. Options: 'greedy', 'beamsearch', 'wordbeamsearch'. Default: 'greedy'"""
     height_ths: NotRequired[float]
     """Maximum difference in box height for merging. Default: 0.5"""
-    language: NotRequired[str]
+    language: NotRequired[EASYOCR_SUPPORTED_LANGUAGE_CODES]
     """Language to use for OCR."""
     link_threshold: NotRequired[float]
     """Link confidence threshold. Default: 0.4"""
