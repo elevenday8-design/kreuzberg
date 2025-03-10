@@ -8,7 +8,7 @@ from anyio import Path as AsyncPath
 from kreuzberg import ExtractionResult, ValidationError
 from kreuzberg._extractors._base import Extractor
 from kreuzberg._mime_types import IMAGE_MIME_TYPES
-from kreuzberg._ocr._tesseract import TesseractBackend
+from kreuzberg._ocr import get_ocr_backend
 from kreuzberg._utils._tmp import create_temp_file
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -50,7 +50,10 @@ class ImageExtractor(Extractor):
             await unlink()
 
     async def extract_path_async(self, path: Path) -> ExtractionResult:
-        return await TesseractBackend().process_file(path, **(self.config.ocr_config or {}))
+        if self.config.ocr_backend is None:
+            raise ValidationError("ocr_backend is None, cannot perform OCR")
+
+        return await get_ocr_backend(self.config.ocr_backend).process_file(path, **(self.config.ocr_config or {}))
 
     def extract_bytes_sync(self, content: bytes) -> ExtractionResult:
         return anyio.run(self.extract_bytes_async, content)

@@ -48,3 +48,7 @@ class OCRBackend(ABC, Generic[T]):
             The extraction result object
         """
         ...
+
+    def __hash__(self) -> int:
+        """Hash function for allowing caching."""
+        return hash(type(self).__name__)

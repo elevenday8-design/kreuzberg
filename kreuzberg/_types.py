@@ -14,6 +14,8 @@ if TYPE_CHECKING:
     from kreuzberg._ocr._paddleocr import PaddleOCRConfig
     from kreuzberg._ocr._tesseract import TesseractConfig
 
+OcrBackendType = Literal["tesseract", "easyocr", "paddleocr"]
+
 
 class Metadata(TypedDict, total=False):
     """Base metadata common to all document types.
@@ -106,5 +108,5 @@ class ExtractionConfig:
     """
 
     force_ocr: bool = False
-    ocr_backend: Literal["tesseract", "easyOCR", "paddleOCR"] | None = "tesseract"
+    ocr_backend: OcrBackendType | None = "tesseract"
     ocr_config: TesseractConfig | PaddleOCRConfig | EasyOCRConfig | None = None
