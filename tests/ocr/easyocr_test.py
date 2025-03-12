@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from dataclasses import asdict
 from typing import TYPE_CHECKING, Any
 from unittest.mock import Mock, patch
 
 import pytest
 from PIL import Image
 
+from kreuzberg import EasyOCRConfig
 from kreuzberg._ocr._easyocr import (
     EasyOCRBackend,
 )
@@ -31,6 +33,11 @@ def raise_import_error(name: str, *args: Any, **kwargs: Any) -> Any:
 def backend() -> EasyOCRBackend:
     EasyOCRBackend._reader = None
     return EasyOCRBackend()
+
+
+@pytest.fixture
+def config_dict() -> dict[str, Any]:
+    return asdict(EasyOCRConfig())
 
 
 @pytest.fixture
@@ -164,7 +171,7 @@ async def test_init_easyocr_error(mocker: MockerFixture) -> None:
 
 
 @pytest.mark.anyio
-async def test_process_image(backend: EasyOCRBackend, mock_easyocr_reader: Mock) -> None:
+async def test_process_image(backend: EasyOCRBackend, mock_easyocr_reader: Mock, config_dict: dict[str, Any]) -> None:
     """Test processing an image with EasyOCR."""
 
     image = Image.new("RGB", (100, 100))
@@ -173,7 +180,7 @@ async def test_process_image(backend: EasyOCRBackend, mock_easyocr_reader: Mock)
         backend._reader = mock_easyocr_reader  # type: ignore[misc]
 
         with patch("kreuzberg._ocr._easyocr.run_sync", return_value=mock_easyocr_reader.readtext.return_value):
-            result = await backend.process_image(image, language="en")
+            result = await backend.process_image(image, **config_dict)
 
             assert isinstance(result, ExtractionResult)
             assert "Sample OCR text" in result.content
@@ -184,7 +191,7 @@ async def test_process_image(backend: EasyOCRBackend, mock_easyocr_reader: Mock)
 
 
 @pytest.mark.anyio
-async def test_process_image_error(backend: EasyOCRBackend) -> None:
+async def test_process_image_error(backend: EasyOCRBackend, config_dict: dict[str, Any]) -> None:
     """Test error handling when processing an image."""
 
     image = Image.new("RGB", (100, 100))
@@ -195,7 +202,7 @@ async def test_process_image_error(backend: EasyOCRBackend) -> None:
         error_message = "OCR processing failed"
         with patch("kreuzberg._ocr._easyocr.run_sync", side_effect=Exception(error_message)):
             with pytest.raises(OCRError) as excinfo:
-                await backend.process_image(image, language="en")
+                await backend.process_image(image, **config_dict)
 
             assert "Failed to OCR using EasyOCR" in str(excinfo.value)
 

@@ -38,7 +38,7 @@ async def test_extract_pdf_searchable_not_fallback_to_ocr(test_contract: Path) -
 @pytest.mark.anyio
 async def test_extract_pdf_text_with_ocr(extractor: PDFExtractor, scanned_pdf: Path) -> None:
     """Test extracting text from a scanned PDF using OCR."""
-    result = await extractor._extract_pdf_text_with_ocr(scanned_pdf)
+    result = await extractor._extract_pdf_text_with_ocr(scanned_pdf, ocr_backend="tesseract")
     assert isinstance(result, ExtractionResult)
     assert result.content.strip()
 

@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import sys
 from functools import partial
+from inspect import isawaitable, iscoroutinefunction
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
+import anyio
 from anyio import create_task_group
 from anyio.to_thread import run_sync as any_io_run_sync
 
@@ -72,3 +74,48 @@ async def run_taskgroup_batched(*async_tasks: Awaitable[Any], batch_size: int) -
         results.extend(await run_taskgroup(*batch))
 
     return results
+
+
+async def run_maybe_sync(fn: Callable[P, T | Awaitable[T]], *args: P.args, **kwargs: P.kwargs) -> T:
+    """Executes a callable function and handles both synchronous and asynchronous
+    results.
+
+    This function invokes the provided callable `sync_fn` with the given
+    arguments and keyword arguments. If the result of `sync_fn` is awaitable,
+    it awaits the result before returning it. Otherwise, the result is returned
+    directly.
+
+    Args:
+        fn: The callable to be executed. It can produce either a
+            synchronous or asynchronous result.
+        *args: Positional arguments to pass to `sync_fn`.
+        **kwargs: Keyword arguments to pass to `sync_fn`.
+
+    Returns:
+        The result of `sync_fn` invocation. If the result is awaitable, the
+        awaited value is returned. Otherwise, the synchronous result is
+        returned.
+    """
+    result = fn(*args, **kwargs)
+    if isawaitable(result):
+        return cast(T, await result)
+    return result
+
+
+def run_maybe_async(fn: Callable[P, T | Awaitable[T]], *args: P.args, **kwargs: P.kwargs) -> T:
+    """Runs a synchronous or asynchronous function, resolving the output.
+
+    Determines if the provided function is synchronous or asynchronous. If synchronous,
+    executes it directly. If asynchronous, it runs the function within the event loop
+    using anyio. The return value is resolved regardless of the function type.
+
+    Args:
+        fn: The function to be executed, which can
+            either be synchronous or asynchronous.
+        *args: Positional arguments to be passed to the function.
+        **kwargs: Keyword arguments to be passed to the function.
+
+    Returns:
+        T: The return value of the executed function, resolved if asynchronous.
+    """
+    return cast(T, fn(*args, **kwargs) if not iscoroutinefunction(fn) else anyio.run(partial(fn, **kwargs), *args))

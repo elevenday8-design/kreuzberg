@@ -116,7 +116,7 @@ class PDFExtractor(Extractor):
         images = await self._convert_pdf_to_images(input_file)
         backend = get_ocr_backend(ocr_backend)
         ocr_results = await run_taskgroup_batched(
-            *[backend.process_image(image, **(self.config.ocr_config or {})) for image in images],
+            *[backend.process_image(image, **self.config.get_config_dict()) for image in images],
             batch_size=cpu_count(),
         )
         return ExtractionResult(

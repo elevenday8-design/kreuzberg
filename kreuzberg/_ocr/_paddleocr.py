@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import platform
+from dataclasses import dataclass
 from importlib.util import find_spec
-from typing import TYPE_CHECKING, Any, ClassVar, Final, TypedDict
+from typing import TYPE_CHECKING, Any, ClassVar, Final, Literal
 
 import numpy as np
 from PIL import Image
@@ -17,10 +18,6 @@ from kreuzberg.exceptions import MissingDependencyError, OCRError, ValidationErr
 if TYPE_CHECKING:
     from pathlib import Path
 
-try:  # pragma: no cover
-    from typing import NotRequired  # type: ignore[attr-defined]
-except ImportError:  # pragma: no cover
-    from typing_extensions import Literal, NotRequired
 
 try:  # pragma: no cover
     from typing import Unpack  # type: ignore[attr-defined]
@@ -28,78 +25,74 @@ except ImportError:  # pragma: no cover
     from typing_extensions import Unpack
 
 
-PaddleOCRLanguage = Literal["ch", "en", "french", "german", "japan", "korean"]
-PADDLEOCR_SUPPORTED_LANGUAGE_CODES: Final[set[str]] = set(PaddleOCRLanguage.__args__)  # type: ignore[attr-defined]
+PADDLEOCR_SUPPORTED_LANGUAGE_CODES: Final[set[str]] = {"ch", "en", "french", "german", "japan", "korean"}
 
 
-class PaddleOCRConfig(TypedDict, total=False):
+@dataclass(unsafe_hash=True, frozen=True)
+class PaddleOCRConfig:
     """Configuration options for PaddleOCR.
 
     This TypedDict provides type hints and documentation for all PaddleOCR parameters.
     """
 
-    cls_image_shape: NotRequired[str]
-    """Image shape for classification algorithm in format 'channels,height,width'. Default: '3,48,192'"""
-    crop_res_save_dir: NotRequired[str]
-    """Directory to save cropped text images. Default: './output'"""
-    det_algorithm: NotRequired[Literal["DB", "EAST", "SAST", "PSE", "FCE", "PAN", "CT", "DB++", "Layout"]]
-    """Detection algorithm. Default: 'DB'"""
-    det_db_box_thresh: NotRequired[float]
-    """Score threshold for detected boxes. Boxes below this value are discarded. Default: 0.5"""
-    det_db_thresh: NotRequired[float]
-    """Binarization threshold for DB output map. Default: 0.3"""
-    det_db_unclip_ratio: NotRequired[float]
-    """Expansion ratio for detected text boxes. Default: 2.0"""
-    det_east_cover_thresh: NotRequired[float]
-    """Score threshold for EAST output boxes. Default: 0.1"""
-    det_east_nms_thresh: NotRequired[float]
-    """NMS threshold for EAST model output boxes. Default: 0.2"""
-    det_east_score_thresh: NotRequired[float]
-    """Binarization threshold for EAST output map. Default: 0.8"""
-    det_max_side_len: NotRequired[int]
-    """Maximum size of image long side. Images exceeding this will be proportionally resized. Default: 960"""
-    drop_score: NotRequired[float]
-    """Filter recognition results by confidence score. Results below this are discarded. Default: 0.5"""
-    enable_mkldnn: NotRequired[bool]
-    """Whether to enable MKL-DNN acceleration (Intel CPU only). Default: False"""
-    gpu_mem: NotRequired[int]
-    """GPU memory size (in MB) to use for initialization. Default: 8000"""
-    language: NotRequired[PaddleOCRLanguage]
+    cls_image_shape: str = "3,48,192"
+    """Image shape for classification algorithm in format 'channels,height,width'."""
+    det_algorithm: Literal["DB", "EAST", "SAST", "PSE", "FCE", "PAN", "CT", "DB++", "Layout"] = "DB"
+    """Detection algorithm."""
+    det_db_box_thresh: float = 0.5
+    """Score threshold for detected boxes. Boxes below this value are discarded."""
+    det_db_thresh: float = 0.3
+    """Binarization threshold for DB output map."""
+    det_db_unclip_ratio: float = 2.0
+    """Expansion ratio for detected text boxes."""
+    det_east_cover_thresh: float = 0.1
+    """Score threshold for EAST output boxes."""
+    det_east_nms_thresh: float = 0.2
+    """NMS threshold for EAST model output boxes."""
+    det_east_score_thresh: float = 0.8
+    """Binarization threshold for EAST output map."""
+    det_max_side_len: int = 960
+    """Maximum size of image long side. Images exceeding this will be proportionally resized."""
+    drop_score: float = 0.5
+    """Filter recognition results by confidence score. Results below this are discarded."""
+    enable_mkldnn: bool = False
+    """Whether to enable MKL-DNN acceleration (Intel CPU only)."""
+    gpu_mem: int = 8000
+    """GPU memory size (in MB) to use for initialization."""
+    language: str = "en"
     """Language to use for OCR."""
-    max_text_length: NotRequired[int]
-    """Maximum text length that the recognition algorithm can recognize. Default: 25"""
-    rec: NotRequired[bool]
-    """Enable text recognition when using the ocr() function. Default: True"""
-    rec_algorithm: NotRequired[
-        Literal[
-            "CRNN",
-            "SRN",
-            "NRTR",
-            "SAR",
-            "SEED",
-            "SVTR",
-            "SVTR_LCNet",
-            "ViTSTR",
-            "ABINet",
-            "VisionLAN",
-            "SPIN",
-            "RobustScanner",
-            "RFL",
-        ]
-    ]
-    """Recognition algorithm. Default: 'CRNN'"""
-    rec_image_shape: NotRequired[str]
-    """Image shape for recognition algorithm in format 'channels,height,width'. Default: '3,32,320'"""
-    table: NotRequired[bool]
-    """Whether to enable table recognition. Default: True"""
-    use_angle_cls: NotRequired[bool]
-    """Whether to use text orientation classification model. Default: True"""
-    use_gpu: NotRequired[bool]
+    max_text_length: int = 25
+    """Maximum text length that the recognition algorithm can recognize."""
+    rec: bool = True
+    """Enable text recognition when using the ocr() function."""
+    rec_algorithm: Literal[
+        "CRNN",
+        "SRN",
+        "NRTR",
+        "SAR",
+        "SEED",
+        "SVTR",
+        "SVTR_LCNet",
+        "ViTSTR",
+        "ABINet",
+        "VisionLAN",
+        "SPIN",
+        "RobustScanner",
+        "RFL",
+    ] = "CRNN"
+    """Recognition algorithm."""
+    rec_image_shape: str = "3,32,320"
+    """Image shape for recognition algorithm in format 'channels,height,width'."""
+    table: bool = True
+    """Whether to enable table recognition."""
+    use_angle_cls: bool = True
+    """Whether to use text orientation classification model."""
+    use_gpu: bool = False
     """Whether to use GPU for inference. Requires installing the paddlepaddle-gpu package"""
-    use_space_char: NotRequired[bool]
-    """Whether to recognize spaces. Default: True"""
-    use_zero_copy_run: NotRequired[bool]
-    """Whether to enable zero_copy_run for inference optimization. Default: False"""
+    use_space_char: bool = True
+    """Whether to recognize spaces."""
+    use_zero_copy_run: bool = False
+    """Whether to enable zero_copy_run for inference optimization."""
 
 
 class PaddleBackend(OCRBackend[PaddleOCRConfig]):

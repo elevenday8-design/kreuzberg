@@ -53,7 +53,7 @@ class ImageExtractor(Extractor):
         if self.config.ocr_backend is None:
             raise ValidationError("ocr_backend is None, cannot perform OCR")
 
-        return await get_ocr_backend(self.config.ocr_backend).process_file(path, **(self.config.ocr_config or {}))
+        return await get_ocr_backend(self.config.ocr_backend).process_file(path, **self.config.get_config_dict())
 
     def extract_bytes_sync(self, content: bytes) -> ExtractionResult:
         return anyio.run(self.extract_bytes_async, content)

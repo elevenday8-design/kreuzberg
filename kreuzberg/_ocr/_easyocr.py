@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar, Final, Literal, TypedDict
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, ClassVar, Final, Literal
 
 import numpy as np
 from PIL import Image
@@ -16,16 +17,12 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 try:  # pragma: no cover
-    from typing import NotRequired  # type: ignore[attr-defined]
-except ImportError:  # pragma: no cover
-    from typing_extensions import NotRequired
-
-try:  # pragma: no cover
     from typing import Unpack  # type: ignore[attr-defined]
 except ImportError:  # pragma: no cover
     from typing_extensions import Unpack
 
-EasyOCRLanguage = Literal[
+
+EASYOCR_SUPPORTED_LANGUAGE_CODES: Final[set[str]] = {
     "abq",
     "ady",
     "af",
@@ -109,54 +106,53 @@ EasyOCRLanguage = Literal[
     "ur",
     "uz",
     "vi",
-]
-
-EASYOCR_SUPPORTED_LANGUAGE_CODES: Final[set[str]] = set(EasyOCRLanguage.__args__)  # type: ignore[attr-defined]
+}
 
 
-class EasyOCRConfig(TypedDict, total=False):
+@dataclass(unsafe_hash=True, frozen=True)
+class EasyOCRConfig:
     """Configuration options for EasyOCR."""
 
-    add_margin: NotRequired[float]
-    """Extend bounding boxes in all directions. Default: 0.1"""
-    adjust_contrast: NotRequired[float]
-    """Target contrast level for low contrast text. Default: 0.5"""
-    beamWidth: NotRequired[int]
-    """Beam width for beam search in recognition. Default: 5"""
-    canvas_size: NotRequired[int]
-    """Maximum image dimension for detection. Default: 2560"""
-    contrast_ths: NotRequired[float]
-    """Contrast threshold for preprocessing. Default: 0.1"""
-    decoder: NotRequired[Literal["greedy", "beamsearch", "wordbeamsearch"]]
-    """Decoder method. Options: 'greedy', 'beamsearch', 'wordbeamsearch'. Default: 'greedy'"""
-    height_ths: NotRequired[float]
-    """Maximum difference in box height for merging. Default: 0.5"""
-    language: NotRequired[EASYOCR_SUPPORTED_LANGUAGE_CODES]
-    """Language to use for OCR."""
-    link_threshold: NotRequired[float]
-    """Link confidence threshold. Default: 0.4"""
-    low_text: NotRequired[float]
-    """Text low-bound score. Default: 0.4"""
-    mag_ratio: NotRequired[float]
-    """Image magnification ratio. Default: 1.0"""
-    min_size: NotRequired[int]
-    """Minimum text box size in pixels. Default: 10"""
-    rotation_info: NotRequired[list[int]]
-    """List of angles to try for detection. Default: None (no rotation)"""
-    slope_ths: NotRequired[float]
-    """Maximum slope for merging text boxes. Default: 0.1"""
-    text_threshold: NotRequired[float]
-    """Text confidence threshold. Default: 0.7"""
-    use_gpu: NotRequired[bool]
-    """Whether to use GPU for inference. Default: False"""
-    width_ths: NotRequired[float]
-    """Maximum horizontal distance for merging boxes. Default: 0.5"""
-    x_ths: NotRequired[float]
-    """Maximum horizontal distance for paragraph merging. Default: 1.0"""
-    y_ths: NotRequired[float]
-    """Maximum vertical distance for paragraph merging. Default: 0.5"""
-    ycenter_ths: NotRequired[float]
-    """Maximum shift in y direction for merging. Default: 0.5"""
+    add_margin: float = 0.1
+    """Extend bounding boxes in all directions."""
+    adjust_contrast: float = 0.5
+    """Target contrast level for low contrast text."""
+    beam_width: int = 5
+    """Beam width for beam search in recognition."""
+    canvas_size: int = 2560
+    """Maximum image dimension for detection."""
+    contrast_ths: float = 0.1
+    """Contrast threshold for preprocessing."""
+    decoder: Literal["greedy", "beamsearch", "wordbeamsearch"] = "greedy"
+    """Decoder method. Options: 'greedy', 'beamsearch', 'wordbeamsearch'."""
+    height_ths: float = 0.5
+    """Maximum difference in box height for merging."""
+    language: str | list[str] = "en"
+    """Language or languages to use for OCR."""
+    link_threshold: float = 0.4
+    """Link confidence threshold."""
+    low_text: float = 0.4
+    """Text low-bound score."""
+    mag_ratio: float = 1.0
+    """Image magnification ratio."""
+    min_size: int = 10
+    """Minimum text box size in pixels."""
+    rotation_info: list[int] | None = None
+    """List of angles to try for detection."""
+    slope_ths: float = 0.1
+    """Maximum slope for merging text boxes."""
+    text_threshold: float = 0.7
+    """Text confidence threshold."""
+    use_gpu: bool = False
+    """Whether to use GPU for inference."""
+    width_ths: float = 0.5
+    """Maximum horizontal distance for merging boxes."""
+    x_ths: float = 1.0
+    """Maximum horizontal distance for paragraph merging."""
+    y_ths: float = 0.5
+    """Maximum vertical distance for paragraph merging."""
+    ycenter_ths: float = 0.5
+    """Maximum shift in y direction for merging."""
 
 
 class EasyOCRBackend(OCRBackend[EasyOCRConfig]):
@@ -177,26 +173,13 @@ class EasyOCRBackend(OCRBackend[EasyOCRConfig]):
         """
         await self._init_easyocr(**kwargs)
         image_np = np.array(image)
+        beam_width = kwargs.pop("beam_width")
         try:
             result = await run_sync(
                 self._reader.readtext,
                 image_np,
-                decoder=kwargs.get("decoder", "greedy"),
-                beamWidth=kwargs.get("beamWidth", 5),
-                min_size=kwargs.get("min_size", 10),
-                rotation_info=kwargs.get("rotation_info"),
-                contrast_ths=kwargs.get("contrast_ths", 0.1),
-                adjust_contrast=kwargs.get("adjust_contrast", 0.5),
-                text_threshold=kwargs.get("text_threshold", 0.7),
-                low_text=kwargs.get("low_text", 0.4),
-                link_threshold=kwargs.get("link_threshold", 0.4),
-                canvas_size=kwargs.get("canvas_size", 2560),
-                mag_ratio=kwargs.get("mag_ratio", 1.0),
-                slope_ths=kwargs.get("slope_ths", 0.1),
-                ycenter_ths=kwargs.get("ycenter_ths", 0.5),
-                height_ths=kwargs.get("height_ths", 0.5),
-                width_ths=kwargs.get("width_ths", 0.5),
-                add_margin=kwargs.get("add_margin", 0.1),
+                beamWidth=beam_width,
+                **kwargs,
             )
 
             return self._process_easyocr_result(result, image)
@@ -368,11 +351,11 @@ class EasyOCRBackend(OCRBackend[EasyOCRConfig]):
             raise OCRError(f"Failed to initialize EasyOCR: {e}") from e
 
     @staticmethod
-    def _validate_language_code(lang_code: str) -> list[str]:
+    def _validate_language_code(language_codes: str | list[str]) -> list[str]:
         """Validate and normalize a provided language code.
 
         Args:
-            lang_code: The language code string.
+            language_codes: The language code string.
 
         Raises:
             ValidationError: If the language is not supported by EasyOCR
@@ -380,13 +363,18 @@ class EasyOCRBackend(OCRBackend[EasyOCRConfig]):
         Returns:
             A list with the normalized language code.
         """
-        if lang_code.lower() in EASYOCR_SUPPORTED_LANGUAGE_CODES:
-            return [lang_code.lower()]
+        if not isinstance(language_codes, list):
+            languages = [language_codes.lower()]
+        else:
+            languages = [lang.lower() for lang in language_codes]
+
+        if all(lang in EASYOCR_SUPPORTED_LANGUAGE_CODES for lang in languages):
+            return languages
 
         raise ValidationError(
-            "The provided language code is not supported by EasyOCR",
+            "The provided language codes are not supported by EasyOCR",
             context={
-                "language_code": lang_code,
+                "language_code": ",".join([lang for lang in languages if lang not in EASYOCR_SUPPORTED_LANGUAGE_CODES]),
                 "supported_languages": ",".join(sorted(EASYOCR_SUPPORTED_LANGUAGE_CODES)),
             },
         )

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal, NamedTuple, TypedDict
+from collections.abc import Awaitable
+from dataclasses import asdict, dataclass
+from typing import TYPE_CHECKING, Any, Callable, Literal, NamedTuple, TypedDict, Union
+
+from kreuzberg.exceptions import ValidationError
 
 if sys.version_info < (3, 11):  # pragma: no cover
     from typing_extensions import NotRequired
@@ -89,7 +92,11 @@ class ExtractionResult(NamedTuple):
     """The metadata of the content."""
 
 
-@dataclass(unsafe_hash=True, frozen=True)
+PostProcessingHook = Callable[[ExtractionResult], Union[ExtractionResult, Awaitable[ExtractionResult]]]
+ValidationHook = Callable[[ExtractionResult], Union[None, Awaitable[None]]]
+
+
+@dataclass(unsafe_hash=True)
 class ExtractionConfig:
     """Represents configuration settings for an extraction process.
 
@@ -97,16 +104,55 @@ class ExtractionConfig:
     from images or documents using Optical Character Recognition (OCR). It
     provides options to customize the OCR behavior, select the backend
     engine, and configure engine-specific parameters.
-
-    Attributes:
-        force_ocr (bool): Determines whether OCR is forcibly applied regardless
-            of other conditions.
-        ocr_backend (Literal["tesseract", "easyOCR", "paddleOCR"] | None): Specifies
-            the OCR engine to use for text extraction. Defaults to "tesseract".
-        ocr_config (TesseractConfig | PaddleOCRConfig | EasyOCRConfig | None):
-            Holds the specific configuration for the selected OCR backend.
     """
 
     force_ocr: bool = False
+    """Whether to force OCR."""
     ocr_backend: OcrBackendType | None = "tesseract"
+    """The OCR backend to use."""
     ocr_config: TesseractConfig | PaddleOCRConfig | EasyOCRConfig | None = None
+    """Configuration to pass to the OCR backend."""
+    post_processing_hooks: list[PostProcessingHook] | None = None
+    """Post processing hooks to call after processing is done and before the final result is returned."""
+    validators: list[ValidationHook] | None = None
+    """Validation hooks to call after processing is done and before post-processing and result return."""
+
+    def __post_init__(self) -> None:
+        from kreuzberg._ocr._easyocr import EasyOCRConfig
+        from kreuzberg._ocr._paddleocr import PaddleOCRConfig
+        from kreuzberg._ocr._tesseract import TesseractConfig
+
+        if self.ocr_backend is None and self.ocr_config is not None:
+            raise ValidationError("'ocr_backend' is None but 'ocr_config' is provided")
+
+        if self.ocr_config is not None and (
+            (self.ocr_backend == "tesseract" and not isinstance(self.ocr_config, TesseractConfig))
+            or (self.ocr_backend == "easyocr" and not isinstance(self.ocr_config, EasyOCRConfig))
+            or (self.ocr_backend == "paddleocr" and not isinstance(self.ocr_config, PaddleOCRConfig))
+        ):
+            raise ValidationError(
+                "incompatible 'ocr_config' value provided for 'ocr_backend'",
+                context={"ocr_backend": self.ocr_backend, "ocr_config": type(self.ocr_config).__name__},
+            )
+
+    def get_config_dict(self) -> dict[str, Any]:
+        """Returns the OCR configuration object based on the backend specified.
+
+        Returns:
+            A dict of the OCR configuration or an empty dict if no backend is provided.
+        """
+        if self.ocr_backend is not None:
+            if self.ocr_config is not None:
+                return asdict(self.ocr_config)
+            if self.ocr_backend == "tesseract":
+                from kreuzberg._ocr._tesseract import TesseractConfig
+
+                return asdict(TesseractConfig())
+            if self.ocr_backend == "easyocr":
+                from kreuzberg._ocr._easyocr import EasyOCRConfig
+
+                return asdict(EasyOCRConfig())
+            from kreuzberg._ocr._paddleocr import PaddleOCRConfig
+
+            return asdict(PaddleOCRConfig())
+        return {}

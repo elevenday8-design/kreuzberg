@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import re
 import sys
+from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Any, ClassVar, Final, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, ClassVar, Final
 
 from anyio import Path as AsyncPath
 from anyio import run_process
@@ -22,16 +23,12 @@ if TYPE_CHECKING:
     from PIL.Image import Image
 
 try:  # pragma: no cover
-    from typing import NotRequired  # type: ignore[attr-defined]
-except ImportError:  # pragma: no cover
-    from typing_extensions import NotRequired
-
-try:  # pragma: no cover
     from typing import Unpack  # type: ignore[attr-defined]
 except ImportError:  # pragma: no cover
     from typing_extensions import Unpack
 
-TesseractLanguage = Literal[
+
+TESSERACT_SUPPORTED_LANGUAGE_CODES: Final[set[str]] = {
     "afr",
     "amh",
     "ara",
@@ -159,9 +156,7 @@ TesseractLanguage = Literal[
     "vie",  # codespell:ignore
     "yid",
     "yor",
-]
-
-TESSERACT_SUPPORTED_LANGUAGE_CODES: Final[set[str]] = set(TesseractLanguage.__args__)  # type: ignore[attr-defined]
+}
 
 MINIMAL_SUPPORTED_TESSERACT_VERSION: Final[int] = 5
 
@@ -193,28 +188,34 @@ class PSMMode(Enum):
     """Treat the image as a single character."""
 
 
-class TesseractConfig(TypedDict, total=False):
+@dataclass(unsafe_hash=True, frozen=True)
+class TesseractConfig:
     """Configuration options for Tesseract OCR engine."""
 
-    classify_use_pre_adapted_templates: NotRequired[bool]
+    classify_use_pre_adapted_templates: bool = True
     """Whether to use pre-adapted templates during classification to improve recognition accuracy."""
-    language: NotRequired[TesseractLanguage]
-    """Language code to use for OCR (e.g., 'eng' for English, 'deu' for German etc.)"""
-    language_model_ngram_on: NotRequired[bool]
+    language: str = "eng"
+    """Language code to use for OCR.
+    Examples:
+            -   'eng' for English
+            -   'deu' for German
+            -    multiple languages combined with '+', e.g. 'eng+deu')
+    """
+    language_model_ngram_on: bool = True
     """Enable or disable the use of n-gram-based language models for improved text recognition."""
-    psm: NotRequired[PSMMode]
+    psm: PSMMode = PSMMode.AUTO
     """Page segmentation mode (PSM) to guide Tesseract on how to segment the image (e.g., single block, single line)."""
-    tessedit_dont_blkrej_good_wds: NotRequired[bool]
+    tessedit_dont_blkrej_good_wds: bool = True
     """If True, prevents block rejection of words identified as good, improving text output quality."""
-    tessedit_dont_rowrej_good_wds: NotRequired[bool]
+    tessedit_dont_rowrej_good_wds: bool = True
     """If True, prevents row rejection of words identified as good, avoiding unnecessary omissions."""
-    tessedit_enable_dict_correction: NotRequired[bool]
+    tessedit_enable_dict_correction: bool = True
     """Enable or disable dictionary-based correction for recognized text to improve word accuracy."""
-    tessedit_use_primary_params_model: NotRequired[bool]
+    tessedit_use_primary_params_model: bool = True
     """If True, forces the use of the primary parameters model for text recognition."""
-    textord_space_size_is_variable: NotRequired[bool]
+    textord_space_size_is_variable: bool = True
     """Allow variable spacing between words, useful for text with irregular spacing."""
-    thresholding_method: NotRequired[bool]
+    thresholding_method: bool = True
     """Enable or disable specific thresholding methods during image preprocessing for better OCR accuracy."""
 
 
@@ -305,11 +306,11 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
             ) from e
 
     @staticmethod
-    def _validate_language_code(lang_code: str) -> str:
+    def _validate_language_code(language_code: str) -> str:
         """Convert a language code to Tesseract format.
 
         Args:
-            lang_code: ISO language code or language name
+            language_code: Tesseract supported language code or multiple language codes connected with '+'
 
         Raises:
             ValidationError: If the language is not supported by Tesseract
@@ -317,14 +318,21 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
         Returns:
             Language code compatible with Tesseract
         """
-        normalized = lang_code.lower()
+        normalized = language_code.lower()
         if normalized in TESSERACT_SUPPORTED_LANGUAGE_CODES:
+            return normalized
+
+        if "+" in normalized and all(lang in TESSERACT_SUPPORTED_LANGUAGE_CODES for lang in normalized.split("+")):
             return normalized
 
         raise ValidationError(
             "The provided language code is not supported by Tesseract",
             context={
-                "language_code": lang_code,
+                "language_code": normalized
+                if "+" not in normalized
+                else ",".join(
+                    [lang for lang in normalized.split("+") if lang not in TESSERACT_SUPPORTED_LANGUAGE_CODES]
+                ),
                 "supported_languages": ",".join(sorted(TESSERACT_SUPPORTED_LANGUAGE_CODES)),
             },
         )

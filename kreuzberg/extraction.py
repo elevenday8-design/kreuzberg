@@ -28,6 +28,7 @@ from kreuzberg._mime_types import (
 )
 from kreuzberg._types import ExtractionConfig
 from kreuzberg._utils._string import safe_decode
+from kreuzberg._utils._sync import run_maybe_async, run_maybe_sync
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -73,6 +74,26 @@ def get_extractor(mime_type: str | None, config: ExtractionConfig) -> Extractor 
     return None
 
 
+async def _validate_and_post_process_async(result: ExtractionResult, config: ExtractionConfig) -> ExtractionResult:
+    for validator in config.validators or []:
+        await run_maybe_sync(validator, result)
+
+    for post_processor in config.post_processing_hooks or []:
+        result = await run_maybe_sync(post_processor, result)
+
+    return result
+
+
+def _validate_and_post_process_sync(result: ExtractionResult, config: ExtractionConfig) -> ExtractionResult:
+    for validator in config.validators or []:
+        run_maybe_async(validator, result)
+
+    for post_processor in config.post_processing_hooks or []:
+        result = run_maybe_async(post_processor, result)
+
+    return result
+
+
 async def extract_bytes(content: bytes, mime_type: str, config: ExtractionConfig = DEFAULT_CONFIG) -> ExtractionResult:
     """Extract the textual content from a given byte string representing a file's contents.
 
@@ -87,13 +108,15 @@ async def extract_bytes(content: bytes, mime_type: str, config: ExtractionConfig
     """
     mime_type = validate_mime_type(mime_type=mime_type)
     if extractor := get_extractor(mime_type=mime_type, config=config):
-        return await extractor.extract_bytes_async(content)
+        result = await extractor.extract_bytes_async(content)
+    else:
+        result = ExtractionResult(
+            content=safe_decode(content),
+            mime_type=mime_type,
+            metadata={},
+        )
 
-    return ExtractionResult(
-        content=safe_decode(content),
-        mime_type=mime_type,
-        metadata={},
-    )
+    return await _validate_and_post_process_async(result=result, config=config)
 
 
 async def extract_file(
@@ -111,11 +134,13 @@ async def extract_file(
     """
     mime_type = validate_mime_type(file_path=file_path, mime_type=mime_type)
     if extractor := get_extractor(mime_type=mime_type, config=config):
-        return await extractor.extract_path_async(Path(file_path))
+        result = await extractor.extract_path_async(Path(file_path))
+    else:
+        result = ExtractionResult(
+            content=safe_decode(await anyio.Path(file_path).read_bytes()), mime_type=mime_type, metadata={}
+        )
 
-    return ExtractionResult(
-        content=safe_decode(await anyio.Path(file_path).read_bytes()), mime_type=mime_type, metadata={}
-    )
+    return await _validate_and_post_process_async(result=result, config=config)
 
 
 async def batch_extract_file(
@@ -185,13 +210,15 @@ def extract_bytes_sync(content: bytes, mime_type: str, config: ExtractionConfig 
     """
     mime_type = validate_mime_type(mime_type=mime_type)
     if extractor := get_extractor(mime_type=mime_type, config=config):
-        return extractor.extract_bytes_sync(content)
+        result = extractor.extract_bytes_sync(content)
+    else:
+        result = ExtractionResult(
+            content=safe_decode(content),
+            mime_type=mime_type,
+            metadata={},
+        )
 
-    return ExtractionResult(
-        content=safe_decode(content),
-        mime_type=mime_type,
-        metadata={},
-    )
+    return _validate_and_post_process_sync(result=result, config=config)
 
 
 def extract_file_sync(
@@ -209,13 +236,14 @@ def extract_file_sync(
     """
     mime_type = validate_mime_type(file_path=file_path, mime_type=mime_type)
     if extractor := get_extractor(mime_type=mime_type, config=config):
-        return extractor.extract_path_sync(Path(file_path))
-
-    return ExtractionResult(
-        content=Path(file_path).read_text(),
-        mime_type=mime_type,
-        metadata={},
-    )
+        result = extractor.extract_path_sync(Path(file_path))
+    else:
+        result = ExtractionResult(
+            content=Path(file_path).read_text(),
+            mime_type=mime_type,
+            metadata={},
+        )
+    return _validate_and_post_process_sync(result=result, config=config)
 
 
 def batch_extract_file_sync(
