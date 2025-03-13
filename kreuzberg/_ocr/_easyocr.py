@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, ClassVar, Final, Literal
 
-import numpy as np
 from PIL import Image
 
 from kreuzberg._mime_types import PLAIN_TEXT_MIME_TYPE
@@ -172,12 +171,12 @@ class EasyOCRBackend(OCRBackend[EasyOCRConfig]):
             OCRError: If OCR processing fails.
         """
         await self._init_easyocr(**kwargs)
-        image_np = np.array(image)
+
         beam_width = kwargs.pop("beam_width")
         try:
             result = await run_sync(
                 self._reader.readtext,
-                image_np,
+                image.tobytes(),
                 beamWidth=beam_width,
                 **kwargs,
             )
