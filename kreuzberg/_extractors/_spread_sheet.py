@@ -10,12 +10,13 @@ import anyio
 from anyio import Path as AsyncPath
 from python_calamine import CalamineWorkbook
 
-from kreuzberg import ExtractionResult, ParsingError
 from kreuzberg._extractors._base import Extractor
 from kreuzberg._mime_types import MARKDOWN_MIME_TYPE, SPREADSHEET_MIME_TYPES
+from kreuzberg._types import ExtractionResult
 from kreuzberg._utils._string import normalize_spaces
 from kreuzberg._utils._sync import run_sync, run_taskgroup
 from kreuzberg._utils._tmp import create_temp_file
+from kreuzberg.exceptions import ParsingError
 
 if TYPE_CHECKING:  # pragma: no cover
     from pathlib import Path

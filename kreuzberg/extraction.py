@@ -1,31 +1,15 @@
 from __future__ import annotations
 
-from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Final, cast
 
 import anyio
 
 from kreuzberg import ExtractionResult
-from kreuzberg._extractors._html import HTMLExtractor
-from kreuzberg._extractors._image import ImageExtractor
-from kreuzberg._extractors._pandoc import (
-    BibliographyExtractor,
-    EbookExtractor,
-    LaTeXExtractor,
-    MarkdownExtractor,
-    MiscFormatExtractor,
-    OfficeDocumentExtractor,
-    StructuredTextExtractor,
-    TabularDataExtractor,
-    XMLBasedExtractor,
-)
-from kreuzberg._extractors._pdf import PDFExtractor
-from kreuzberg._extractors._presentation import PresentationExtractor
-from kreuzberg._extractors._spread_sheet import SpreadSheetExtractor
 from kreuzberg._mime_types import (
     validate_mime_type,
 )
+from kreuzberg._registry import ExtractorRegistry
 from kreuzberg._types import ExtractionConfig
 from kreuzberg._utils._string import safe_decode
 from kreuzberg._utils._sync import run_maybe_async, run_maybe_sync
@@ -34,44 +18,8 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
     from os import PathLike
 
-    from kreuzberg._extractors._base import Extractor
-
 
 DEFAULT_CONFIG: Final[ExtractionConfig] = ExtractionConfig()
-
-
-@lru_cache
-def get_extractor(mime_type: str | None, config: ExtractionConfig) -> Extractor | None:
-    """Gets the extractor for the mimetype.
-
-    Args:
-        mime_type: The mime type of the content.
-        config: Extraction options object, defaults to the default object.
-
-    Returns:
-        The extractor
-    """
-    if mime_type:
-        for extractor in [
-            PDFExtractor,
-            OfficeDocumentExtractor,
-            PresentationExtractor,
-            SpreadSheetExtractor,
-            HTMLExtractor,
-            MarkdownExtractor,
-            ImageExtractor,
-            BibliographyExtractor,
-            EbookExtractor,
-            LaTeXExtractor,
-            MiscFormatExtractor,
-            StructuredTextExtractor,
-            TabularDataExtractor,
-            XMLBasedExtractor,
-        ]:
-            if extractor.supports_mimetype(mime_type):
-                return extractor(mime_type=mime_type, config=config)  # type: ignore[abstract]
-
-    return None
 
 
 async def _validate_and_post_process_async(result: ExtractionResult, config: ExtractionConfig) -> ExtractionResult:
@@ -107,7 +55,7 @@ async def extract_bytes(content: bytes, mime_type: str, config: ExtractionConfig
         The extracted content and the mime type of the content.
     """
     mime_type = validate_mime_type(mime_type=mime_type)
-    if extractor := get_extractor(mime_type=mime_type, config=config):
+    if extractor := ExtractorRegistry.get_extractor(mime_type=mime_type, config=config):
         result = await extractor.extract_bytes_async(content)
     else:
         result = ExtractionResult(
@@ -133,7 +81,7 @@ async def extract_file(
         The extracted content and the mime type of the content.
     """
     mime_type = validate_mime_type(file_path=file_path, mime_type=mime_type)
-    if extractor := get_extractor(mime_type=mime_type, config=config):
+    if extractor := ExtractorRegistry.get_extractor(mime_type=mime_type, config=config):
         result = await extractor.extract_path_async(Path(file_path))
     else:
         result = ExtractionResult(
@@ -209,7 +157,7 @@ def extract_bytes_sync(content: bytes, mime_type: str, config: ExtractionConfig 
         The extracted content and the mime type of the content.
     """
     mime_type = validate_mime_type(mime_type=mime_type)
-    if extractor := get_extractor(mime_type=mime_type, config=config):
+    if extractor := ExtractorRegistry.get_extractor(mime_type=mime_type, config=config):
         result = extractor.extract_bytes_sync(content)
     else:
         result = ExtractionResult(
@@ -235,7 +183,7 @@ def extract_file_sync(
         The extracted content and the mime type of the content.
     """
     mime_type = validate_mime_type(file_path=file_path, mime_type=mime_type)
-    if extractor := get_extractor(mime_type=mime_type, config=config):
+    if extractor := ExtractorRegistry.get_extractor(mime_type=mime_type, config=config):
         result = extractor.extract_path_sync(Path(file_path))
     else:
         result = ExtractionResult(

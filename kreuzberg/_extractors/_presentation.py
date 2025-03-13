@@ -20,9 +20,9 @@ import pptx
 from anyio import Path as AsyncPath
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 
-from kreuzberg import ExtractionResult
 from kreuzberg._extractors._base import Extractor
 from kreuzberg._mime_types import MARKDOWN_MIME_TYPE, POWER_POINT_MIME_TYPE
+from kreuzberg._types import ExtractionResult
 from kreuzberg._utils._string import normalize_spaces
 
 if TYPE_CHECKING:  # pragma: no cover

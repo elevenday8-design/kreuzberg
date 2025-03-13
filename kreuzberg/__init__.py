@@ -3,6 +3,7 @@ from kreuzberg._ocr._paddleocr import PaddleOCRConfig
 from kreuzberg._ocr._tesseract import TesseractConfig
 
 from ._ocr._tesseract import PSMMode
+from ._registry import ExtractorRegistry
 from ._types import ExtractionConfig, ExtractionResult, Metadata
 from .exceptions import KreuzbergError, MissingDependencyError, OCRError, ParsingError, ValidationError
 from .extraction import (
@@ -20,6 +21,7 @@ __all__ = [
     "EasyOCRConfig",
     "ExtractionConfig",
     "ExtractionResult",
+    "ExtractorRegistry",
     "KreuzbergError",
     "Metadata",
     "MissingDependencyError",

@@ -9,7 +9,6 @@ import anyio
 from anyio import Path as AsyncPath
 from anyio import run_process
 
-from kreuzberg import ValidationError
 from kreuzberg._constants import MINIMAL_SUPPORTED_PANDOC_VERSION
 from kreuzberg._extractors._base import Extractor
 from kreuzberg._mime_types import MARKDOWN_MIME_TYPE
@@ -17,7 +16,7 @@ from kreuzberg._types import ExtractionResult, Metadata
 from kreuzberg._utils._string import normalize_spaces
 from kreuzberg._utils._sync import run_taskgroup
 from kreuzberg._utils._tmp import create_temp_file
-from kreuzberg.exceptions import MissingDependencyError, ParsingError
+from kreuzberg.exceptions import MissingDependencyError, ParsingError, ValidationError
 
 if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Mapping

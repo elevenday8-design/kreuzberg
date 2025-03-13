@@ -86,7 +86,6 @@ kreuzberg = [ "py.typed" ]
 target-version = "py39"
 line-length = 120
 src = [ "kreuzberg", "tests" ]
-
 format.docstring-code-line-length = 120
 format.docstring-code-format = true
 lint.select = [ "ALL" ]
@@ -121,7 +120,6 @@ lint.per-file-ignores."tests/**/*.*" = [
 lint.isort.known-first-party = [ "kreuzberg", "tests" ]
 lint.mccabe.max-complexity = 15
 lint.pydocstyle.convention = "google"
-
 lint.pylint.max-args = 10
 lint.pylint.max-branches = 15
 lint.pylint.max-returns = 10

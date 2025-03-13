@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from typing import TYPE_CHECKING, Any
 from unittest.mock import Mock, patch
 
@@ -132,6 +133,7 @@ def mock_image() -> Mock:
 
 
 @pytest.mark.anyio
+@pytest.mark.skipif(sys.version_info > (3, 12), reason="paddle does not support python 3.13 yet")
 async def test_is_mkldnn_supported(mocker: MockerFixture) -> None:
     """Test the MKL-DNN support detection function."""
 
@@ -157,6 +159,7 @@ async def test_is_mkldnn_supported(mocker: MockerFixture) -> None:
 
 
 @pytest.mark.anyio
+@pytest.mark.skipif(sys.version_info > (3, 12), reason="paddle does not support python 3.13 yet")
 async def test_init_paddle_ocr(
     backend: PaddleBackend, mock_paddleocr: Mock, mock_run_sync: Mock, mock_find_spec: Mock
 ) -> None:
@@ -180,6 +183,7 @@ async def test_init_paddle_ocr(
 
 
 @pytest.mark.anyio
+@pytest.mark.skipif(sys.version_info > (3, 12), reason="paddle does not support python 3.13 yet")
 async def test_init_paddle_ocr_with_language(
     backend: PaddleBackend, mock_paddleocr: Mock, mock_run_sync: Mock, mock_find_spec: Mock
 ) -> None:
@@ -196,6 +200,7 @@ async def test_init_paddle_ocr_with_language(
 
 
 @pytest.mark.anyio
+@pytest.mark.skipif(sys.version_info > (3, 12), reason="paddle does not support python 3.13 yet")
 async def test_init_paddle_ocr_missing_dependency(backend: PaddleBackend, mock_find_spec_missing: Mock) -> None:
     """Test initializing PaddleOCR when the dependency is missing."""
 
@@ -214,6 +219,7 @@ async def test_init_paddle_ocr_missing_dependency(backend: PaddleBackend, mock_f
 
 
 @pytest.mark.anyio
+@pytest.mark.skipif(sys.version_info > (3, 12), reason="paddle does not support python 3.13 yet")
 async def test_init_paddle_ocr_initialization_error(backend: PaddleBackend, mock_find_spec: Mock) -> None:
     """Test handling initialization errors."""
 
@@ -231,6 +237,7 @@ async def test_init_paddle_ocr_initialization_error(backend: PaddleBackend, mock
 
 
 @pytest.mark.anyio
+@pytest.mark.skipif(sys.version_info > (3, 12), reason="paddle does not support python 3.13 yet")
 async def test_process_image(
     backend: PaddleBackend, mock_image: Mock, mock_run_sync: Mock, mock_paddleocr: Mock
 ) -> None:
@@ -262,6 +269,7 @@ async def test_process_image(
 
 
 @pytest.mark.anyio
+@pytest.mark.skipif(sys.version_info > (3, 12), reason="paddle does not support python 3.13 yet")
 async def test_process_image_with_options(backend: PaddleBackend, mock_image: Mock, mock_run_sync: Mock) -> None:
     """Test processing an image with custom options."""
 
@@ -294,6 +302,7 @@ async def test_process_image_with_options(backend: PaddleBackend, mock_image: Mo
 
 
 @pytest.mark.anyio
+@pytest.mark.skipif(sys.version_info > (3, 12), reason="paddle does not support python 3.13 yet")
 async def test_process_image_error(backend: PaddleBackend, mock_image: Mock) -> None:
     """Test handling errors during image processing."""
 
@@ -321,6 +330,7 @@ async def test_process_image_error(backend: PaddleBackend, mock_image: Mock) -> 
 
 
 @pytest.mark.anyio
+@pytest.mark.skipif(sys.version_info > (3, 12), reason="paddle does not support python 3.13 yet")
 async def test_process_file(backend: PaddleBackend, mock_run_sync: Mock, ocr_image: Path) -> None:
     """Test processing a file."""
 
@@ -347,6 +357,7 @@ async def test_process_file(backend: PaddleBackend, mock_run_sync: Mock, ocr_ima
 
 
 @pytest.mark.anyio
+@pytest.mark.skipif(sys.version_info > (3, 12), reason="paddle does not support python 3.13 yet")
 async def test_process_file_with_options(backend: PaddleBackend, mock_run_sync: Mock, ocr_image: Path) -> None:
     """Test processing a file with custom options."""
 
@@ -378,6 +389,7 @@ async def test_process_file_with_options(backend: PaddleBackend, mock_run_sync: 
 
 
 @pytest.mark.anyio
+@pytest.mark.skipif(sys.version_info > (3, 12), reason="paddle does not support python 3.13 yet")
 async def test_process_file_error(backend: PaddleBackend, ocr_image: Path) -> None:
     """Test handling errors during file processing."""
 
@@ -405,6 +417,7 @@ async def test_process_file_error(backend: PaddleBackend, ocr_image: Path) -> No
 
 
 @pytest.mark.anyio
+@pytest.mark.skipif(sys.version_info > (3, 12), reason="paddle does not support python 3.13 yet")
 async def test_process_paddle_result_empty() -> None:
     """Test processing an empty PaddleOCR result."""
 
@@ -422,6 +435,7 @@ async def test_process_paddle_result_empty() -> None:
 
 
 @pytest.mark.anyio
+@pytest.mark.skipif(sys.version_info > (3, 12), reason="paddle does not support python 3.13 yet")
 async def test_process_paddle_result_complex() -> None:
     """Test processing a complex PaddleOCR result with multiple lines."""
 
@@ -466,6 +480,7 @@ async def test_process_paddle_result_complex() -> None:
 
 
 @pytest.mark.anyio
+@pytest.mark.skipif(sys.version_info > (3, 12), reason="paddle does not support python 3.13 yet")
 async def test_integration_process_file(backend: PaddleBackend, ocr_image: Path) -> None:
     """Integration test for processing a file with actual PaddleOCR."""
 
@@ -488,6 +503,7 @@ async def test_integration_process_file(backend: PaddleBackend, ocr_image: Path)
 
 
 @pytest.mark.anyio
+@pytest.mark.skipif(sys.version_info > (3, 12), reason="paddle does not support python 3.13 yet")
 async def test_integration_process_image(backend: PaddleBackend, ocr_image: Path) -> None:
     """Integration test for processing an image with actual PaddleOCR."""
 
@@ -557,6 +573,7 @@ def test_validate_language_code_invalid(invalid_language_code: str) -> None:
 
 
 @pytest.mark.anyio
+@pytest.mark.skipif(sys.version_info > (3, 12), reason="paddle does not support python 3.13 yet")
 async def test_init_paddle_ocr_with_invalid_language(
     backend: PaddleBackend, mock_find_spec: Mock, mocker: MockerFixture
 ) -> None:

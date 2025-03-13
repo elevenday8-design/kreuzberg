@@ -51,7 +51,7 @@ async def test_async_validation_hook() -> None:
 
     with (
         patch("kreuzberg.extraction.validate_mime_type", return_value="text/plain"),
-        patch("kreuzberg.extraction.get_extractor", return_value=None),
+        patch("kreuzberg.extraction.ExtractorRegistry.get_extractor", return_value=None),
         patch("anyio.Path.read_bytes", return_value=b"test content"),
     ):
         result = await extract_file("test.txt", config=config)
@@ -71,7 +71,7 @@ async def test_async_validation_hook_error() -> None:
 
     with (
         patch("kreuzberg.extraction.validate_mime_type", return_value="text/plain"),
-        patch("kreuzberg.extraction.get_extractor", return_value=None),
+        patch("kreuzberg.extraction.ExtractorRegistry.get_extractor", return_value=None),
         patch("anyio.Path.read_bytes", return_value=b"test content"),
         pytest.raises(ValueError, match="Validation failed"),
     ):
@@ -88,7 +88,7 @@ async def test_async_post_processing_hook() -> None:
 
     with (
         patch("kreuzberg.extraction.validate_mime_type", return_value="text/plain"),
-        patch("kreuzberg.extraction.get_extractor", return_value=None),
+        patch("kreuzberg.extraction.ExtractorRegistry.get_extractor", return_value=None),
         patch("anyio.Path.read_bytes", return_value=b"test content"),
     ):
         result = await extract_file("test.txt", config=config)
@@ -112,7 +112,7 @@ async def test_multiple_async_post_processing_hooks() -> None:
 
     with (
         patch("kreuzberg.extraction.validate_mime_type", return_value="text/plain"),
-        patch("kreuzberg.extraction.get_extractor", return_value=None),
+        patch("kreuzberg.extraction.ExtractorRegistry.get_extractor", return_value=None),
         patch("anyio.Path.read_bytes", return_value=b"test content"),
     ):
         result = await extract_file("test.txt", config=config)
@@ -129,7 +129,7 @@ def test_sync_validation_hook() -> None:
 
     with (
         patch("kreuzberg.extraction.validate_mime_type", return_value="text/plain"),
-        patch("kreuzberg.extraction.get_extractor", return_value=None),
+        patch("kreuzberg.extraction.ExtractorRegistry.get_extractor", return_value=None),
         patch("pathlib.Path.read_text", return_value="test content"),
     ):
         result = extract_file_sync("test.txt", config=config)
@@ -148,7 +148,7 @@ def test_sync_validation_hook_error() -> None:
 
     with (
         patch("kreuzberg.extraction.validate_mime_type", return_value="text/plain"),
-        patch("kreuzberg.extraction.get_extractor", return_value=None),
+        patch("kreuzberg.extraction.ExtractorRegistry.get_extractor", return_value=None),
         patch("pathlib.Path.read_text", return_value="test content"),
         pytest.raises(ValueError, match="Validation failed"),
     ):
@@ -164,7 +164,7 @@ def test_sync_post_processing_hook() -> None:
 
     with (
         patch("kreuzberg.extraction.validate_mime_type", return_value="text/plain"),
-        patch("kreuzberg.extraction.get_extractor", return_value=None),
+        patch("kreuzberg.extraction.ExtractorRegistry.get_extractor", return_value=None),
         patch("pathlib.Path.read_text", return_value="test content"),
     ):
         result = extract_file_sync("test.txt", config=config)
@@ -187,7 +187,7 @@ def test_multiple_sync_post_processing_hooks() -> None:
 
     with (
         patch("kreuzberg.extraction.validate_mime_type", return_value="text/plain"),
-        patch("kreuzberg.extraction.get_extractor", return_value=None),
+        patch("kreuzberg.extraction.ExtractorRegistry.get_extractor", return_value=None),
         patch("pathlib.Path.read_text", return_value="test content"),
     ):
         result = extract_file_sync("test.txt", config=config)
@@ -202,7 +202,7 @@ def test_mixing_sync_and_async_hooks_in_sync_context() -> None:
 
     with (
         patch("kreuzberg.extraction.validate_mime_type", return_value="text/plain"),
-        patch("kreuzberg.extraction.get_extractor", return_value=None),
+        patch("kreuzberg.extraction.ExtractorRegistry.get_extractor", return_value=None),
         patch("pathlib.Path.read_text", return_value="test content"),
     ):
         result = extract_file_sync("test.txt", config=config)
@@ -221,7 +221,7 @@ async def test_mixing_sync_and_async_hooks_in_async_context() -> None:
 
     with (
         patch("kreuzberg.extraction.validate_mime_type", return_value="text/plain"),
-        patch("kreuzberg.extraction.get_extractor", return_value=None),
+        patch("kreuzberg.extraction.ExtractorRegistry.get_extractor", return_value=None),
         patch("anyio.Path.read_bytes", return_value=b"test content"),
     ):
         result = await extract_file("test.txt", config=config)

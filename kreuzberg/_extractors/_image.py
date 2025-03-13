@@ -5,15 +5,17 @@ from typing import TYPE_CHECKING, ClassVar
 import anyio
 from anyio import Path as AsyncPath
 
-from kreuzberg import ExtractionResult, ValidationError
 from kreuzberg._extractors._base import Extractor
 from kreuzberg._mime_types import IMAGE_MIME_TYPES
 from kreuzberg._ocr import get_ocr_backend
 from kreuzberg._utils._tmp import create_temp_file
+from kreuzberg.exceptions import ValidationError
 
 if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Mapping
     from pathlib import Path
+
+    from kreuzberg._types import ExtractionResult
 
 
 class ImageExtractor(Extractor):
