@@ -94,7 +94,7 @@ class PDFExtractor(Extractor):
         document: pypdfium2.PdfDocument | None = None
         try:
             document = await run_sync(pypdfium2.PdfDocument, str(input_file))
-            return [page.render(scale=4.25).to_pil() for page in cast(pypdfium2.PdfDocument, document)]
+            return [page.render(scale=4.25).to_pil() for page in cast("pypdfium2.PdfDocument", document)]
         except pypdfium2.PdfiumError as e:
             raise ParsingError(
                 "Could not convert PDF to images", context={"file_path": str(input_file), "error": str(e)}
@@ -139,7 +139,7 @@ class PDFExtractor(Extractor):
         document: pypdfium2.PdfDocument | None = None
         try:
             document = await run_sync(pypdfium2.PdfDocument, str(input_file))
-            text = "\n".join(page.get_textpage().get_text_bounded() for page in cast(pypdfium2.PdfDocument, document))
+            text = "\n".join(page.get_textpage().get_text_bounded() for page in cast("pypdfium2.PdfDocument", document))
             return normalize_spaces(text)
         except pypdfium2.PdfiumError as e:
             raise ParsingError(

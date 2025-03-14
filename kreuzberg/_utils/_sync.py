@@ -33,7 +33,7 @@ async def run_sync(sync_fn: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -
         The result of the synchronous function.
     """
     handler = partial(sync_fn, **kwargs)
-    return cast(T, await any_io_run_sync(handler, *args, abandon_on_cancel=True))  # pyright: ignore [reportCallIssue]
+    return cast("T", await any_io_run_sync(handler, *args, abandon_on_cancel=True))  # pyright: ignore [reportCallIssue]
 
 
 async def run_taskgroup(*async_tasks: Awaitable[Any]) -> list[Any]:
@@ -98,7 +98,7 @@ async def run_maybe_sync(fn: Callable[P, T | Awaitable[T]], *args: P.args, **kwa
     """
     result = fn(*args, **kwargs)
     if isawaitable(result):
-        return cast(T, await result)
+        return cast("T", await result)
     return result
 
 
@@ -118,4 +118,4 @@ def run_maybe_async(fn: Callable[P, T | Awaitable[T]], *args: P.args, **kwargs: 
     Returns:
         T: The return value of the executed function, resolved if asynchronous.
     """
-    return cast(T, fn(*args, **kwargs) if not iscoroutinefunction(fn) else anyio.run(partial(fn, **kwargs), *args))
+    return cast("T", fn(*args, **kwargs) if not iscoroutinefunction(fn) else anyio.run(partial(fn, **kwargs), *args))

@@ -103,7 +103,7 @@ async def batch_extract_file(
     Returns:
         A list of extraction results in the same order as the input paths.
     """
-    results = cast(list[ExtractionResult], ([None] * len(file_paths)))
+    results = cast("list[ExtractionResult]", ([None] * len(file_paths)))
 
     async def _extract_file(path: PathLike[str] | str, index: int) -> None:
         result = await extract_file(
@@ -132,7 +132,7 @@ async def batch_extract_bytes(
     Returns:
         A list of extraction results in the same order as the input contents.
     """
-    results = cast(list[ExtractionResult], [None] * len(contents))
+    results = cast("list[ExtractionResult]", [None] * len(contents))
 
     async def _extract_bytes(content: bytes, mime_type: str, index: int) -> None:
         result = await extract_bytes(content, mime_type, config)

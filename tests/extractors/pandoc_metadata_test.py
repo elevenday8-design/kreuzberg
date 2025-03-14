@@ -45,7 +45,7 @@ AST_FIXTURE_META: dict[str, Any] = {
 }
 
 AST_FIXTURE_COMMENTS = cast(
-    list[dict[str, Any]],
+    "list[dict[str, Any]]",
     [
         {"unMeta": {}},
         [
@@ -70,7 +70,7 @@ AST_FIXTURE_COMMENTS = cast(
 )
 
 AST_FIXTURE_DEFLIST = cast(
-    list[dict[str, Any]],
+    "list[dict[str, Any]]",
     [
         {"unMeta": {}},
         [
@@ -118,7 +118,7 @@ AST_FIXTURE_DEFLIST = cast(
 )
 
 AST_FIXTURE_SPECIAL_HEADERS = cast(
-    list[dict[str, Any]],
+    "list[dict[str, Any]]",
     [
         {"unMeta": {}},
         [

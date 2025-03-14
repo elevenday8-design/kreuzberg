@@ -185,7 +185,7 @@ class PandocExtractor(Extractor):
             metadata_task = self._handle_extract_metadata(path)
             content_task = self._handle_extract_file(path)
             results = await run_taskgroup(metadata_task, content_task)
-            metadata, content = cast(tuple[Metadata, str], results)
+            metadata, content = cast("tuple[Metadata, str]", results)
 
             return ExtractionResult(
                 content=normalize_spaces(content),
