@@ -56,6 +56,7 @@ optional-dependencies.paddleocr = [
   "numpy>=2.0.2",
   "paddleocr>=2.10.0",
   "paddlepaddle>=2.6.2; python_version<'3.13'",
+  "setuptools>=76.0.0",
 ]
 urls.homepage = "https://github.com/Goldziher/kreuzberg"
 
