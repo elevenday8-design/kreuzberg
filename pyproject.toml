@@ -55,7 +55,7 @@ optional-dependencies.easyocr = [
 optional-dependencies.paddleocr = [
   "numpy>=2.0.2",
   "paddleocr>=2.10.0",
-  "paddlepaddle>=2.6.2; python_version<'3.12'",
+  "paddlepaddle>=2.6.2; python_version<'3.13'",
 ]
 urls.homepage = "https://github.com/Goldziher/kreuzberg"
 
