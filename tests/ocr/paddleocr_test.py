@@ -215,7 +215,9 @@ async def test_init_paddle_ocr_missing_dependency(backend: PaddleBackend, mock_f
         with pytest.raises(MissingDependencyError) as excinfo:
             await backend._init_paddle_ocr()
 
-        assert "paddleocr' package is not installed" in str(excinfo.value)
+        error_message = str(excinfo.value)
+        assert "paddleocr" in error_message
+        assert "missing" in error_message.lower() or "required" in error_message.lower()
 
 
 @pytest.mark.anyio

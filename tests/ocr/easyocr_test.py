@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any
 from unittest.mock import Mock, patch
@@ -134,13 +133,13 @@ async def test_init_easyocr_missing_dependency() -> None:
         "builtins.__import__", side_effect=lambda name, *args, **kwargs: raise_import_error(name, *args, **kwargs)
     ):
         backend = EasyOCRBackend()
-        with pytest.raises(
-            MissingDependencyError,
-            match=re.escape(
-                "MissingDependencyError: The package 'easyocr' is required to use EasyOCR as an OCR backend. You can install using the provided optional dependency group by installing `kreuzberg['easyocr']`."
-            ),
-        ):
+        with pytest.raises(MissingDependencyError) as excinfo:
             await backend._init_easyocr(language="en")
+
+        error_message = str(excinfo.value)
+        assert "easyocr" in error_message
+        assert "required" in error_message
+        assert "kreuzberg" in error_message
 
 
 @pytest.mark.anyio

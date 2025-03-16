@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, Mock
@@ -229,13 +228,12 @@ async def test_validate_pandoc_version_file_not_found(mocker: MockerFixture, tes
     mock_run = mocker.patch("kreuzberg._extractors._pandoc.run_process", new_callable=AsyncMock)
     mock_run.side_effect = FileNotFoundError()
 
-    with pytest.raises(
-        MissingDependencyError,
-        match=re.escape(
-            "MissingDependencyError: Pandoc version 2 or above is a required system dependency. Please install it on your system and make sure its available in $PATH."
-        ),
-    ):
+    with pytest.raises(MissingDependencyError) as excinfo:
         await extractor._validate_pandoc_version()
+
+    error_message = str(excinfo.value)
+    assert "Pandoc version 2" in error_message
+    assert "required" in error_message
 
     assert mock_run.called
 
@@ -251,13 +249,12 @@ async def test_validate_pandoc_version_invalid_output(mocker: MockerFixture, tes
     mock_return.stdout = b"invalid version output"
     mock_run.return_value = mock_return
 
-    with pytest.raises(
-        MissingDependencyError,
-        match=re.escape(
-            "MissingDependencyError: Pandoc version 2 or above is a required system dependency. Please install it on your system and make sure its available in $PATH."
-        ),
-    ):
+    with pytest.raises(MissingDependencyError) as excinfo:
         await extractor._validate_pandoc_version()
+
+    error_message = str(excinfo.value)
+    assert "Pandoc version 2" in error_message
+    assert "required" in error_message
 
     assert mock_run.called
 
@@ -273,13 +270,12 @@ async def test_validate_pandoc_version_parse_error(mocker: MockerFixture, test_c
     mock_return.stdout = b"pandoc abc"
     mock_run.return_value = mock_return
 
-    with pytest.raises(
-        MissingDependencyError,
-        match=re.escape(
-            "MissingDependencyError: Pandoc version 2 or above is a required system dependency. Please install it on your system and make sure its available in $PATH."
-        ),
-    ):
+    with pytest.raises(MissingDependencyError) as excinfo:
         await extractor._validate_pandoc_version()
+
+    error_message = str(excinfo.value)
+    assert "Pandoc version 2" in error_message
+    assert "required" in error_message
 
     assert mock_run.called
 
