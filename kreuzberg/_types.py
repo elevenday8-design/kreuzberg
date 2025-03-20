@@ -28,7 +28,7 @@ OcrBackendType = Literal["tesseract", "easyocr", "paddleocr"]
 class TableData(TypedDict):
     """Table data, returned from table extraction."""
 
-    cropped_image: NotRequired[Image]
+    cropped_image: Image
     """The cropped image of the table."""
     df: DataFrame
     """The table data as a pandas DataFrame."""
