@@ -1,6 +1,6 @@
 # Exceptions
 
-Kreuzberg defines several exception types to provide detailed error information during the extraction process.
+Error types for handling different extraction failure scenarios.
 
 ## KreuzbergError
 

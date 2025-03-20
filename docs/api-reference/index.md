@@ -1,14 +1,14 @@
 # API Reference
 
-This section provides detailed documentation for the Kreuzberg public API.
+Detailed documentation for Kreuzberg's public API.
 
 ## Core Components
 
-- [Extraction Functions](extraction-functions.md) - Functions for extracting text from files and bytes
-- [Types](types.md) - Data structures for extraction results and configuration
-- [OCR Configuration](ocr-configuration.md) - Configuration options for OCR engines
-- [Extractor Registry](extractor-registry.md) - Managing and customizing document extractors
-- [Exceptions](exceptions.md) - Error types and handling
+- [Extraction Functions](extraction-functions.md) - Functions for text extraction ([Guide](../user-guide/basic-usage.md))
+- [Types](types.md) - Data structures for results and configuration ([Guide](../user-guide/extraction-configuration.md))
+- [OCR Configuration](ocr-configuration.md) - OCR engine settings ([Guide](../user-guide/ocr-configuration.md))
+- [Extractor Registry](extractor-registry.md) - Document extractor management ([Guide](../advanced/custom-extractors.md))
+- [Exceptions](exceptions.md) - Error handling ([Examples](../getting-started/quick-start.md#error-handling))
 
 ## Public API
 
@@ -20,18 +20,16 @@ from kreuzberg import extract_file, ExtractionConfig, TesseractConfig  # etc.
 
 ## API Overview
 
-Kreuzberg's API is organized around a few key concepts:
+Kreuzberg's API has four main components:
 
-1. **Extraction Functions**: Main entry points for extracting text from documents
-1. **Configuration Objects**: Control extraction behavior, OCR settings, and more
-1. **Result Objects**: Contain extracted text, metadata, and format information
-1. **OCR Backends**: Pluggable OCR engines with specific configuration options
+1. **Extraction Functions**: Extract text from documents
+1. **Configuration Objects**: Control extraction behavior
+1. **Result Objects**: Contain extracted text and metadata
+1. **OCR Backends**: Pluggable OCR engines
 
-## Core Function Patterns
+## Examples
 
-All extraction functions follow these patterns:
-
-### Async API
+### Async API (Recommended)
 
 ```python
 from kreuzberg import extract_file, ExtractionConfig
@@ -46,11 +44,8 @@ result = await extract_file("document.pdf", config=ExtractionConfig(force_ocr=Tr
 ### Sync API
 
 ```python
-from kreuzberg import extract_file_sync, ExtractionConfig
+from kreuzberg import extract_file_sync
 
 # Basic usage
 result = extract_file_sync("document.pdf")
-
-# With configuration
-result = extract_file_sync("document.pdf", config=ExtractionConfig(force_ocr=True))
 ```

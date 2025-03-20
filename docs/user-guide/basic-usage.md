@@ -1,6 +1,6 @@
 # Basic Usage
 
-Kreuzberg provides a simple and consistent API for extracting text from various document formats.
+Kreuzberg offers a simple API for text extraction from documents and images.
 
 ## Core Functions
 
@@ -8,17 +8,17 @@ Kreuzberg exports the following main functions:
 
 ### Single Item Processing
 
-- `extract_file()`: Async function to extract text from a file (accepts string path or `pathlib.Path`)
-- `extract_bytes()`: Async function to extract text from bytes (accepts a byte string)
-- `extract_file_sync()`: Synchronous version of `extract_file()`
-- `extract_bytes_sync()`: Synchronous version of `extract_bytes()`
+- [`extract_file()`](../api-reference/extraction-functions.md#extract_file): Async function to extract text from a file (accepts string path or `pathlib.Path`)
+- [`extract_bytes()`](../api-reference/extraction-functions.md#extract_bytes): Async function to extract text from bytes (accepts a byte string)
+- [`extract_file_sync()`](../api-reference/extraction-functions.md#extract_file_sync): Synchronous version of `extract_file()`
+- [`extract_bytes_sync()`](../api-reference/extraction-functions.md#extract_bytes_sync): Synchronous version of `extract_bytes()`
 
 ### Batch Processing
 
-- `batch_extract_file()`: Async function to extract text from multiple files concurrently
-- `batch_extract_bytes()`: Async function to extract text from multiple byte contents concurrently
-- `batch_extract_file_sync()`: Synchronous version of `batch_extract_file()`
-- `batch_extract_bytes_sync()`: Synchronous version of `batch_extract_bytes()`
+- [`batch_extract_file()`](../api-reference/extraction-functions.md#batch_extract_file): Async function to extract text from multiple files concurrently
+- [`batch_extract_bytes()`](../api-reference/extraction-functions.md#batch_extract_bytes): Async function to extract text from multiple byte contents concurrently
+- [`batch_extract_file_sync()`](../api-reference/extraction-functions.md#batch_extract_file_sync): Synchronous version of `batch_extract_file()`
+- [`batch_extract_bytes_sync()`](../api-reference/extraction-functions.md#batch_extract_bytes_sync): Synchronous version of `batch_extract_bytes()`
 
 ## Async Examples
 
@@ -104,14 +104,14 @@ asyncio.run(extract_from_memory())
 
 ## Extraction Result
 
-All extraction functions return an `ExtractionResult` object with the following attributes:
+All extraction functions return an [`ExtractionResult`](../api-reference/types.md#extractionresult) object containing:
 
-- `content`: The extracted text content as a string
-- `mime_type`: The MIME type of the processed content
-- `metadata`: A dictionary containing metadata extracted from the document (if available)
+- `content`: Extracted text
+- `mime_type`: Document MIME type
+- `metadata`: Document metadata (see [Metadata Extraction](metadata-extraction.md))
 
 ```python
-from kreuzberg import extract_file, ExtractionResult
+from kreuzberg import extract_file, ExtractionResult  # Import types directly from kreuzberg
 
 async def show_metadata():
     result: ExtractionResult = await extract_file("document.pdf")

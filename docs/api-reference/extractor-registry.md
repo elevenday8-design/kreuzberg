@@ -1,8 +1,5 @@
 # Extractor Registry
 
-The `ExtractorRegistry` class provides a centralized mechanism for managing document extractors in Kreuzberg.
+The [`ExtractorRegistry`](../api-reference/extractor-registry.md) manages document extractors and allows custom extractor registration.
 
 ::: kreuzberg.ExtractorRegistry
-options:
-show_root_heading: true
-show_source: true

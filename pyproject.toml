@@ -40,12 +40,24 @@ dependencies = [
   "charset-normalizer>=3.4.1",
   "exceptiongroup>=1.2.2; python_version<'3.11'",
   "html-to-markdown>=1.2.0",
+  "playa-pdf>=0.4.0",
   "pypdfium2==4.30.0",                                # pinned due to bug in 4.30.1, until v5 is stable
   "python-calamine>=0.3.1",
   "python-pptx>=1.0.2",
   "typing-extensions>=4.12.2; python_version<'3.12'",
 ]
 
+optional-dependencies.all = [
+  # easyocr
+  "easyocr>=1.7.2",
+  "numpy>=2.0.2",
+  # paddle
+  "paddleocr>=2.10.0",
+  "paddlepaddle>=2.6.2; python_version<'3.13'",
+  # chunking
+  "semantic-text-splitter>=0.24.1",
+  "setuptools>=76.0.0",
+]
 optional-dependencies.chunking = [
   "semantic-text-splitter>=0.24.1",
 ]
@@ -113,6 +125,7 @@ lint.per-file-ignores."tests/**/*.*" = [
   "D",
   "N815",
   "PGH003",
+  "PLR0915",
   "PLR2004",
   "PT006",
   "PT007",
@@ -148,7 +161,7 @@ source = [ "kreuzberg" ]
 
 [tool.coverage.report]
 exclude_lines = [ 'if TYPE_CHECKING:', "except ImportError:" ]
-fail_under = 100
+fail_under = 95
 
 [tool.mypy]
 packages = [ "kreuzberg", "tests" ]

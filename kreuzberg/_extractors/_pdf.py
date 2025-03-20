@@ -12,6 +12,7 @@ from anyio import Path as AsyncPath
 from kreuzberg._extractors._base import Extractor
 from kreuzberg._mime_types import PDF_MIME_TYPE, PLAIN_TEXT_MIME_TYPE
 from kreuzberg._ocr import get_ocr_backend
+from kreuzberg._playa import extract_pdf_metadata
 from kreuzberg._types import ExtractionResult, OcrBackendType
 from kreuzberg._utils._string import normalize_spaces
 from kreuzberg._utils._sync import run_sync, run_taskgroup_batched
@@ -34,18 +35,30 @@ class PDFExtractor(Extractor):
         file_path, unlink = await create_temp_file(".pdf")
         await AsyncPath(file_path).write_bytes(content)
         try:
-            return await self.extract_path_async(file_path)
+            metadata = await extract_pdf_metadata(content)
+            result = await self.extract_path_async(file_path)
+
+            result.metadata = metadata
+            return result
         finally:
             await unlink()
 
     async def extract_path_async(self, path: Path) -> ExtractionResult:
+        content_bytes = await AsyncPath(path).read_bytes()
+        metadata = await extract_pdf_metadata(content_bytes)
+
         if not self.config.force_ocr:
             content = await self._extract_pdf_searchable_text(path)
             if self._validate_extracted_text(content):
-                return ExtractionResult(content=content, mime_type=PLAIN_TEXT_MIME_TYPE, metadata={}, chunks=[])
+                return ExtractionResult(content=content, mime_type=PLAIN_TEXT_MIME_TYPE, metadata=metadata, chunks=[])
+
         if self.config.ocr_backend is not None:
-            return await self._extract_pdf_text_with_ocr(path, self.config.ocr_backend)
-        return ExtractionResult(content="", mime_type=PLAIN_TEXT_MIME_TYPE, metadata={}, chunks=[])
+            result = await self._extract_pdf_text_with_ocr(path, self.config.ocr_backend)
+
+            result.metadata = metadata
+            return result
+
+        return ExtractionResult(content="", mime_type=PLAIN_TEXT_MIME_TYPE, metadata=metadata, chunks=[])
 
     def extract_bytes_sync(self, content: bytes) -> ExtractionResult:
         return anyio.run(self.extract_bytes_async, content)
@@ -104,14 +117,14 @@ class PDFExtractor(Extractor):
                 await run_sync(document.close)
 
     async def _extract_pdf_text_with_ocr(self, input_file: Path, ocr_backend: OcrBackendType) -> ExtractionResult:
-        """Extract text from a scanned PDF file using pytesseract.
+        """Extract text from a scanned PDF file using OCR.
 
         Args:
             input_file: The path to the PDF file.
             ocr_backend: The OCR backend to use.
 
         Returns:
-            The extracted text.
+            The extraction result with text content and metadata.
         """
         images = await self._convert_pdf_to_images(input_file)
         backend = get_ocr_backend(ocr_backend)
