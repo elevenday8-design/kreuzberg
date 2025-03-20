@@ -1,10 +1,10 @@
 # Supported Formats
 
-Kreuzberg supports a wide range of document, image, and text formats for extraction.
+Kreuzberg handles a wide range of document, image, and text formats.
 
 ## Document Formats
 
-- PDF (`.pdf`, both searchable and scanned)
+- PDF (`.pdf`, both searchable and scanned) - includes detailed [metadata extraction](metadata-extraction.md#pdf-specific-metadata)
 - Microsoft Word (`.docx`)
 - PowerPoint presentations (`.pptx`)
 - OpenDocument Text (`.odt`)

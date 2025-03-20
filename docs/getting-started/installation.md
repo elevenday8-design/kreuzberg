@@ -2,6 +2,30 @@
 
 Kreuzberg is composed of a core package and several `optional` dependencies, which users can install at their discretion.
 
+## System Dependencies
+
+### Pandoc
+
+Kreuzberg relies on `pandoc`, which is a **required** system dependency. To install it, follow the instructions below:
+
+#### Ubuntu/Debian
+
+```shell
+sudo apt-get install pandoc
+```
+
+#### macOS
+
+```shell
+brew install pandoc
+```
+
+#### Windows
+
+```shell
+choco install -y pandoc
+```
+
 ## Kreuzberg Core Package
 
 The Kreuzberg core package can be installed using pip with:
@@ -10,69 +34,61 @@ The Kreuzberg core package can be installed using pip with:
 pip install kreuzberg
 ```
 
-Kreuzberg relies on `pandoc`, which is a required system dependency. To install it, follow the instructions below:
+## Optional Features
 
-### Ubuntu/Debian
+### OCR
 
-```shell
-sudo apt-get install pandoc
-```
+OCR is an optional feature for extracting text from images and non-searchable PDFs. Kreuzberg supports multiple OCR backends. To understand the differences between these backends, please read the [OCR Backends documentation](../user-guide/ocr-backends.md).
 
-### macOS
+#### Tesseract OCR
 
-```shell
-brew install pandoc
-```
+Tesseract OCR is built into Kreuzberg and doesn't require additional Python packages. However, you must install Tesseract 5.0 or higher on your system:
 
-### Windows
-
-```shell
-choco install -y pandoc
-```
-
-## OCR
-
-OCR is an optional feature. Kreuzberg supports multiple OCR backends. To understand the differences between these, please read the [OCR Backends documentation](../user-guide/ocr-backends.md).
-
-If you want to be able to extract text from images and non-searchable PDFs, you will need to install one of the following OCR backends:
-
-### Tesseract
-
-To install it you can follow the instructions in the [Tesseract documentation](https://tesseract-ocr.github.io/), or use one of the following commands if applicable to your system:
-
-#### Ubuntu/Debian
+##### Ubuntu/Debian
 
 ```shell
 sudo apt-get install tesseract-ocr
 ```
 
-#### macOS
+##### macOS
 
 ```shell
 brew install tesseract
 ```
 
-#### Windows
+##### Windows
 
 ```shell
 choco install -y tesseract
 ```
 
-__Note__: You will also need to install language support for the languages of choice other than English. Again see the [Tesseract documentation](https://tesseract-ocr.github.io/) for your system.
+!!! note "Language Support"
 
-#### EasyOCR OCR Backend
+    Tesseract includes English language support by default. If you need to process documents in other languages, you must install the appropriate language data files:
 
-EasyOCR is a Python based OCR backend that has a wide language support and strong performance.
+    - **Ubuntu/Debian**: `sudo apt-get install tesseract-ocr-deu` (for German)
+    - **macOS**: `brew install tesseract-lang`
+    - **Windows**: See the [Tesseract documentation](https://tesseract-ocr.github.io/tessdoc/Installation.html#windows)
+
+    For more details on language installation and configuration, refer to the [Tesseract documentation](https://tesseract-ocr.github.io/tessdoc/Installation.html).
+
+#### EasyOCR
+
+EasyOCR is a Python-based OCR backend with wide language support and strong performance.
 
 ```shell
 pip install "kreuzberg[easyocr]"
 ```
 
-#### PaddleOCR OCRBackend
+#### PaddleOCR
 
 ```shell
 pip install "kreuzberg[paddleocr]"
 ```
+
+!!! warning "Python Compatibility"
+
+    PaddleOCR is only available on Python 3.12 and below. PaddlePaddle does not support Python 3.13 and above.
 
 ### Chunking
 
@@ -81,3 +97,21 @@ Chunking is an optional feature - useful for RAG applications among others. Kreu
 ```shell
 pip install "kreuzberg[chunking]"
 ```
+
+### All Optional Dependencies
+
+To install Kreuzberg with all optional dependencies, you can use the `all` extra group:
+
+```shell
+pip install "kreuzberg[all]"
+```
+
+This is equivalent to:
+
+```shell
+pip install "kreuzberg[chunking,easyocr,paddleocr]"
+```
+
+!!! note
+
+    Remember that even when installing with the `all` extra group, PaddleOCR will only be available on Python 3.12 and below.

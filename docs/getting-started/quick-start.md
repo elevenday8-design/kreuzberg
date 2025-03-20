@@ -1,12 +1,12 @@
 # Quick Start
 
-This guide will help you get started with Kreuzberg for text extraction from various document formats.
+Get started with Kreuzberg for text extraction from documents and images.
 
 ## Basic Usage
 
 Kreuzberg provides both asynchronous and synchronous APIs for text extraction.
 
-### Async API
+### Async API (Recommended)
 
 ```python
 import asyncio
@@ -83,21 +83,23 @@ asyncio.run(process_documents())
 
 ## Error Handling
 
-Kreuzberg provides specific exceptions for different error cases:
+Kreuzberg provides [specific exceptions](../api-reference/exceptions.md) for different error cases:
 
 ```python
 from kreuzberg import extract_file
-from kreuzberg.exceptions import ExtractionError, UnsupportedMimeTypeError, DependencyError
+from kreuzberg import KreuzbergError, MissingDependencyError, OCRError, ParsingError
 
 async def safe_extract(path):
     try:
         result = await extract_file(path)
         return result.content
-    except UnsupportedMimeTypeError:
-        print(f"Unsupported file format: {path}")
-    except DependencyError as e:
+    except ParsingError:
+        print(f"Unsupported or invalid file format: {path}")
+    except MissingDependencyError as e:
         print(f"Missing dependency: {e}")
-    except ExtractionError as e:
+    except OCRError as e:
+        print(f"OCR processing failed: {e}")
+    except KreuzbergError as e:
         print(f"Extraction failed: {e}")
     return None
 ```

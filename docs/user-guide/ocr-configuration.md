@@ -1,14 +1,14 @@
 # OCR Configuration
 
-Kreuzberg provides comprehensive options for configuring Optical Character Recognition (OCR) to optimize text extraction from images and scanned documents.
+Kreuzberg offers simple configuration options for OCR to extract text from images and scanned documents.
 
 ## OCR Configuration
 
-All extraction functions in Kreuzberg accept an `ExtractionConfig` object that can contain OCR configuration:
+All extraction functions in Kreuzberg accept an [`ExtractionConfig`](../api-reference/types.md#extractionconfig) object that can contain OCR configuration:
 
 ### Language Configuration
 
-The `language` parameter in a `TesseractConfig` object specifies which language model Tesseract should use for OCR:
+The `language` parameter in a [`TesseractConfig`](../api-reference/ocr-configuration.md#tesseractconfig) object specifies which language model Tesseract should use for OCR:
 
 ```python
 from kreuzberg import extract_file, ExtractionConfig, TesseractConfig
@@ -51,7 +51,7 @@ For Tesseract to recognize languages other than English, you need to install the
 
 ### Page Segmentation Mode (PSM)
 
-The `psm` parameter in a `TesseractConfig` object controls how Tesseract analyzes the layout of the page:
+The `psm` parameter in a [`TesseractConfig`](../api-reference/ocr-configuration.md#tesseractconfig) object controls how Tesseract analyzes the layout of the page:
 
 ```python
 from kreuzberg import extract_file, ExtractionConfig, TesseractConfig, PSMMode
@@ -105,7 +105,7 @@ To use EasyOCR:
 1. Use the `ocr_backend` parameter in the `ExtractionConfig` object:
 
 ```python
-from kreuzberg import extract_file, ExtractionConfig, EasyOCRConfig
+from kreuzberg import extract_file, ExtractionConfig, EasyOCRConfig  # EasyOCRConfig is imported from kreuzberg
 
 result = await extract_file(
     "document.jpg",
@@ -123,7 +123,7 @@ To use PaddleOCR:
 1. Use the `ocr_backend` parameter in the `ExtractionConfig` object:
 
 ```python
-from kreuzberg import extract_file, ExtractionConfig, PaddleOCRConfig
+from kreuzberg import extract_file, ExtractionConfig, PaddleOCRConfig  # PaddleOCRConfig is imported from kreuzberg
 
 result = await extract_file(
     "document.jpg",

@@ -1,15 +1,16 @@
 # User Guide
 
-This guide covers the main concepts and usage patterns of Kreuzberg for text extraction.
+This guide covers the main concepts and usage patterns of Kreuzberg.
 
 ## Contents
 
-- [Basic Usage](basic-usage.md) - Essential usage patterns and concepts
-- [Extraction Configuration](extraction-configuration.md) - Configure the extraction process
+- [Basic Usage](basic-usage.md) - Essential usage patterns and concepts ([API](../api-reference/extraction-functions.md))
+- [Extraction Configuration](extraction-configuration.md) - Configure the extraction process ([API](../api-reference/types.md#extractionconfig))
+- [Metadata Extraction](metadata-extraction.md) - Document metadata extraction ([API](../api-reference/types.md#metadata))
 - [Content Chunking](chunking.md) - Split documents into manageable chunks
-- [OCR Configuration](ocr-configuration.md) - Configure OCR for optimal text extraction
+- [OCR Configuration](ocr-configuration.md) - Configure OCR settings ([API](../api-reference/ocr-configuration.md))
 - [OCR Backends](ocr-backends.md) - Choose and configure different OCR engines
-- [Supported Formats](supported-formats.md) - Details on all supported document formats
+- [Supported Formats](supported-formats.md) - All supported document formats
 
 ## Best Practices
 

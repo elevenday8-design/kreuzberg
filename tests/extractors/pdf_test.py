@@ -51,6 +51,10 @@ async def test_extract_pdf_file(extractor: PDFExtractor, searchable_pdf: Path) -
     assert result.content.strip()
     assert result.mime_type == "text/plain"
 
+    assert result.metadata
+    assert "summary" in result.metadata
+    assert "PDF document with" in result.metadata["summary"]
+
 
 @pytest.mark.anyio
 async def test_extract_pdf_file_non_searchable(extractor: PDFExtractor, non_searchable_pdf: Path) -> None:
@@ -59,6 +63,9 @@ async def test_extract_pdf_file_non_searchable(extractor: PDFExtractor, non_sear
     assert isinstance(result.content, str)
     assert result.content.strip()
     assert result.mime_type == "text/plain"
+
+    assert result.metadata
+    assert "summary" in result.metadata
 
 
 @pytest.mark.anyio
@@ -146,3 +153,50 @@ def test_validate_custom_corruption_threshold(extractor: PDFExtractor) -> None:
     assert extractor._validate_extracted_text(text, corruption_threshold=0.15)
 
     assert not extractor._validate_extracted_text(text, corruption_threshold=0.03)
+
+
+@pytest.mark.anyio
+async def test_extract_pdf_with_rich_metadata(extractor: PDFExtractor, test_article: Path) -> None:
+    """Test extracting metadata from a PDF with rich metadata fields."""
+
+    result = await extractor.extract_path_async(test_article)
+
+    assert result.content.strip()
+
+    metadata = result.metadata
+    assert metadata
+
+    assert "title" in metadata
+    assert isinstance(metadata["title"], str)
+
+    assert not any(isinstance(value, bytes) for value in metadata.values())
+
+    if "authors" in metadata:
+        assert isinstance(metadata["authors"], list)
+        assert all(isinstance(author, str) for author in metadata["authors"])
+
+    if "keywords" in metadata:
+        assert isinstance(metadata["keywords"], list)
+        assert all(isinstance(kw, str) for kw in metadata["keywords"])
+
+    assert "summary" in metadata
+    assert "PDF document with" in metadata["summary"]
+
+
+@pytest.mark.anyio
+async def test_extract_pdf_bytes_with_metadata(extractor: PDFExtractor, test_article: Path) -> None:
+    """Test extracting metadata from PDF bytes."""
+
+    pdf_bytes = test_article.read_bytes()
+
+    result = await extractor.extract_bytes_async(pdf_bytes)
+
+    assert result.content.strip()
+
+    metadata = result.metadata
+    assert metadata
+
+    assert "title" in metadata
+    assert isinstance(metadata["title"], str)
+
+    assert not any(isinstance(value, bytes) for value in metadata.values())

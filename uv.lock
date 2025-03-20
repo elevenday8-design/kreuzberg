@@ -829,6 +829,7 @@ dependencies = [
     { name = "charset-normalizer" },
     { name = "exceptiongroup", marker = "python_full_version < '3.11'" },
     { name = "html-to-markdown" },
+    { name = "playa-pdf" },
     { name = "pypdfium2" },
     { name = "python-calamine" },
     { name = "python-pptx" },
@@ -836,6 +837,15 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+all = [
+    { name = "easyocr" },
+    { name = "numpy", version = "2.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "numpy", version = "2.2.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "paddleocr" },
+    { name = "paddlepaddle", marker = "python_full_version < '3.13'" },
+    { name = "semantic-text-splitter" },
+    { name = "setuptools" },
+]
 chunking = [
     { name = "semantic-text-splitter" },
 ]
@@ -874,20 +884,27 @@ doc = [
 requires-dist = [
     { name = "anyio", specifier = ">=4.8.0" },
     { name = "charset-normalizer", specifier = ">=3.4.1" },
+    { name = "easyocr", marker = "extra == 'all'", specifier = ">=1.7.2" },
     { name = "easyocr", marker = "extra == 'easyocr'", specifier = ">=1.7.2" },
     { name = "exceptiongroup", marker = "python_full_version < '3.11'", specifier = ">=1.2.2" },
     { name = "html-to-markdown", specifier = ">=1.2.0" },
+    { name = "numpy", marker = "extra == 'all'", specifier = ">=2.0.2" },
     { name = "numpy", marker = "extra == 'paddleocr'", specifier = ">=2.0.2" },
+    { name = "paddleocr", marker = "extra == 'all'", specifier = ">=2.10.0" },
     { name = "paddleocr", marker = "extra == 'paddleocr'", specifier = ">=2.10.0" },
+    { name = "paddlepaddle", marker = "python_full_version < '3.13' and extra == 'all'", specifier = ">=2.6.2" },
     { name = "paddlepaddle", marker = "python_full_version < '3.13' and extra == 'paddleocr'", specifier = ">=2.6.2" },
+    { name = "playa-pdf", specifier = ">=0.4.0" },
     { name = "pypdfium2", specifier = "==4.30.0" },
     { name = "python-calamine", specifier = ">=0.3.1" },
     { name = "python-pptx", specifier = ">=1.0.2" },
+    { name = "semantic-text-splitter", marker = "extra == 'all'", specifier = ">=0.24.1" },
     { name = "semantic-text-splitter", marker = "extra == 'chunking'", specifier = ">=0.24.1" },
+    { name = "setuptools", marker = "extra == 'all'", specifier = ">=76.0.0" },
     { name = "setuptools", marker = "extra == 'paddleocr'", specifier = ">=76.0.0" },
     { name = "typing-extensions", marker = "python_full_version < '3.12'", specifier = ">=4.12.2" },
 ]
-provides-extras = ["chunking", "easyocr", "paddleocr"]
+provides-extras = ["all", "chunking", "easyocr", "paddleocr"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1949,6 +1966,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/b6/2d/7d512a3913d60623e7eb945c6d1b4f0bddf1d0b7ada5225274c87e5b53d1/platformdirs-4.3.7.tar.gz", hash = "sha256:eb437d586b6a0986388f0d6f74aa0cde27b48d0e3d66843640bfb6bdcdb6e351", size = 21291 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/6d/45/59578566b3275b8fd9157885918fcd0c4d74162928a5310926887b856a51/platformdirs-4.3.7-py3-none-any.whl", hash = "sha256:a03875334331946f13c549dbd8f4bac7a13a50a895a0eb1e8c6a8ace80d40a94", size = 18499 },
+]
+
+[[package]]
+name = "playa-pdf"
+version = "0.4.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/63/59/f533ceb6e1acd1db9befab3564f76351bac1d1ec37435254843017835171/playa_pdf-0.4.0.tar.gz", hash = "sha256:46ab676ab46af543fdba26986b1584b5bb963493a9c062fb247c97fd6445fbcc", size = 7906256 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4a/af/7a58be894c070e998b18aab6ab46811053ce36626198fc0122dcddcbf13e/playa_pdf-0.4.0-py3-none-any.whl", hash = "sha256:57e767133ddc2beaaffc669628885a114284dc2755dd31905ddbcec6a0ed08f3", size = 5630783 },
 ]
 
 [[package]]

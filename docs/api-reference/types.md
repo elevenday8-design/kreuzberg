@@ -1,6 +1,6 @@
 # Types
 
-Kreuzberg uses several data structures to represent extraction results, configuration options, and metadata.
+Core data structures for extraction results, configuration, and metadata.
 
 ## ExtractionResult
 

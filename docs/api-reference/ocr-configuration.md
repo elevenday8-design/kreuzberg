@@ -1,25 +1,27 @@
 # OCR Configuration
 
+Configuration classes for the supported OCR engines.
+
 ## TesseractConfig
 
-Configuration options for the Tesseract OCR engine (default):
+Default OCR engine configuration:
 
 ::: kreuzberg.TesseractConfig
 
-### PSMMode (Page Segmentation Mode)
+## PSMMode
 
-Control how Tesseract analyzes page layout:
+Page Segmentation Mode options for Tesseract:
 
 ::: kreuzberg.PSMMode
 
 ## EasyOCRConfig
 
-Configuration options for the EasyOCR engine:
+Configuration for the EasyOCR engine:
 
 ::: kreuzberg.EasyOCRConfig
 
 ## PaddleOCRConfig
 
-Configuration options for the PaddleOCR engine:
+Configuration for the PaddleOCR engine:
 
 ::: kreuzberg.PaddleOCRConfig

@@ -1,6 +1,6 @@
 # Extraction Functions
 
-Kreuzberg provides both asynchronous and synchronous functions for text extraction from files and byte data. All functions accept an optional `ExtractionConfig` parameter for configuring the extraction process, including OCR options.
+Kreuzberg provides both async and sync functions for text extraction. All functions accept an optional [`ExtractionConfig`](types.md#extractionconfig) parameter for configuring the extraction process.
 
 ## Asynchronous Functions
 

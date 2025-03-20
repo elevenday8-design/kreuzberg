@@ -76,6 +76,10 @@ result = await extract_file(
 
 [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) is an OCR toolkit developed by Baidu. It's particularly strong for Chinese and other Asian languages.
 
+!!! warning "Python Compatibility"
+
+    PaddleOCR is only available on Python 3.12 and below. PaddlePaddle does not support Python 3.13 and above.
+
 **Installation Requirements:**
 
 - Requires the `paddleocr` optional dependency
@@ -187,9 +191,18 @@ pip install kreuzberg
 # With EasyOCR support
 pip install "kreuzberg[easyocr]"
 
-# With PaddleOCR support
+# With PaddleOCR support (Python 3.12 and below only)
 pip install "kreuzberg[paddleocr]"
 
-# With all OCR backends
+# With chunking support
+pip install "kreuzberg[chunking]"
+
+# With all optional dependencies (OCR backends and chunking)
 pip install "kreuzberg[all]"
 ```
+
+!!! note "System Dependencies"
+
+    Remember that Pandoc and Tesseract are system dependencies that must be installed separately from the Python package.
+
+    For Tesseract, you must install version 5.0 or higher, and you'll need to install additional language data files for languages other than English.
