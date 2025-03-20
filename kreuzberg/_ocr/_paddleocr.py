@@ -208,7 +208,7 @@ class PaddleBackend(OCRBackend[PaddleOCRConfig]):
         """Check if the current architecture supports MKL-DNN optimization.
 
         Returns:
-            bool: True if MKL-DNN is supported on this architecture.
+            True if MKL-DNN is supported on this architecture.
         """
         system = platform.system().lower()
         processor = platform.processor().lower()

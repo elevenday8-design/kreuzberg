@@ -137,6 +137,8 @@ filterwarnings = [
   "ignore:Exception ignored in:pytest.PytestUnraisableExceptionWarning",
   "ignore:pkg_resources is deprecated as an API:DeprecationWarning",
   "ignore:ast.Num is deprecated and will be removed in Python 3.14:DeprecationWarning",
+  "ignore:datetime.datetime.utcfromtimestamp() is deprecated:DeprecationWarning",
+  "ignore:Deprecated call to `pkg_resources.declare_namespace('google')`:DeprecationWarning",
 ]
 
 [tool.coverage.run]
