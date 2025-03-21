@@ -98,6 +98,14 @@ Chunking is an optional feature - useful for RAG applications among others. Kreu
 pip install "kreuzberg[chunking]"
 ```
 
+### Table Extraction
+
+Table extraction is an optional feature that allows Kreuzberg to extract tables from PDFs. It uses the Google Machine Learning for Tables (GMFT) package. To install Kreuzberg with table extraction support, you can use:
+
+```shell
+pip install "kreuzberg[gmft]"
+```
+
 ### All Optional Dependencies
 
 To install Kreuzberg with all optional dependencies, you can use the `all` extra group:
@@ -109,7 +117,7 @@ pip install "kreuzberg[all]"
 This is equivalent to:
 
 ```shell
-pip install "kreuzberg[chunking,easyocr,paddleocr]"
+pip install "kreuzberg[chunking,easyocr,gmft,paddleocr]"
 ```
 
 !!! note

@@ -3,9 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
-from kreuzberg import MissingDependencyError
 from kreuzberg._types import TableData
 from kreuzberg._utils._sync import run_sync
+from kreuzberg.exceptions import MissingDependencyError
 
 if TYPE_CHECKING:
     from os import PathLike
@@ -44,7 +44,8 @@ class GMFTConfig:
             4: 0.5,
             5: 0.5,
             6: 99,
-        }
+        },
+        hash=False,
     )
     """
     Confidences required (>=) for a row/column feature to be considered good. See TATRFormattedTable.id2label
@@ -103,7 +104,7 @@ class GMFTConfig:
     """
 
 
-async def extract_tables(file_path: PathLike[str], config: GMFTConfig | None = None) -> list[TableData]:
+async def extract_tables(file_path: str | PathLike[str], config: GMFTConfig | None = None) -> list[TableData]:
     """Extracts tables from a PDF file.
 
     This function takes a file path to a PDF file, and an optional configuration object.

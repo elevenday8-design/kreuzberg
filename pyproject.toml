@@ -54,6 +54,8 @@ optional-dependencies.all = [
   "numpy>=2.0.2",
   "paddleocr>=2.10.0",
   "paddlepaddle>=2.6.2; python_version<'3.13'",
+  # gmft
+  "gmft>=0.4.1",
   # chunking
   "semantic-text-splitter>=0.24.1",
   "setuptools>=76.0.0",
@@ -65,7 +67,7 @@ optional-dependencies.easyocr = [
   "easyocr>=1.7.2",
 ]
 optional-dependencies.gmft = [
-  "gmft>=0.4.0",
+  "gmft>=0.4.1",
 ]
 optional-dependencies.paddleocr = [
   "numpy>=2.0.2",
@@ -124,6 +126,7 @@ lint.per-file-ignores."tests/**/*.*" = [
   "ARG001",
   "D",
   "N815",
+  "PD",
   "PGH003",
   "PLR0915",
   "PLR2004",
