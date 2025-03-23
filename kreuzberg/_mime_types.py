@@ -16,7 +16,7 @@ PDF_MIME_TYPE: Final = "application/pdf"
 PLAIN_TEXT_MIME_TYPE: Final = "text/plain"
 POWER_POINT_MIME_TYPE: Final = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 DOCX_MIME_TYPE: Final = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-# Excel formats
+
 EXCEL_MIME_TYPE: Final = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 EXCEL_BINARY_MIME_TYPE: Final = "application/vnd.ms-excel"
 EXCEL_MACRO_MIME_TYPE: Final = "application/vnd.ms-excel.sheet.macroEnabled.12"
@@ -24,8 +24,8 @@ EXCEL_BINARY_2007_MIME_TYPE: Final = "application/vnd.ms-excel.sheet.binary.macr
 EXCEL_ADDON_MIME_TYPE: Final = "application/vnd.ms-excel.addin.macroEnabled.12"
 EXCEL_TEMPLATE_MIME_TYPE: Final = "application/vnd.ms-excel.template.macroEnabled.12"
 
-# OpenDocument spreadsheet format
-OPENDOC_SPREADSHEET_MIME_TYPE: Final = "application/vnd.oasis.opendocument.spreadsheet"  # ods
+
+OPENDOC_SPREADSHEET_MIME_TYPE: Final = "application/vnd.oasis.opendocument.spreadsheet"
 PLAIN_TEXT_MIME_TYPES: Final[set[str]] = {PLAIN_TEXT_MIME_TYPE, MARKDOWN_MIME_TYPE}
 
 IMAGE_MIME_TYPES: Final[set[str]] = {
@@ -48,26 +48,7 @@ IMAGE_MIME_TYPES: Final[set[str]] = {
     "image/x-portable-pixmap",
     "image/x-tiff",
 }
-IMAGE_MIME_TYPE_EXT_MAP: Final[Mapping[str, str]] = {
-    "image/bmp": "bmp",
-    "image/x-bmp": "bmp",
-    "image/x-ms-bmp": "bmp",
-    "image/gif": "gif",
-    "image/jpeg": "jpg",
-    "image/pjpeg": "jpg",
-    "image/png": "png",
-    "image/tiff": "tiff",
-    "image/x-tiff": "tiff",
-    "image/jp2": "jp2",
-    "image/jpx": "jpx",
-    "image/jpm": "jpm",
-    "image/mj2": "mj2",
-    "image/webp": "webp",
-    "image/x-portable-anymap": "pnm",
-    "image/x-portable-bitmap": "pbm",
-    "image/x-portable-graymap": "pgm",
-    "image/x-portable-pixmap": "ppm",
-}
+
 PANDOC_SUPPORTED_MIME_TYPES: Final[set[str]] = {
     "application/csl+json",
     "application/docbook+xml",
@@ -162,13 +143,17 @@ SUPPORTED_MIME_TYPES: Final[set[str]] = (
 )
 
 
-def validate_mime_type(file_path: PathLike[str] | str, mime_type: str | None = None) -> str:
+def validate_mime_type(
+    *, file_path: PathLike[str] | str | None = None, mime_type: str | None = None, check_file_exists: bool = True
+) -> str:
     """Validate and detect the MIME type for a given file.
 
     Args:
         file_path: The path to the file.
         mime_type: Optional explicit MIME type. If provided, this will be validated.
             If not provided, the function will attempt to detect the MIME type.
+        check_file_exists: Whether to check if the file exists. Default is True.
+            Set to False in tests where you want to validate a mime type without an actual file.
 
     Raises:
         ValidationError: If the MIME type is not supported or cannot be determined.
@@ -176,10 +161,18 @@ def validate_mime_type(file_path: PathLike[str] | str, mime_type: str | None = N
     Returns:
         The validated MIME type.
     """
-    path = Path(file_path)
+    if file_path and check_file_exists:
+        path = Path(file_path)
+        if not path.exists():
+            raise ValidationError("The file does not exist", context={"file_path": str(path)})
 
     if not mime_type:
-        # Try to determine MIME type from file extension first
+        if not file_path:
+            raise ValidationError(
+                "Could not determine mime type.",
+            )
+        path = Path(file_path)
+
         ext = path.suffix.lower()
         mime_type = EXT_TO_MIME_TYPE.get(ext) or guess_type(path.name)[0]
 

@@ -28,7 +28,7 @@ jobs:
 
       - name: Install Dependencies
         if: steps.python-cache.outputs.cache-hit != 'true'
-        run: uv sync
+        run: uv sync --all-extras --dev
 
       - name: Load Cached Pre-Commit Dependencies
         id: cached-pre-commit-dependencies
@@ -68,9 +68,9 @@ jobs:
           path: |
             ~/.cache/uv
             .venv
-          key: python-dependencies-${{ runner.os }}-${{ matrix.python }}-${{ hashFiles('uv.lock') }}
+          key: python-dependencies-${{ matrix.os }}-${{ matrix.python }}-${{ hashFiles('uv.lock') }}
           restore-keys: |
-            python-dependencies-${{ runner.os }}-${{ matrix.python }}-
+            python-dependencies-${{ matrix.os }}-${{ matrix.python }}-
 
       - name: Install Dependencies
         if: steps.python-cache.outputs.cache-hit != 'true'
@@ -80,7 +80,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .pytest_cache/
-          key: pytest-cache-${{ runner.os }}-${{ matrix.python }}
+          key: pytest-cache-${{ matrix.os }}-${{ matrix.python }}
 
       - name: Cache and Install Homebrew (macOS)
         if: runner.os == 'macOS'
@@ -109,4 +109,4 @@ jobs:
           pandoc --version
 
       - name: Run Tests
-        run: uv run pytest
+        run: uv run pytest -s -vvv

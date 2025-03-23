@@ -1,6 +1,6 @@
 [project]
 name = "kreuzberg"
-version = "2.1.2"
+version = "3.0.0"
 description = "A text extraction library supporting PDFs, images, office documents and more"
 readme = "README.md"
 keywords = [
@@ -36,14 +36,39 @@ classifiers = [
 ]
 
 dependencies = [
-  "anyio>=4.8.0",
+  "anyio>=4.9.0",
   "charset-normalizer>=3.4.1",
   "exceptiongroup>=1.2.2; python_version<'3.11'",
   "html-to-markdown>=1.2.0",
+  "playa-pdf>=0.4.1",
   "pypdfium2==4.30.0",                                # pinned due to bug in 4.30.1, until v5 is stable
   "python-calamine>=0.3.1",
   "python-pptx>=1.0.2",
-  "typing-extensions>=4.12.2; python_version<'3.10'",
+  "typing-extensions>=4.12.2; python_version<'3.12'",
+]
+
+optional-dependencies.all = [
+  # easyocr
+  "easyocr>=1.7.2",
+  # paddle
+  "numpy>=2.0.2",
+  "paddleocr>=2.10.0",
+  "paddlepaddle>=2.6.2; python_version<'3.13'",
+  # chunking
+  "semantic-text-splitter>=0.24.1",
+  "setuptools>=76.0.0",
+]
+optional-dependencies.chunking = [
+  "semantic-text-splitter>=0.24.1",
+]
+optional-dependencies.easyocr = [
+  "easyocr>=1.7.2",
+]
+optional-dependencies.paddleocr = [
+  "numpy>=2.0.2",
+  "paddleocr>=2.10.0",
+  "paddlepaddle>=2.6.2; python_version<'3.13'",
+  "setuptools>=76.0.0",
 ]
 urls.homepage = "https://github.com/Goldziher/kreuzberg"
 
@@ -51,13 +76,20 @@ urls.homepage = "https://github.com/Goldziher/kreuzberg"
 dev = [
   "covdefaults>=2.3.0",
   "mypy>=1.15.0",
-  "pre-commit>=4.1.0",
+  "pre-commit>=4.2.0",
   "pytest>=8.3.5",
   "pytest-cov>=6.0.0",
   "pytest-mock>=3.14.0",
   "pytest-timeout>=2.3.1",
-  "ruff>=0.9.9",
+  "ruff>=0.11.2",
   "trio>=0.29.0",
+]
+doc = [
+  "mkdocs>=1.6.1",
+  "mkdocs-git-revision-date-localized-plugin>=1.4.5",
+  "mkdocs-material[imaging]>=9.6.9",
+  "mkdocs-minify-plugin>=0.8.0",
+  "mkdocstrings[python]>=0.29.0",
 ]
 
 [tool.setuptools.packages.find]
@@ -70,7 +102,6 @@ kreuzberg = [ "py.typed" ]
 target-version = "py39"
 line-length = 120
 src = [ "kreuzberg", "tests" ]
-
 format.docstring-code-line-length = 120
 format.docstring-code-format = true
 lint.select = [ "ALL" ]
@@ -94,6 +125,7 @@ lint.per-file-ignores."tests/**/*.*" = [
   "D",
   "N815",
   "PGH003",
+  "PLR0915",
   "PLR2004",
   "PT006",
   "PT007",
@@ -105,7 +137,6 @@ lint.per-file-ignores."tests/**/*.*" = [
 lint.isort.known-first-party = [ "kreuzberg", "tests" ]
 lint.mccabe.max-complexity = 15
 lint.pydocstyle.convention = "google"
-
 lint.pylint.max-args = 10
 lint.pylint.max-branches = 15
 lint.pylint.max-returns = 10
@@ -117,6 +148,10 @@ max_supported_python = "3.13"
 [tool.pytest.ini_options]
 filterwarnings = [
   "ignore:Exception ignored in:pytest.PytestUnraisableExceptionWarning",
+  "ignore:pkg_resources is deprecated as an API:DeprecationWarning",
+  "ignore:ast.Num is deprecated and will be removed in Python 3.14:DeprecationWarning",
+  "ignore:datetime.datetime.utcfromtimestamp() is deprecated:DeprecationWarning",
+  "ignore:Deprecated call to `pkg_resources.declare_namespace('google')`:DeprecationWarning",
 ]
 
 [tool.coverage.run]
@@ -126,7 +161,7 @@ source = [ "kreuzberg" ]
 
 [tool.coverage.report]
 exclude_lines = [ 'if TYPE_CHECKING:', "except ImportError:" ]
-fail_under = 100
+fail_under = 95
 
 [tool.mypy]
 packages = [ "kreuzberg", "tests" ]

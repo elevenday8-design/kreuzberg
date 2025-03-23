@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from multiprocessing import cpu_count
 from typing import Final
 
-DEFAULT_MAX_PROCESSES: Final[int] = cpu_count()
-MINIMAL_SUPPORTED_TESSERACT_VERSION: Final[int] = 5
 MINIMAL_SUPPORTED_PANDOC_VERSION: Final[int] = 2
+DEFAULT_MAX_CHARACTERS: Final[int] = 2000
+DEFAULT_MAX_OVERLAP: Final[int] = 100
