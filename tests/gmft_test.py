@@ -257,6 +257,7 @@ async def test_extract_tables_with_custom_config_mocks() -> None:
     custom_config = GMFTConfig(detector_base_threshold=0.8, enable_multi_header=True, semantic_spanning_cells=True)
 
     mock_auto = MagicMock()
+    mock_formatter_config = MagicMock()
     mock_detector_tatr = MagicMock()
     mock_pdf_bindings = MagicMock()
 
@@ -265,6 +266,7 @@ async def test_extract_tables_with_custom_config_mocks() -> None:
         {
             "gmft": MagicMock(),
             "gmft.auto": mock_auto,
+            "gmft.formatters.tatr": mock_formatter_config,
             "gmft.detectors.tatr": mock_detector_tatr,
             "gmft.pdf_bindings": mock_pdf_bindings,
         },
@@ -285,9 +287,9 @@ async def test_extract_tables_with_custom_config_mocks() -> None:
 
         await extract_tables(mock_path, custom_config)
 
-        mock_detector_tatr.TATRDetectorConfig.assert_called_once_with(detector_base_threshold=0.8)
+        mock_formatter_config.assert_called_once_with(detector_base_threshold=0.8)
 
-        assert mock_auto.TATRFormatConfig.call_args is not None
-        format_config_kwargs = mock_auto.TATRFormatConfig.call_args.kwargs
+        assert mock_formatter_config.call_args is not None
+        format_config_kwargs = mock_formatter_config.call_args.kwargs
         assert format_config_kwargs["enable_multi_header"] is True
         assert format_config_kwargs["semantic_spanning_cells"] is True

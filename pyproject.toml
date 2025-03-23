@@ -50,12 +50,12 @@ dependencies = [
 optional-dependencies.all = [
   # easyocr
   "easyocr>=1.7.2",
+  # gmft
+  "gmft>=0.4.1",
   # paddle
   "numpy>=2.0.2",
   "paddleocr>=2.10.0",
   "paddlepaddle>=2.6.2; python_version<'3.13'",
-  # gmft
-  "gmft>=0.4.1",
   # chunking
   "semantic-text-splitter>=0.24.1",
   "setuptools>=76.0.0",
