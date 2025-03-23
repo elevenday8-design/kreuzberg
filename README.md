@@ -1,5 +1,9 @@
 # Kreuzberg
 
+[![PyPI version](https://badge.fury.io/py/kreuzberg.svg)](https://badge.fury.io/py/kreuzberg)
+[![Documentation](https://img.shields.io/badge/docs-GitHub_Pages-blue)](https://goldziher.github.io/kreuzberg/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Kreuzberg is a Python library for text extraction from documents. It provides a unified interface for extracting text from PDFs, images, office documents, and more, with both async and sync APIs.
 
 ## Why Kreuzberg?
@@ -12,40 +16,38 @@ Kreuzberg is a Python library for text extraction from documents. It provides a 
 - **Modern Python**: Built with async/await, type hints, and a functional-first approach
 - **Permissive OSS**: MIT licensed with permissively licensed dependencies
 
-## Installation
-
-### Basic installation
+## Quick Start
 
 ```bash
 pip install kreuzberg
 ```
 
-This installs Kreuzberg with basic dependencies. To use OCR features, you'll need to install the system-level Tesseract OCR engine:
+Install pandoc:
 
 ```bash
 # Ubuntu/Debian
-sudo apt-get install tesseract-ocr
+sudo apt-get install tesseract-ocr pandoc
 
 # macOS
-brew install tesseract
+brew install tesseract pandoc
 
-# Windows (via chocolatey)
-choco install tesseract
+# Windows
+choco install -y tesseract pandoc
 ```
+
+The tesseract OCR engine is the default OCR engine. You can decide not to use it - and then either use one of the two alternative OCR engines, or have no OCR at all.
 
 ### Alternative OCR engines
 
 ```bash
-# Install with EasyOCR support (pure Python, no system dependencies)
+# Install with EasyOCR support
 pip install "kreuzberg[easyocr]"
 
-# Install with PaddleOCR support (good for Asian languages)
+# Install with PaddleOCR support
 pip install "kreuzberg[paddleocr]"
 ```
 
-## Quick Examples
-
-### Basic text extraction
+## Quick Example
 
 ```python
 import asyncio
@@ -67,57 +69,16 @@ async def main():
 asyncio.run(main())
 ```
 
-### OCR configuration
-
-```python
-from kreuzberg import extract_file, ExtractionConfig, TesseractConfig, PSMMode
-
-async def extract_with_ocr():
-    # Extract text from a German document
-    result = await extract_file(
-        "german_document.pdf",
-        config=ExtractionConfig(
-            force_ocr=True,
-            ocr_config=TesseractConfig(
-                language="deu", psm=PSMMode.SINGLE_BLOCK  # German language  # Treat as a single text block
-            ),
-        ),
-    )
-    print(result.content)
-```
-
-### Batch processing
-
-```python
-from kreuzberg import batch_extract_file
-
-async def process_documents():
-    file_paths = ["document1.pdf", "document2.docx", "image.jpg"]
-    results = await batch_extract_file(file_paths)
-
-    for path, result in zip(file_paths, results):
-        print(f"File: {path}")
-        print(f"Content: {result.content[:100]}...")  # First 100 chars
-```
-
-### Synchronous API
-
-```python
-from kreuzberg import extract_file_sync
-
-# Extract text synchronously
-result = extract_file_sync("document.pdf")
-print(result.content)
-```
-
 ## Documentation
 
-For more detailed information, check out the full documentation:
+For comprehensive documentation, visit our [GitHub Pages](https://goldziher.github.io/kreuzberg/):
 
-- [Getting Started](https://example.com/getting-started)
-- [User Guide](https://example.com/user-guide)
-- [API Reference](https://example.com/api-reference)
-- [Examples](https://example.com/examples)
+- [Getting Started](https://goldziher.github.io/kreuzberg/getting-started/) - Installation and basic usage
+- [User Guide](https://goldziher.github.io/kreuzberg/user-guide/) - In-depth usage information
+- [API Reference](https://goldziher.github.io/kreuzberg/api-reference/) - Detailed API documentation
+- [Examples](https://goldziher.github.io/kreuzberg/examples/) - Code examples for common use cases
+- [OCR Configuration](https://goldziher.github.io/kreuzberg/user-guide/ocr-configuration/) - Configure OCR engines
+- [OCR Backends](https://goldziher.github.io/kreuzberg/user-guide/ocr-backends/) - Choose the right OCR engine
 
 ## Supported Formats
 

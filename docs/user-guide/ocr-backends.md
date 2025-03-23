@@ -55,6 +55,16 @@ result = await extract_file(
 - Requires the `easyocr` optional dependency
 - Install with: `pip install "kreuzberg[easyocr]"`
 
+**GPU Support:**
+
+!!! warning "Experimental Feature"
+
+    GPU support is not considered an official feature and might be subject to change or removal in future versions.
+
+- EasyOCR can use GPU acceleration when PyTorch with CUDA is available
+- To enable GPU, set `use_gpu=True` in the configuration
+- Kreuzberg will automatically check if CUDA is available via PyTorch
+
 **Language Support:**
 
 - Uses different language codes than Tesseract
@@ -68,7 +78,12 @@ from kreuzberg import extract_file, ExtractionConfig, EasyOCRConfig
 
 result = await extract_file(
     "document.jpg",
-    config=ExtractionConfig(ocr_backend="easyocr", ocr_config=EasyOCRConfig(language_list=["en", "de"])),  # English and German
+    config=ExtractionConfig(
+        ocr_backend="easyocr",
+        ocr_config=EasyOCRConfig(
+            language_list=["en", "de"], use_gpu=True  # English and German  # Enable GPU acceleration if available (experimental)
+        ),
+    ),
 )
 ```
 
@@ -85,6 +100,17 @@ result = await extract_file(
 - Requires the `paddleocr` optional dependency
 - Install with: `pip install "kreuzberg[paddleocr]"`
 
+**GPU Support:**
+
+!!! warning "Experimental Feature"
+
+    GPU support is not considered an official feature and might be subject to change or removal in future versions.
+
+- PaddleOCR can utilize GPU acceleration if the paddlepaddle-gpu package is installed
+- Kreuzberg automatically detects if paddlepaddle-gpu is available
+- To explicitly enable GPU, set `use_gpu=True` in the configuration
+- For GPU usage, install: `pip install paddlepaddle-gpu` instead of the standard paddlepaddle package
+
 **Language Support:**
 
 - Limited language support compared to other backends
@@ -96,7 +122,15 @@ result = await extract_file(
 from kreuzberg import extract_file, ExtractionConfig, PaddleOCRConfig
 
 result = await extract_file(
-    "chinese_document.jpg", config=ExtractionConfig(ocr_backend="paddleocr", ocr_config=PaddleOCRConfig(language="ch"))  # Chinese
+    "chinese_document.jpg",
+    config=ExtractionConfig(
+        ocr_backend="paddleocr",
+        ocr_config=PaddleOCRConfig(
+            language="ch",  # Chinese
+            use_gpu=True,  # Enable GPU acceleration if paddlepaddle-gpu is available (experimental)
+            gpu_mem=4000,  # Set GPU memory limit in MB (experimental)
+        ),
+    ),
 )
 ```
 
