@@ -215,7 +215,7 @@ class TesseractConfig:
     """If True, forces the use of the primary parameters model for text recognition."""
     textord_space_size_is_variable: bool = True
     """Allow variable spacing between words, useful for text with irregular spacing."""
-    thresholding_method: bool = True
+    thresholding_method: bool = False
     """Enable or disable specific thresholding methods during image preprocessing for better OCR accuracy."""
 
 
