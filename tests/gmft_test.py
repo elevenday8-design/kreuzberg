@@ -13,7 +13,6 @@ from kreuzberg import ExtractionConfig, GMFTConfig
 from kreuzberg._gmft import extract_tables
 from kreuzberg.exceptions import MissingDependencyError
 from kreuzberg.extraction import extract_file
-from tests.conftest import pdfs_with_tables
 
 
 @pytest.fixture
@@ -35,12 +34,10 @@ def mock_formatted_table() -> MagicMock:
 
 
 @pytest.mark.anyio
-async def test_extract_tables_with_default_config() -> None:
+async def test_extract_tables_with_default_config(tiny_pdf_with_tables: Path) -> None:
     """Test extracting tables with default configuration."""
-    pdf_path = pdfs_with_tables[0]
-
     try:
-        tables = await extract_tables(pdf_path)
+        tables = await extract_tables(tiny_pdf_with_tables)
 
         assert tables
         assert isinstance(tables, list)
@@ -60,16 +57,15 @@ async def test_extract_tables_with_default_config() -> None:
 
 
 @pytest.mark.anyio
-async def test_gmft_integration_with_extraction_api() -> None:
+async def test_gmft_integration_with_extraction_api(tiny_pdf_with_tables: Path) -> None:
     """Test integration of GMFT with the main extraction API."""
-    pdf_path = pdfs_with_tables[0]
 
     try:
         config = ExtractionConfig(
             extract_tables=True, gmft_config=GMFTConfig(detector_base_threshold=0.8, enable_multi_header=True)
         )
 
-        result = await extract_file(pdf_path, config=config)
+        result = await extract_file(tiny_pdf_with_tables, config=config)
 
         assert hasattr(result, "tables")
         assert result.tables
@@ -90,14 +86,13 @@ async def test_gmft_integration_with_extraction_api() -> None:
 
 
 @pytest.mark.anyio
-async def test_extract_tables_with_custom_config() -> None:
+async def test_extract_tables_with_custom_config(tiny_pdf_with_tables: Path) -> None:
     """Test extracting tables with custom configuration."""
-    pdf_path = pdfs_with_tables[0]
 
     config = GMFTConfig(detector_base_threshold=0.85, remove_null_rows=True, enable_multi_header=True, verbosity=1)
 
     try:
-        tables = await extract_tables(pdf_path, config)
+        tables = await extract_tables(tiny_pdf_with_tables, config)
 
         assert tables
         assert isinstance(tables, list)

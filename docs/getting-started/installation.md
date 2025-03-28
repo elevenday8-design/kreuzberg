@@ -86,10 +86,6 @@ pip install "kreuzberg[easyocr]"
 pip install "kreuzberg[paddleocr]"
 ```
 
-!!! warning "Python Compatibility"
-
-    PaddleOCR is only available on Python 3.12 and below. PaddlePaddle does not support Python 3.13 and above.
-
 ### Chunking
 
 Chunking is an optional feature - useful for RAG applications among others. Kreuzberg uses the excellent `semantic-text-splitter` package for chunking. To install Kreuzberg with chunking support, you can use:
@@ -119,7 +115,3 @@ This is equivalent to:
 ```shell
 pip install "kreuzberg[chunking,easyocr,gmft,paddleocr]"
 ```
-
-!!! note
-
-    Remember that even when installing with the `all` extra group, PaddleOCR will only be available on Python 3.12 and below.
