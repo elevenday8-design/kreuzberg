@@ -170,6 +170,8 @@ class EasyOCRBackend(OCRBackend[EasyOCRConfig]):
         Raises:
             OCRError: If OCR processing fails.
         """
+        import numpy as np
+
         await self._init_easyocr(**kwargs)
 
         beam_width = kwargs.pop("beam_width")
@@ -180,7 +182,7 @@ class EasyOCRBackend(OCRBackend[EasyOCRConfig]):
         try:
             result = await run_sync(
                 self._reader.readtext,
-                image.tobytes(),
+                np.array(image),
                 beamWidth=beam_width,
                 **kwargs,
             )
