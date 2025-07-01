@@ -5,10 +5,13 @@ from __future__ import annotations
 import asyncio
 import multiprocessing as mp
 from concurrent.futures import ProcessPoolExecutor
-from typing import Any, Callable, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 import psutil
 from typing_extensions import Self
+
+if TYPE_CHECKING:
+    import types
 
 T = TypeVar("T")
 
@@ -55,7 +58,7 @@ class ProcessPoolManager:
 
     def _ensure_executor(self, max_workers: int | None = None) -> ProcessPoolExecutor:
         """Ensure process pool executor is initialized."""
-        if self._executor is None or self._executor._max_workers != max_workers:
+        if self._executor is None or getattr(self._executor, "_max_workers", None) != max_workers:
             if self._executor is not None:
                 self._executor.shutdown(wait=False)
 
@@ -69,7 +72,7 @@ class ProcessPoolManager:
         func: Callable[..., T],
         *args: Any,
         task_memory_mb: float = 100,
-        **kwargs: Any,
+        **_kwargs: Any,
     ) -> T:
         """Submit a task to the process pool.
 
@@ -164,7 +167,12 @@ class ProcessPoolManager:
         """Context manager entry."""
         return self
 
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: types.TracebackType | None,
+    ) -> None:
         """Context manager exit."""
         self.shutdown()
 
@@ -172,6 +180,11 @@ class ProcessPoolManager:
         """Async context manager entry."""
         return self
 
-    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: types.TracebackType | None,
+    ) -> None:
         """Async context manager exit."""
         self.shutdown()
