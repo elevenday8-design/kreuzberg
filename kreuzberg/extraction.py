@@ -105,15 +105,49 @@ async def extract_file(
     Returns:
         The extracted content and the mime type of the content.
     """
-    mime_type = validate_mime_type(file_path=file_path, mime_type=mime_type)
-    if extractor := ExtractorRegistry.get_extractor(mime_type=mime_type, config=config):
-        result = await extractor.extract_path_async(Path(file_path))
-    else:
-        result = ExtractionResult(
-            content=safe_decode(await anyio.Path(file_path).read_bytes()), chunks=[], mime_type=mime_type, metadata={}
-        )
+    from kreuzberg._utils._document_cache import get_document_cache
 
-    return await _validate_and_post_process_async(result=result, config=config)
+    # Check cache first
+    cache = get_document_cache()
+    cached_result = cache.get(file_path, config)
+    if cached_result is not None:
+        return cached_result
+
+    # Check if another thread is processing this file
+    if cache.is_processing(file_path, config):
+        # Wait for the other thread to complete
+        event = cache.mark_processing(file_path, config)
+        await anyio.to_thread.run_sync(event.wait)
+
+        # Try cache again after waiting
+        cached_result = cache.get(file_path, config)
+        if cached_result is not None:
+            return cached_result
+
+    # Mark as processing
+    cache.mark_processing(file_path, config)
+
+    try:
+        mime_type = validate_mime_type(file_path=file_path, mime_type=mime_type)
+        if extractor := ExtractorRegistry.get_extractor(mime_type=mime_type, config=config):
+            result = await extractor.extract_path_async(Path(file_path))
+        else:
+            result = ExtractionResult(
+                content=safe_decode(await anyio.Path(file_path).read_bytes()),
+                chunks=[],
+                mime_type=mime_type,
+                metadata={},
+            )
+
+        result = await _validate_and_post_process_async(result=result, config=config)
+
+        # Cache the result
+        cache.set(file_path, config, result)
+
+        return result
+    finally:
+        # Mark processing complete
+        cache.mark_complete(file_path, config)
 
 
 async def batch_extract_file(
@@ -134,19 +168,40 @@ async def batch_extract_file(
     # Use semaphore to limit concurrent operations based on resource usage
     import multiprocessing as mp
 
-    max_concurrency = min(len(file_paths), mp.cpu_count() * 2)  # Allow 2x CPU count for I/O bound ops
+    # Simple concurrency limit - document caching handles same-file issues
+    max_concurrency = min(len(file_paths), mp.cpu_count() * 2)  # Standard I/O bound limit
     semaphore = anyio.Semaphore(max_concurrency)
 
     results = cast("list[ExtractionResult]", ([None] * len(file_paths)))
 
     async def _extract_file(path: PathLike[str] | str, index: int) -> None:
         async with semaphore:
-            result = await extract_file(
-                path,
-                None,
-                config,
-            )
-            results[index] = result
+            try:
+                result = await extract_file(
+                    path,
+                    None,
+                    config,
+                )
+                results[index] = result
+            except Exception as e:
+                # Store error information instead of failing entire batch
+                from kreuzberg._utils._errors import create_error_context
+
+                error_result = ExtractionResult(
+                    content=f"Error: {type(e).__name__}: {e!s}",
+                    mime_type="text/plain",
+                    metadata={
+                        "error": True,
+                        "error_context": create_error_context(
+                            operation="batch_extract_file",
+                            file_path=path,
+                            error=e,
+                            index=index,
+                        ),
+                    },
+                    chunks=[],
+                )
+                results[index] = error_result
 
     async with anyio.create_task_group() as tg:
         for i, path in enumerate(file_paths):
@@ -180,8 +235,29 @@ async def batch_extract_bytes(
 
     async def _extract_bytes(content: bytes, mime_type: str, index: int) -> None:
         async with semaphore:
-            result = await extract_bytes(content, mime_type, config)
-            results[index] = result
+            try:
+                result = await extract_bytes(content, mime_type, config)
+                results[index] = result
+            except Exception as e:
+                # Store error information instead of failing entire batch
+                from kreuzberg._utils._errors import create_error_context
+
+                error_result = ExtractionResult(
+                    content=f"Error: {type(e).__name__}: {e!s}",
+                    mime_type="text/plain",
+                    metadata={
+                        "error": True,
+                        "error_context": create_error_context(
+                            operation="batch_extract_bytes",
+                            error=e,
+                            index=index,
+                            mime_type=mime_type,
+                            content_size=len(content),
+                        ),
+                    },
+                    chunks=[],
+                )
+                results[index] = error_result
 
     async with anyio.create_task_group() as tg:
         for i, (content, mime_type) in enumerate(contents):
@@ -228,17 +304,49 @@ def extract_file_sync(
     Returns:
         The extracted content and the mime type of the content.
     """
-    mime_type = validate_mime_type(file_path=file_path, mime_type=mime_type)
-    if extractor := ExtractorRegistry.get_extractor(mime_type=mime_type, config=config):
-        result = extractor.extract_path_sync(Path(file_path))
-    else:
-        result = ExtractionResult(
-            content=Path(file_path).read_text(),
-            chunks=[],
-            mime_type=mime_type,
-            metadata={},
-        )
-    return _validate_and_post_process_sync(result=result, config=config)
+    from kreuzberg._utils._document_cache import get_document_cache
+
+    # Check cache first
+    cache = get_document_cache()
+    cached_result = cache.get(file_path, config)
+    if cached_result is not None:
+        return cached_result
+
+    # Check if another thread is processing this file
+    if cache.is_processing(file_path, config):
+        # Wait for the other thread to complete
+        event = cache.mark_processing(file_path, config)
+        event.wait()
+
+        # Try cache again after waiting
+        cached_result = cache.get(file_path, config)
+        if cached_result is not None:
+            return cached_result
+
+    # Mark as processing
+    cache.mark_processing(file_path, config)
+
+    try:
+        mime_type = validate_mime_type(file_path=file_path, mime_type=mime_type)
+        if extractor := ExtractorRegistry.get_extractor(mime_type=mime_type, config=config):
+            result = extractor.extract_path_sync(Path(file_path))
+        else:
+            result = ExtractionResult(
+                content=Path(file_path).read_text(),
+                chunks=[],
+                mime_type=mime_type,
+                metadata={},
+            )
+
+        result = _validate_and_post_process_sync(result=result, config=config)
+
+        # Cache the result
+        cache.set(file_path, config, result)
+
+        return result
+    finally:
+        # Mark processing complete
+        cache.mark_complete(file_path, config)
 
 
 def batch_extract_file_sync(
@@ -265,10 +373,29 @@ def batch_extract_file_sync(
 
     def extract_single(file_path: PathLike[str] | str) -> tuple[int, ExtractionResult]:
         """Extract single file with index for ordering."""
-        return (
-            file_paths.index(file_path),
-            extract_file_sync(file_path=Path(file_path), mime_type=None, config=config),
-        )
+        try:
+            return (
+                file_paths.index(file_path),
+                extract_file_sync(file_path=Path(file_path), mime_type=None, config=config),
+            )
+        except Exception as e:
+            # Return error result instead of failing
+            from kreuzberg._utils._errors import create_error_context
+
+            error_result = ExtractionResult(
+                content=f"Error: {type(e).__name__}: {e!s}",
+                mime_type="text/plain",
+                metadata={
+                    "error": True,
+                    "error_context": create_error_context(
+                        operation="batch_extract_file_sync",
+                        file_path=file_path,
+                        error=e,
+                    ),
+                },
+                chunks=[],
+            )
+            return (file_paths.index(file_path), error_result)
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         # Submit all tasks
@@ -310,7 +437,28 @@ def batch_extract_bytes_sync(
     def extract_single(index_and_content: tuple[int, tuple[bytes, str]]) -> tuple[int, ExtractionResult]:
         """Extract single content with index for ordering."""
         index, (content, mime_type) = index_and_content
-        return (index, extract_bytes_sync(content=content, mime_type=mime_type, config=config))
+        try:
+            return (index, extract_bytes_sync(content=content, mime_type=mime_type, config=config))
+        except Exception as e:
+            # Return error result instead of failing
+            from kreuzberg._utils._errors import create_error_context
+
+            error_result = ExtractionResult(
+                content=f"Error: {type(e).__name__}: {e!s}",
+                mime_type="text/plain",
+                metadata={
+                    "error": True,
+                    "error_context": create_error_context(
+                        operation="batch_extract_bytes_sync",
+                        error=e,
+                        index=index,
+                        mime_type=mime_type,
+                        content_size=len(content),
+                    ),
+                },
+                chunks=[],
+            )
+            return (index, error_result)
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         # Submit all tasks with indices

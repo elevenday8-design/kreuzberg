@@ -7,6 +7,7 @@ from re import Pattern
 from re import compile as compile_regex
 from typing import TYPE_CHECKING, ClassVar, cast
 
+import anyio
 import pypdfium2
 from anyio import Path as AsyncPath
 
@@ -164,19 +165,45 @@ class PDFExtractor(Extractor):
         Returns:
             A list of Pillow Images.
         """
+        from kreuzberg._utils._errors import create_error_context, should_retry
+
         document: pypdfium2.PdfDocument | None = None
-        try:
-            with pypdfium_file_lock(input_file):
-                document = await run_sync(pypdfium2.PdfDocument, str(input_file))
-                return [page.render(scale=4.25).to_pil() for page in cast("pypdfium2.PdfDocument", document)]
-        except pypdfium2.PdfiumError as e:
-            raise ParsingError(
-                "Could not convert PDF to images", context={"file_path": str(input_file), "error": str(e)}
-            ) from e
-        finally:
-            if document:
+        last_error = None
+
+        for attempt in range(3):  # Try up to 3 times
+            try:
                 with pypdfium_file_lock(input_file):
-                    await run_sync(document.close)
+                    document = await run_sync(pypdfium2.PdfDocument, str(input_file))
+                    return [page.render(scale=4.25).to_pil() for page in cast("pypdfium2.PdfDocument", document)]
+            except pypdfium2.PdfiumError as e:
+                last_error = e
+                if not should_retry(e, attempt + 1):
+                    raise ParsingError(
+                        "Could not convert PDF to images",
+                        context=create_error_context(
+                            operation="convert_pdf_to_images",
+                            file_path=input_file,
+                            error=e,
+                            attempt=attempt + 1,
+                        ),
+                    ) from e
+                # Wait before retry
+                await anyio.sleep(0.5 * (attempt + 1))
+            finally:
+                if document:
+                    with pypdfium_file_lock(input_file), contextlib.suppress(Exception):
+                        await run_sync(document.close)
+
+        # All retries failed
+        raise ParsingError(
+            "Could not convert PDF to images after retries",
+            context=create_error_context(
+                operation="convert_pdf_to_images",
+                file_path=input_file,
+                error=last_error,
+                attempts=3,
+            ),
+        ) from last_error
 
     async def _extract_pdf_text_with_ocr(self, input_file: Path, ocr_backend: OcrBackendType) -> ExtractionResult:
         """Extract text from a scanned PDF file using OCR.
@@ -211,21 +238,54 @@ class PDFExtractor(Extractor):
         Returns:
             The extracted text.
         """
+        from kreuzberg._utils._errors import create_error_context
+
         document: pypdfium2.PdfDocument | None = None
         try:
             with pypdfium_file_lock(input_file):
                 document = await run_sync(pypdfium2.PdfDocument, str(input_file))
-                text = "\n".join(
-                    page.get_textpage().get_text_bounded() for page in cast("pypdfium2.PdfDocument", document)
-                )
+                text_parts = []
+                page_errors = []
+
+                # Extract text page by page to handle partial failures
+                for i, page in enumerate(cast("pypdfium2.PdfDocument", document)):
+                    try:
+                        text_page = page.get_textpage()
+                        text_parts.append(text_page.get_text_bounded())
+                    except Exception as e:
+                        page_errors.append({"page": i + 1, "error": str(e)})
+                        text_parts.append(f"[Error extracting page {i + 1}]")
+
+                text = "\n".join(text_parts)
+
+                # If we got some text but had errors, include that in result
+                if page_errors and text_parts:
+                    # Partial success - return what we got
+                    return normalize_spaces(text)
+                if not text_parts:
+                    # Complete failure
+                    raise ParsingError(
+                        "Could not extract any text from PDF",
+                        context=create_error_context(
+                            operation="extract_pdf_searchable_text",
+                            file_path=input_file,
+                            page_errors=page_errors,
+                        ),
+                    )
+
                 return normalize_spaces(text)
         except pypdfium2.PdfiumError as e:
             raise ParsingError(
-                "Could not extract text from PDF file", context={"file_path": str(input_file), "error": str(e)}
+                "Could not extract text from PDF file",
+                context=create_error_context(
+                    operation="extract_pdf_searchable_text",
+                    file_path=input_file,
+                    error=e,
+                ),
             ) from e
         finally:
             if document:
-                with pypdfium_file_lock(input_file):
+                with pypdfium_file_lock(input_file), contextlib.suppress(Exception):
                     await run_sync(document.close)
 
     def _extract_pdf_searchable_text_sync(self, path: Path) -> str:
@@ -246,7 +306,7 @@ class PDFExtractor(Extractor):
             raise ParsingError(f"Failed to extract PDF text: {e}") from e
         finally:
             if pdf:
-                with pypdfium_file_lock(path):
+                with pypdfium_file_lock(path), contextlib.suppress(Exception):
                     pdf.close()
 
     def _extract_pdf_with_ocr_sync(self, path: Path) -> str:
@@ -307,5 +367,5 @@ class PDFExtractor(Extractor):
             raise ParsingError(f"Failed to OCR PDF: {e}") from e
         finally:
             if pdf:
-                with pypdfium_file_lock(path):
+                with pypdfium_file_lock(path), contextlib.suppress(Exception):
                     pdf.close()

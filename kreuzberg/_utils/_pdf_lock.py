@@ -55,7 +55,7 @@ def pypdfium_file_lock(file_path: Path | str) -> Generator[None, None, None]:
     """Context manager for per-file pypdfium2 operations.
 
     This allows concurrent processing of different files while
-    serializing operations on the same file.
+    preventing segfaults. Document caching handles same-file issues.
     """
     lock = _get_file_lock(file_path)
     with lock:
