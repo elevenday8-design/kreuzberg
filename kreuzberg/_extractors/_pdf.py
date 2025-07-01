@@ -92,13 +92,10 @@ class PDFExtractor(Extractor):
         finally:
             # Clean up temp file
             with contextlib.suppress(OSError):
-                os.unlink(temp_path)
+                Path(temp_path).unlink()
 
     def extract_path_sync(self, path: Path) -> ExtractionResult:
         """Pure sync implementation of PDF extraction from path."""
-        # Read content
-        content_bytes = path.read_bytes()
-
         # Try text extraction first
         text = self._extract_pdf_searchable_text_sync(path)
 
@@ -113,7 +110,7 @@ class PDFExtractor(Extractor):
             try:
                 from kreuzberg._gmft import extract_tables_sync
 
-                tables = extract_tables_sync(content_bytes)
+                tables = extract_tables_sync(path)
             except ImportError:
                 pass  # gmft not available
 
@@ -123,7 +120,8 @@ class PDFExtractor(Extractor):
         return ExtractionResult(
             content=text,
             mime_type=PLAIN_TEXT_MIME_TYPE,
-            metadata={"tables": tables} if tables else {},
+            metadata={},
+            tables=tables,
             chunks=[],
         )
 
@@ -237,7 +235,7 @@ class PDFExtractor(Extractor):
                 page.close()
             return "".join(text_parts)
         except Exception as e:
-            raise ParsingError(f"Failed to extract PDF text: {e}")
+            raise ParsingError(f"Failed to extract PDF text: {e}") from e
         finally:
             if pdf:
                 pdf.close()
@@ -252,7 +250,7 @@ class PDFExtractor(Extractor):
             # Render PDF pages to images
             images = []
             pdf = pypdfium2.PdfDocument(str(path))
-            for i, page in enumerate(pdf):
+            for page in pdf:
                 # Render at 200 DPI for OCR
                 bitmap = page.render(scale=200 / 72)
                 pil_image = bitmap.to_pil()
@@ -276,24 +274,27 @@ class PDFExtractor(Extractor):
                     image_paths.append(temp_path)
 
                 # Process all images with OCR
-                if self.config.ocr_backend_type == OcrBackendType.TESSERACT:
+                if self.config.ocr_backend == "tesseract":
                     from kreuzberg._ocr._tesseract import TesseractConfig
 
-                    config = self.config.tesseract_config or TesseractConfig()
-                    results = process_batch_images_sync_pure(image_paths, config)
+                    if isinstance(self.config.ocr_config, TesseractConfig):
+                        config = self.config.ocr_config
+                    else:
+                        config = TesseractConfig()
+                    results = process_batch_images_sync_pure([str(p) for p in image_paths], config)
                     text_parts = [r.content for r in results]
                     return "\n\n".join(text_parts)
                 # For other OCR backends, fall back to error
-                raise NotImplementedError(f"Sync OCR not implemented for {self.config.ocr_backend_type}")
+                raise NotImplementedError(f"Sync OCR not implemented for {self.config.ocr_backend}")
 
             finally:
                 # Clean up temp files
-                for fd, temp_path in temp_files:
+                for _, temp_path in temp_files:
                     with contextlib.suppress(OSError):
-                        os.unlink(temp_path)
+                        Path(temp_path).unlink()
 
         except Exception as e:
-            raise ParsingError(f"Failed to OCR PDF: {e}")
+            raise ParsingError(f"Failed to OCR PDF: {e}") from e
         finally:
             if pdf:
                 pdf.close()

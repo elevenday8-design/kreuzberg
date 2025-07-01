@@ -74,7 +74,7 @@ class ImageExtractor(Extractor):
             return self.extract_path_sync(Path(temp_path))
         finally:
             with contextlib.suppress(OSError):
-                os.unlink(temp_path)
+                Path(temp_path).unlink()
 
     def extract_path_sync(self, path: Path) -> ExtractionResult:
         """Pure sync implementation of extract_path."""
@@ -83,12 +83,15 @@ class ImageExtractor(Extractor):
 
         # Use sync OCR processing
         from kreuzberg._ocr._tesseract import TesseractConfig
-        from kreuzberg._types import ExtractionResult, OcrBackendType
+        from kreuzberg._types import ExtractionResult
 
-        if self.config.ocr_backend == OcrBackendType.TESSERACT:
+        if self.config.ocr_backend == "tesseract":
             from kreuzberg._multiprocessing.sync_tesseract import process_batch_images_sync_pure
 
-            config = self.config.tesseract_config or TesseractConfig()
+            if isinstance(self.config.ocr_config, TesseractConfig):
+                config = self.config.ocr_config
+            else:
+                config = TesseractConfig()
 
             # Process single image
             results = process_batch_images_sync_pure([str(path)], config)
