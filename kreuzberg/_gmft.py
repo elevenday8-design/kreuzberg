@@ -187,4 +187,5 @@ def extract_tables_sync(file_path: str | PathLike[str], config: GMFTConfig | Non
         A list of table data dictionaries.
     """
     import anyio
+
     return anyio.run(extract_tables, file_path, config)
