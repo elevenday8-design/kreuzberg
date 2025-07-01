@@ -15,7 +15,7 @@ from kreuzberg._mime_types import PDF_MIME_TYPE, PLAIN_TEXT_MIME_TYPE
 from kreuzberg._ocr import get_ocr_backend
 from kreuzberg._playa import extract_pdf_metadata
 from kreuzberg._types import ExtractionResult, OcrBackendType
-from kreuzberg._utils._pdf_lock import pypdfium_lock
+from kreuzberg._utils._pdf_lock import pypdfium_file_lock
 from kreuzberg._utils._string import normalize_spaces
 from kreuzberg._utils._sync import run_sync, run_taskgroup_batched
 from kreuzberg._utils._tmp import create_temp_file
@@ -166,7 +166,7 @@ class PDFExtractor(Extractor):
         """
         document: pypdfium2.PdfDocument | None = None
         try:
-            with pypdfium_lock():
+            with pypdfium_file_lock(input_file):
                 document = await run_sync(pypdfium2.PdfDocument, str(input_file))
                 return [page.render(scale=4.25).to_pil() for page in cast("pypdfium2.PdfDocument", document)]
         except pypdfium2.PdfiumError as e:
@@ -175,7 +175,7 @@ class PDFExtractor(Extractor):
             ) from e
         finally:
             if document:
-                with pypdfium_lock():
+                with pypdfium_file_lock(input_file):
                     await run_sync(document.close)
 
     async def _extract_pdf_text_with_ocr(self, input_file: Path, ocr_backend: OcrBackendType) -> ExtractionResult:
@@ -213,7 +213,7 @@ class PDFExtractor(Extractor):
         """
         document: pypdfium2.PdfDocument | None = None
         try:
-            with pypdfium_lock():
+            with pypdfium_file_lock(input_file):
                 document = await run_sync(pypdfium2.PdfDocument, str(input_file))
                 text = "\n".join(
                     page.get_textpage().get_text_bounded() for page in cast("pypdfium2.PdfDocument", document)
@@ -225,14 +225,14 @@ class PDFExtractor(Extractor):
             ) from e
         finally:
             if document:
-                with pypdfium_lock():
+                with pypdfium_file_lock(input_file):
                     await run_sync(document.close)
 
     def _extract_pdf_searchable_text_sync(self, path: Path) -> str:
         """Extract searchable text from PDF using pypdfium2 (sync version)."""
         pdf = None
         try:
-            with pypdfium_lock():
+            with pypdfium_file_lock(path):
                 pdf = pypdfium2.PdfDocument(str(path))
                 text_parts = []
                 for page in pdf:
@@ -246,7 +246,7 @@ class PDFExtractor(Extractor):
             raise ParsingError(f"Failed to extract PDF text: {e}") from e
         finally:
             if pdf:
-                with pypdfium_lock():
+                with pypdfium_file_lock(path):
                     pdf.close()
 
     def _extract_pdf_with_ocr_sync(self, path: Path) -> str:
@@ -258,7 +258,7 @@ class PDFExtractor(Extractor):
 
             # Render PDF pages to images
             images = []
-            with pypdfium_lock():
+            with pypdfium_file_lock(path):
                 pdf = pypdfium2.PdfDocument(str(path))
                 for page in pdf:
                     # Render at 200 DPI for OCR
@@ -307,5 +307,5 @@ class PDFExtractor(Extractor):
             raise ParsingError(f"Failed to OCR PDF: {e}") from e
         finally:
             if pdf:
-                with pypdfium_lock():
+                with pypdfium_file_lock(path):
                     pdf.close()

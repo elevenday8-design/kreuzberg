@@ -224,7 +224,7 @@ def extract_file_sync(
 def batch_extract_file_sync(
     file_paths: Sequence[PathLike[str] | str], config: ExtractionConfig = DEFAULT_CONFIG
 ) -> list[ExtractionResult]:
-    """Synchronous version of batch_extract_file.
+    """Synchronous version of batch_extract_file with parallel processing.
 
     Args:
         file_paths: A sequence of paths to files to extract text from.
@@ -233,13 +233,40 @@ def batch_extract_file_sync(
     Returns:
         A list of extraction results in the same order as the input paths.
     """
-    return [extract_file_sync(file_path=Path(file_path), mime_type=None, config=config) for file_path in file_paths]
+    if len(file_paths) <= 1:
+        # Single file or empty - no need for parallelization
+        return [extract_file_sync(file_path=Path(file_path), mime_type=None, config=config) for file_path in file_paths]
+
+    # Use ThreadPoolExecutor for I/O bound operations
+    import multiprocessing as mp
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    max_workers = min(len(file_paths), mp.cpu_count())
+
+    def extract_single(file_path: PathLike[str] | str) -> tuple[int, ExtractionResult]:
+        """Extract single file with index for ordering."""
+        return (
+            file_paths.index(file_path),
+            extract_file_sync(file_path=Path(file_path), mime_type=None, config=config),
+        )
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all tasks
+        future_to_index = {executor.submit(extract_single, fp): i for i, fp in enumerate(file_paths)}
+
+        # Collect results maintaining order
+        results: list[ExtractionResult] = [None] * len(file_paths)  # type: ignore[list-item]
+        for future in as_completed(future_to_index):
+            index, result = future.result()
+            results[index] = result
+
+    return results
 
 
 def batch_extract_bytes_sync(
     contents: Sequence[tuple[bytes, str]], config: ExtractionConfig = DEFAULT_CONFIG
 ) -> list[ExtractionResult]:
-    """Synchronous version of batch_extract_bytes.
+    """Synchronous version of batch_extract_bytes with parallel processing.
 
     Args:
         contents: A sequence of tuples containing (content, mime_type) pairs.
@@ -248,4 +275,32 @@ def batch_extract_bytes_sync(
     Returns:
         A list of extraction results in the same order as the input contents.
     """
-    return [extract_bytes_sync(content=content, mime_type=mime_type, config=config) for content, mime_type in contents]
+    if len(contents) <= 1:
+        # Single item or empty - no need for parallelization
+        return [
+            extract_bytes_sync(content=content, mime_type=mime_type, config=config) for content, mime_type in contents
+        ]
+
+    # Use ThreadPoolExecutor for I/O bound operations
+    import multiprocessing as mp
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    max_workers = min(len(contents), mp.cpu_count())
+
+    def extract_single(index_and_content: tuple[int, tuple[bytes, str]]) -> tuple[int, ExtractionResult]:
+        """Extract single content with index for ordering."""
+        index, (content, mime_type) = index_and_content
+        return (index, extract_bytes_sync(content=content, mime_type=mime_type, config=config))
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all tasks with indices
+        indexed_contents = list(enumerate(contents))
+        future_to_index = {executor.submit(extract_single, ic): i for i, ic in enumerate(indexed_contents)}
+
+        # Collect results maintaining order
+        results: list[ExtractionResult] = [None] * len(contents)  # type: ignore[list-item]
+        for future in as_completed(future_to_index):
+            index, result = future.result()
+            results[index] = result
+
+    return results
