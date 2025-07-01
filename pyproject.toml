@@ -171,6 +171,7 @@ keep_full_version = true
 max_supported_python = "3.13"
 
 [tool.pytest.ini_options]
+timeout = 300
 filterwarnings = [
   "ignore:Exception ignored in:pytest.PytestUnraisableExceptionWarning",
   "ignore:pkg_resources is deprecated as an API:DeprecationWarning",
