@@ -164,13 +164,13 @@ def validate_mime_type(
     # If explicit mime_type provided, skip caching and validate directly
     if mime_type:
         return _validate_explicit_mime_type(mime_type)
-    
+
     # For file-based detection, use caching
     if file_path:
         from kreuzberg._utils._cache import get_mime_cache
-        
+
         path = Path(file_path)
-        
+
         # Generate cache key based on file path and metadata
         try:
             stat = path.stat() if check_file_exists else None
@@ -187,26 +187,23 @@ def validate_mime_type(
                 "mtime": 0,
                 "check_file_exists": check_file_exists,
             }
-        
-        cache_kwargs = {
-            "file_info": str(sorted(file_info.items())),
-            "detector": "mime_type"
-        }
-        
+
+        cache_kwargs = {"file_info": str(sorted(file_info.items())), "detector": "mime_type"}
+
         # Check MIME cache first
         mime_cache = get_mime_cache()
         cached_result = mime_cache.get(**cache_kwargs)
         if cached_result is not None:
             return cached_result
-        
+
         # Detect MIME type and cache result
         detected_mime_type = _detect_mime_type_uncached(file_path, check_file_exists)
-        
+
         # Cache the result
         mime_cache.set(detected_mime_type, **cache_kwargs)
-        
+
         return detected_mime_type
-    
+
     # Fallback to uncached detection
     return _detect_mime_type_uncached(file_path, check_file_exists)
 
@@ -226,9 +223,7 @@ def _validate_explicit_mime_type(mime_type: str) -> str:
     )
 
 
-def _detect_mime_type_uncached(
-    file_path: PathLike[str] | str | None = None, check_file_exists: bool = True
-) -> str:
+def _detect_mime_type_uncached(file_path: PathLike[str] | str | None = None, check_file_exists: bool = True) -> str:
     """Detect MIME type without caching (internal function)."""
     if file_path and check_file_exists:
         path = Path(file_path)
@@ -239,7 +234,7 @@ def _detect_mime_type_uncached(
         raise ValidationError(
             "Could not determine mime type.",
         )
-    
+
     path = Path(file_path)
     ext = path.suffix.lower()
     mime_type = EXT_TO_MIME_TYPE.get(ext) or guess_type(path.name)[0]

@@ -168,7 +168,7 @@ def should_retry(error: Exception, attempt: int, max_attempts: int = 3) -> bool:
 class BatchExtractionResult:
     """Result container for batch operations with partial success support."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize batch result container."""
         self.successful: list[tuple[int, Any]] = []
         self.failed: list[tuple[int, dict[str, Any]]] = []

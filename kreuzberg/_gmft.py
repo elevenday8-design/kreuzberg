@@ -122,8 +122,9 @@ async def extract_tables(file_path: str | PathLike[str], config: GMFTConfig | No
         A list of table data dictionaries.
     """
     from pathlib import Path
+
     from kreuzberg._utils._cache import get_table_cache
-    
+
     # Generate cache key based on file and config
     path = Path(file_path)
     try:
@@ -139,35 +140,36 @@ async def extract_tables(file_path: str | PathLike[str], config: GMFTConfig | No
             "size": 0,
             "mtime": 0,
         }
-    
+
     config = config or GMFTConfig()
     cache_kwargs = {
         "file_info": str(sorted(file_info.items())),
         "extractor": "gmft",
-        "config": str(sorted(config.__dict__.items()))
+        "config": str(sorted(config.__dict__.items())),
     }
-    
+
     # Check table cache first
     table_cache = get_table_cache()
     cached_result = await table_cache.aget(**cache_kwargs)
     if cached_result is not None:
         return cached_result
-    
+
     # Check if another thread is processing this file
     if table_cache.is_processing(**cache_kwargs):
         # Wait for the other thread to complete
         import anyio
+
         event = table_cache.mark_processing(**cache_kwargs)
         await anyio.to_thread.run_sync(event.wait)
-        
+
         # Try cache again after waiting
         cached_result = await table_cache.aget(**cache_kwargs)
         if cached_result is not None:
             return cached_result
-    
+
     # Mark as processing
     table_cache.mark_processing(**cache_kwargs)
-    
+
     try:
         try:
             from gmft.auto import AutoTableDetector, AutoTableFormatter  # type: ignore[attr-defined]
@@ -214,10 +216,10 @@ async def extract_tables(file_path: str | PathLike[str], config: GMFTConfig | No
                     )
                     for data_frame, cropped_table in zip(dataframes, cropped_tables)
                 ]
-                
+
                 # Cache the table extraction result
                 await table_cache.aset(result, **cache_kwargs)
-                
+
                 return result
             finally:
                 await run_sync(doc.close)
@@ -242,8 +244,9 @@ def extract_tables_sync(file_path: str | PathLike[str], config: GMFTConfig | Non
         A list of table data dictionaries.
     """
     from pathlib import Path
+
     from kreuzberg._utils._cache import get_table_cache
-    
+
     # Generate cache key based on file and config
     path = Path(file_path)
     try:
@@ -259,20 +262,20 @@ def extract_tables_sync(file_path: str | PathLike[str], config: GMFTConfig | Non
             "size": 0,
             "mtime": 0,
         }
-    
+
     config = config or GMFTConfig()
     cache_kwargs = {
         "file_info": str(sorted(file_info.items())),
         "extractor": "gmft",
-        "config": str(sorted(config.__dict__.items()))
+        "config": str(sorted(config.__dict__.items())),
     }
-    
+
     # Check table cache first (sync)
     table_cache = get_table_cache()
     cached_result = table_cache.get(**cache_kwargs)
     if cached_result is not None:
         return cached_result
-    
+
     # If not cached, run the sync extraction without using the async cache coordination
     try:
         from gmft.auto import AutoTableDetector, AutoTableFormatter  # type: ignore[attr-defined]
@@ -319,10 +322,10 @@ def extract_tables_sync(file_path: str | PathLike[str], config: GMFTConfig | Non
                 )
                 for data_frame, cropped_table in zip(dataframes, cropped_tables)
             ]
-            
+
             # Cache the result (sync)
             table_cache.set(result, **cache_kwargs)
-            
+
             return result
         finally:
             doc.close()

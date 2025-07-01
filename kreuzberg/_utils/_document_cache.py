@@ -19,7 +19,7 @@ class DocumentCache:
     preventing pypdfium2 state corruption issues with repeated processing.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize document cache."""
         self._cache: dict[str, ExtractionResult] = {}
         self._processing: dict[str, threading.Event] = {}

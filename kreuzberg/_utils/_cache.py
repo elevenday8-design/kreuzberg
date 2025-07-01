@@ -13,7 +13,7 @@ from typing import Any, Generic, TypeVar
 from anyio import Path as AsyncPath
 
 from kreuzberg._types import ExtractionResult
-from kreuzberg._utils._serialization import deserialize_from_str, serialize_to_str
+from kreuzberg._utils._serialization import deserialize, serialize
 from kreuzberg._utils._sync import run_sync
 
 T = TypeVar("T")
@@ -71,7 +71,7 @@ class KreuzbergCache(Generic[T]):
 
     def _get_cache_path(self, cache_key: str) -> Path:
         """Get cache file path for key."""
-        return self.cache_dir / f"{cache_key}.json"
+        return self.cache_dir / f"{cache_key}.msgpack"
 
     def _is_cache_valid(self, cache_path: Path) -> bool:
         """Check if cached result is still valid."""
@@ -97,12 +97,19 @@ class KreuzbergCache(Generic[T]):
 
     def _deserialize_result(self, cached_data: dict[str, Any]) -> T:
         """Deserialize cached result."""
-        return cached_data["data"]
+        data = cached_data["data"]
+        
+        # Handle ExtractionResult reconstruction
+        if cached_data.get("type") == "ExtractionResult" and isinstance(data, dict):
+            from kreuzberg._types import ExtractionResult
+            return ExtractionResult(**data)  # type: ignore
+        
+        return data
 
     def _cleanup_cache(self) -> None:
         """Clean up old and oversized cache entries."""
         try:
-            cache_files = list(self.cache_dir.glob("*.json"))
+            cache_files = list(self.cache_dir.glob("*.msgpack"))
 
             # Remove old files
             cutoff_time = time.time() - (self.max_age_days * 24 * 3600)
@@ -154,8 +161,8 @@ class KreuzbergCache(Generic[T]):
             return None
 
         try:
-            content = cache_path.read_text(encoding="utf-8")
-            cached_data = deserialize_from_str(content, dict)
+            content = cache_path.read_bytes()
+            cached_data = deserialize(content, dict)
             return self._deserialize_result(cached_data)
         except (OSError, ValueError, KeyError):
             # Remove corrupted cache file
@@ -175,8 +182,8 @@ class KreuzbergCache(Generic[T]):
 
         try:
             serialized = self._serialize_result(result)
-            content = serialize_to_str(serialized)
-            cache_path.write_text(content, encoding="utf-8")
+            content = serialize(serialized)
+            cache_path.write_bytes(content)
 
             # Periodic cleanup (1% chance)
             if hash(cache_key) % 100 == 0:
@@ -202,8 +209,8 @@ class KreuzbergCache(Generic[T]):
             return None
 
         try:
-            content = await cache_path.read_text(encoding="utf-8")
-            cached_data = deserialize_from_str(content, dict)
+            content = await cache_path.read_bytes()
+            cached_data = deserialize(content, dict)
             return self._deserialize_result(cached_data)
         except (OSError, ValueError, KeyError):
             # Remove corrupted cache file
@@ -223,8 +230,8 @@ class KreuzbergCache(Generic[T]):
 
         try:
             serialized = self._serialize_result(result)
-            content = serialize_to_str(serialized)
-            await cache_path.write_text(content, encoding="utf-8")
+            content = serialize(serialized)
+            await cache_path.write_bytes(content)
 
             # Periodic cleanup (1% chance)
             if hash(cache_key) % 100 == 0:
@@ -261,7 +268,7 @@ class KreuzbergCache(Generic[T]):
     def clear(self) -> None:
         """Clear all cached results."""
         try:
-            for cache_file in self.cache_dir.glob("*.json"):
+            for cache_file in self.cache_dir.glob("*.msgpack"):
                 cache_file.unlink(missing_ok=True)
         except OSError:
             pass
@@ -273,7 +280,7 @@ class KreuzbergCache(Generic[T]):
     def get_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         try:
-            cache_files = list(self.cache_dir.glob("*.json"))
+            cache_files = list(self.cache_dir.glob("*.msgpack"))
             total_size = sum(cache_file.stat().st_size for cache_file in cache_files if cache_file.exists())
 
             return {

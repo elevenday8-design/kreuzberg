@@ -7,7 +7,7 @@ from enum import Enum
 from typing import Any, TypeVar
 
 from msgspec import MsgspecError
-from msgspec.json import decode, encode
+from msgspec.msgpack import decode, encode
 
 T = TypeVar("T")
 
