@@ -121,13 +121,165 @@ async def extract_tables(file_path: str | PathLike[str], config: GMFTConfig | No
     Returns:
         A list of table data dictionaries.
     """
+    from pathlib import Path
+    from kreuzberg._utils._cache import get_table_cache
+    
+    # Generate cache key based on file and config
+    path = Path(file_path)
+    try:
+        stat = path.stat()
+        file_info = {
+            "path": str(path.resolve()),
+            "size": stat.st_size,
+            "mtime": stat.st_mtime,
+        }
+    except OSError:
+        file_info = {
+            "path": str(path),
+            "size": 0,
+            "mtime": 0,
+        }
+    
+    config = config or GMFTConfig()
+    cache_kwargs = {
+        "file_info": str(sorted(file_info.items())),
+        "extractor": "gmft",
+        "config": str(sorted(config.__dict__.items()))
+    }
+    
+    # Check table cache first
+    table_cache = get_table_cache()
+    cached_result = await table_cache.aget(**cache_kwargs)
+    if cached_result is not None:
+        return cached_result
+    
+    # Check if another thread is processing this file
+    if table_cache.is_processing(**cache_kwargs):
+        # Wait for the other thread to complete
+        import anyio
+        event = table_cache.mark_processing(**cache_kwargs)
+        await anyio.to_thread.run_sync(event.wait)
+        
+        # Try cache again after waiting
+        cached_result = await table_cache.aget(**cache_kwargs)
+        if cached_result is not None:
+            return cached_result
+    
+    # Mark as processing
+    table_cache.mark_processing(**cache_kwargs)
+    
+    try:
+        try:
+            from gmft.auto import AutoTableDetector, AutoTableFormatter  # type: ignore[attr-defined]
+            from gmft.detectors.tatr import TATRDetectorConfig  # type: ignore[attr-defined]
+            from gmft.formatters.tatr import TATRFormatConfig
+            from gmft.pdf_bindings.pdfium import PyPDFium2Document
+
+            formatter: Any = AutoTableFormatter(  # type: ignore[no-untyped-call]
+                config=TATRFormatConfig(
+                    verbosity=config.verbosity,
+                    formatter_base_threshold=config.formatter_base_threshold,
+                    cell_required_confidence=config.cell_required_confidence,
+                    remove_null_rows=config.remove_null_rows,
+                    enable_multi_header=config.enable_multi_header,
+                    semantic_spanning_cells=config.semantic_spanning_cells,
+                    semantic_hierarchical_left_fill=config.semantic_hierarchical_left_fill,
+                    large_table_if_n_rows_removed=config.large_table_if_n_rows_removed,
+                    large_table_threshold=config.large_table_threshold,
+                    large_table_row_overlap_threshold=config.large_table_row_overlap_threshold,
+                    large_table_maximum_rows=config.large_table_maximum_rows,
+                    force_large_table_assumption=config.force_large_table_assumption,
+                )
+            )
+            detector: Any = AutoTableDetector(  # type: ignore[no-untyped-call]
+                config=TATRDetectorConfig(detector_base_threshold=config.detector_base_threshold)
+            )
+            doc = await run_sync(PyPDFium2Document, str(file_path))
+            cropped_tables: list[CroppedTable] = []
+            dataframes: list[DataFrame] = []
+            try:
+                for page in doc:
+                    cropped_tables.extend(await run_sync(detector.extract, page))
+
+                for cropped_table in cropped_tables:
+                    formatted_table = await run_sync(formatter.extract, cropped_table)
+                    dataframes.append(await run_sync(formatted_table.df))
+
+                result = [
+                    TableData(
+                        cropped_image=cropped_table.image(),
+                        page_number=cropped_table.page.page_number,
+                        text=data_frame.to_markdown(),
+                        df=data_frame,
+                    )
+                    for data_frame, cropped_table in zip(dataframes, cropped_tables)
+                ]
+                
+                # Cache the table extraction result
+                await table_cache.aset(result, **cache_kwargs)
+                
+                return result
+            finally:
+                await run_sync(doc.close)
+
+        except ImportError as e:
+            raise MissingDependencyError.create_for_package(
+                dependency_group="gmft", functionality="table extraction", package_name="gmft"
+            ) from e
+    finally:
+        # Mark processing complete
+        table_cache.mark_complete(**cache_kwargs)
+
+
+def extract_tables_sync(file_path: str | PathLike[str], config: GMFTConfig | None = None) -> list[TableData]:
+    """Synchronous wrapper for extract_tables.
+
+    Args:
+        file_path: The path to the PDF file.
+        config: An optional configuration object.
+
+    Returns:
+        A list of table data dictionaries.
+    """
+    from pathlib import Path
+    from kreuzberg._utils._cache import get_table_cache
+    
+    # Generate cache key based on file and config
+    path = Path(file_path)
+    try:
+        stat = path.stat()
+        file_info = {
+            "path": str(path.resolve()),
+            "size": stat.st_size,
+            "mtime": stat.st_mtime,
+        }
+    except OSError:
+        file_info = {
+            "path": str(path),
+            "size": 0,
+            "mtime": 0,
+        }
+    
+    config = config or GMFTConfig()
+    cache_kwargs = {
+        "file_info": str(sorted(file_info.items())),
+        "extractor": "gmft",
+        "config": str(sorted(config.__dict__.items()))
+    }
+    
+    # Check table cache first (sync)
+    table_cache = get_table_cache()
+    cached_result = table_cache.get(**cache_kwargs)
+    if cached_result is not None:
+        return cached_result
+    
+    # If not cached, run the sync extraction without using the async cache coordination
     try:
         from gmft.auto import AutoTableDetector, AutoTableFormatter  # type: ignore[attr-defined]
         from gmft.detectors.tatr import TATRDetectorConfig  # type: ignore[attr-defined]
         from gmft.formatters.tatr import TATRFormatConfig
         from gmft.pdf_bindings.pdfium import PyPDFium2Document
 
-        config = config or GMFTConfig()
         formatter: Any = AutoTableFormatter(  # type: ignore[no-untyped-call]
             config=TATRFormatConfig(
                 verbosity=config.verbosity,
@@ -147,18 +299,18 @@ async def extract_tables(file_path: str | PathLike[str], config: GMFTConfig | No
         detector: Any = AutoTableDetector(  # type: ignore[no-untyped-call]
             config=TATRDetectorConfig(detector_base_threshold=config.detector_base_threshold)
         )
-        doc = await run_sync(PyPDFium2Document, str(file_path))
-        cropped_tables: list[CroppedTable] = []
-        dataframes: list[DataFrame] = []
+        doc = PyPDFium2Document(str(file_path))
+        cropped_tables: list[Any] = []  # CroppedTable type
+        dataframes: list[Any] = []  # DataFrame type
         try:
             for page in doc:
-                cropped_tables.extend(await run_sync(detector.extract, page))
+                cropped_tables.extend(detector.extract(page))
 
             for cropped_table in cropped_tables:
-                formatted_table = await run_sync(formatter.extract, cropped_table)
-                dataframes.append(await run_sync(formatted_table.df))
+                formatted_table = formatter.extract(cropped_table)
+                dataframes.append(formatted_table.df())
 
-            return [
+            result = [
                 TableData(
                     cropped_image=cropped_table.image(),
                     page_number=cropped_table.page.page_number,
@@ -167,25 +319,15 @@ async def extract_tables(file_path: str | PathLike[str], config: GMFTConfig | No
                 )
                 for data_frame, cropped_table in zip(dataframes, cropped_tables)
             ]
+            
+            # Cache the result (sync)
+            table_cache.set(result, **cache_kwargs)
+            
+            return result
         finally:
-            await run_sync(doc.close)
+            doc.close()
 
     except ImportError as e:
         raise MissingDependencyError.create_for_package(
             dependency_group="gmft", functionality="table extraction", package_name="gmft"
         ) from e
-
-
-def extract_tables_sync(file_path: str | PathLike[str], config: GMFTConfig | None = None) -> list[TableData]:
-    """Synchronous wrapper for extract_tables.
-
-    Args:
-        file_path: The path to the PDF file.
-        config: An optional configuration object.
-
-    Returns:
-        A list of table data dictionaries.
-    """
-    import anyio
-
-    return anyio.run(extract_tables, file_path, config)
