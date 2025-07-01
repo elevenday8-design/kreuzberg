@@ -119,7 +119,7 @@ async def extract_file(
 async def batch_extract_file(
     file_paths: Sequence[PathLike[str] | str], config: ExtractionConfig = DEFAULT_CONFIG
 ) -> list[ExtractionResult]:
-    """Extract text from multiple files concurrently.
+    """Extract text from multiple files concurrently with optimizations.
 
     Args:
         file_paths: A sequence of paths to files to extract text from.
@@ -128,15 +128,25 @@ async def batch_extract_file(
     Returns:
         A list of extraction results in the same order as the input paths.
     """
+    if not file_paths:
+        return []
+
+    # Use semaphore to limit concurrent operations based on resource usage
+    import multiprocessing as mp
+
+    max_concurrency = min(len(file_paths), mp.cpu_count() * 2)  # Allow 2x CPU count for I/O bound ops
+    semaphore = anyio.Semaphore(max_concurrency)
+
     results = cast("list[ExtractionResult]", ([None] * len(file_paths)))
 
     async def _extract_file(path: PathLike[str] | str, index: int) -> None:
-        result = await extract_file(
-            path,
-            None,
-            config,
-        )
-        results[index] = result
+        async with semaphore:
+            result = await extract_file(
+                path,
+                None,
+                config,
+            )
+            results[index] = result
 
     async with anyio.create_task_group() as tg:
         for i, path in enumerate(file_paths):
@@ -148,7 +158,7 @@ async def batch_extract_file(
 async def batch_extract_bytes(
     contents: Sequence[tuple[bytes, str]], config: ExtractionConfig = DEFAULT_CONFIG
 ) -> list[ExtractionResult]:
-    """Extract text from multiple byte contents concurrently.
+    """Extract text from multiple byte contents concurrently with optimizations.
 
     Args:
         contents: A sequence of tuples containing (content, mime_type) pairs.
@@ -157,11 +167,21 @@ async def batch_extract_bytes(
     Returns:
         A list of extraction results in the same order as the input contents.
     """
+    if not contents:
+        return []
+
+    # Use semaphore to limit concurrent operations based on resource usage
+    import multiprocessing as mp
+
+    max_concurrency = min(len(contents), mp.cpu_count() * 2)  # Allow 2x CPU count for I/O bound ops
+    semaphore = anyio.Semaphore(max_concurrency)
+
     results = cast("list[ExtractionResult]", [None] * len(contents))
 
     async def _extract_bytes(content: bytes, mime_type: str, index: int) -> None:
-        result = await extract_bytes(content, mime_type, config)
-        results[index] = result
+        async with semaphore:
+            result = await extract_bytes(content, mime_type, config)
+            results[index] = result
 
     async with anyio.create_task_group() as tg:
         for i, (content, mime_type) in enumerate(contents):
