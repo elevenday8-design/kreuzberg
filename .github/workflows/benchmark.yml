@@ -50,6 +50,8 @@ jobs:
         run: |
           # Sync all workspace packages with all extras
           uv sync --all-packages --all-extras
+          # Verify benchmarks CLI is available
+          uv run kreuzberg-bench --help
 
       - name: Create test files
         run: |
@@ -78,7 +80,7 @@ jobs:
       - name: Run benchmarks
         run: |
           # Run comparison benchmarks (sync vs async)
-          uv run python -m kreuzberg_benchmarks.cli run \
+          uv run kreuzberg-bench run \
             --comparison-only \
             --test-files-dir test_files \
             --output-dir benchmark_results \
@@ -88,7 +90,7 @@ jobs:
       - name: Run stress tests (if requested)
         if: github.event.inputs.include_stress_tests == 'true' || github.event_name == 'schedule'
         run: |
-          uv run python -m kreuzberg_benchmarks.cli run \
+          uv run kreuzberg-bench run \
             --stress \
             --test-files-dir test_files \
             --output-dir benchmark_results \
