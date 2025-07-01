@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import contextlib
 from multiprocessing import cpu_count
+from pathlib import Path
 from re import Pattern
 from re import compile as compile_regex
 from typing import TYPE_CHECKING, ClassVar, cast
 
-import anyio
 import pypdfium2
 from anyio import Path as AsyncPath
 
@@ -20,8 +21,6 @@ from kreuzberg._utils._tmp import create_temp_file
 from kreuzberg.exceptions import ParsingError
 
 if TYPE_CHECKING:  # pragma: no cover
-    from pathlib import Path
-
     from PIL.Image import Image
 
 
@@ -69,10 +68,64 @@ class PDFExtractor(Extractor):
         return result
 
     def extract_bytes_sync(self, content: bytes) -> ExtractionResult:
-        return anyio.run(self.extract_bytes_async, content)
+        """Pure sync implementation of PDF extraction from bytes."""
+        import os
+        import tempfile
+
+        # Create temporary file
+        fd, temp_path = tempfile.mkstemp(suffix=".pdf")
+        try:
+            # Write content to temp file
+            with os.fdopen(fd, "wb") as f:
+                f.write(content)
+
+            # Extract using path method
+            result = self.extract_path_sync(Path(temp_path))
+
+            # Extract metadata
+            from kreuzberg._playa import extract_pdf_metadata_sync
+
+            metadata = extract_pdf_metadata_sync(content)
+            result.metadata = metadata
+
+            return result
+        finally:
+            # Clean up temp file
+            with contextlib.suppress(OSError):
+                os.unlink(temp_path)
 
     def extract_path_sync(self, path: Path) -> ExtractionResult:
-        return anyio.run(self.extract_path_async, path)
+        """Pure sync implementation of PDF extraction from path."""
+        # Read content
+        content_bytes = path.read_bytes()
+
+        # Try text extraction first
+        text = self._extract_pdf_searchable_text_sync(path)
+
+        # Check if we need OCR
+        if self.config.force_ocr or not self._validate_extracted_text(text):
+            # Use OCR
+            text = self._extract_pdf_with_ocr_sync(path)
+
+        # Extract tables if requested
+        tables = []
+        if self.config.extract_tables:
+            try:
+                from kreuzberg._gmft import extract_tables_sync
+
+                tables = extract_tables_sync(content_bytes)
+            except ImportError:
+                pass  # gmft not available
+
+        # Normalize text
+        text = normalize_spaces(text)
+
+        return ExtractionResult(
+            content=text,
+            mime_type=PLAIN_TEXT_MIME_TYPE,
+            metadata={"tables": tables} if tables else {},
+            chunks=[],
+        )
 
     def _validate_extracted_text(self, text: str, corruption_threshold: float = 0.05) -> bool:
         """Check if text extracted from PDF is valid or corrupted.
@@ -169,3 +222,78 @@ class PDFExtractor(Extractor):
         finally:
             if document:
                 await run_sync(document.close)
+
+    def _extract_pdf_searchable_text_sync(self, path: Path) -> str:
+        """Extract searchable text from PDF using pypdfium2 (sync version)."""
+        pdf = None
+        try:
+            pdf = pypdfium2.PdfDocument(str(path))
+            text_parts = []
+            for page in pdf:
+                text_page = page.get_textpage()
+                text = text_page.get_text_range()
+                text_parts.append(text)
+                text_page.close()
+                page.close()
+            return "".join(text_parts)
+        except Exception as e:
+            raise ParsingError(f"Failed to extract PDF text: {e}")
+        finally:
+            if pdf:
+                pdf.close()
+
+    def _extract_pdf_with_ocr_sync(self, path: Path) -> str:
+        """Extract text from PDF using OCR (sync version)."""
+        pdf = None
+        try:
+            # Import our pure sync tesseract implementation
+            from kreuzberg._multiprocessing.sync_tesseract import process_batch_images_sync_pure
+
+            # Render PDF pages to images
+            images = []
+            pdf = pypdfium2.PdfDocument(str(path))
+            for i, page in enumerate(pdf):
+                # Render at 200 DPI for OCR
+                bitmap = page.render(scale=200 / 72)
+                pil_image = bitmap.to_pil()
+                images.append(pil_image)
+                bitmap.close()
+                page.close()
+
+            # Save images to temporary files for OCR
+            import os
+            import tempfile
+
+            image_paths = []
+            temp_files = []
+
+            try:
+                for i, img in enumerate(images):
+                    fd, temp_path = tempfile.mkstemp(suffix=f"_page_{i}.png")
+                    temp_files.append((fd, temp_path))
+                    img.save(temp_path, format="PNG")
+                    os.close(fd)
+                    image_paths.append(temp_path)
+
+                # Process all images with OCR
+                if self.config.ocr_backend_type == OcrBackendType.TESSERACT:
+                    from kreuzberg._ocr._tesseract import TesseractConfig
+
+                    config = self.config.tesseract_config or TesseractConfig()
+                    results = process_batch_images_sync_pure(image_paths, config)
+                    text_parts = [r.content for r in results]
+                    return "\n\n".join(text_parts)
+                # For other OCR backends, fall back to error
+                raise NotImplementedError(f"Sync OCR not implemented for {self.config.ocr_backend_type}")
+
+            finally:
+                # Clean up temp files
+                for fd, temp_path in temp_files:
+                    with contextlib.suppress(OSError):
+                        os.unlink(temp_path)
+
+        except Exception as e:
+            raise ParsingError(f"Failed to OCR PDF: {e}")
+        finally:
+            if pdf:
+                pdf.close()
