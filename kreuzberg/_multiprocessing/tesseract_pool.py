@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from PIL import Image
 from typing_extensions import Self
@@ -12,6 +11,9 @@ from kreuzberg._ocr._tesseract import TesseractConfig
 from kreuzberg._types import ExtractionResult
 
 from .process_manager import ProcessPoolManager
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _process_image_with_tesseract(
@@ -114,7 +116,7 @@ def _process_image_with_tesseract(
             for ext in [".txt"]:
                 temp_file = output_base + ext
                 if os.path.exists(temp_file):
-                    Path(temp_file).unlink()
+                    os.unlink(temp_file)
 
     except Exception as e:
         return {
@@ -156,7 +158,7 @@ def _process_image_bytes_with_tesseract(
         finally:
             # Clean up temporary image file
             if os.path.exists(image_path):
-                Path(image_path).unlink()
+                os.unlink(image_path)
 
     except Exception as e:
         return {

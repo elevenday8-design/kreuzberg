@@ -4,7 +4,6 @@ import contextlib
 import re
 import sys
 from json import JSONDecodeError, loads
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Final, Literal, cast
 
 from anyio import Path as AsyncPath
@@ -22,6 +21,7 @@ from kreuzberg.exceptions import MissingDependencyError, ParsingError, Validatio
 if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Mapping
     from os import PathLike
+    from pathlib import Path
 
 
 if sys.version_info < (3, 11):  # pragma: no cover
@@ -218,7 +218,7 @@ class PandocExtractor(Extractor):
             return self.extract_path_sync(Path(temp_path))
         finally:
             with contextlib.suppress(OSError):
-                Path(temp_path).unlink()
+                os.unlink(temp_path)
 
     def extract_path_sync(self, path: Path) -> ExtractionResult:
         """Pure sync implementation of extract_path.
@@ -595,7 +595,7 @@ class PandocExtractor(Extractor):
             if self._checked_version:
                 return
 
-            result = subprocess.run(["pandoc", "--version"], capture_output=True, text=True, check=False)  # noqa: S607
+            result = subprocess.run(["pandoc", "--version"], capture_output=True, text=True, check=False)
 
             if result.returncode != 0:
                 raise MissingDependencyError(
@@ -656,12 +656,12 @@ class PandocExtractor(Extractor):
                 str(metadata_file),
             ]
 
-            result = subprocess.run(command, capture_output=True, text=True, check=False)  # noqa: S603
+            result = subprocess.run(command, capture_output=True, text=True, check=False)
 
             if result.returncode != 0:
                 raise ParsingError("Failed to extract file data", context={"file": str(path), "error": result.stderr})
 
-            with Path(metadata_file).open(encoding="utf-8") as f:
+            with open(metadata_file, encoding="utf-8") as f:
                 json_data = loads(f.read())
 
             return self._extract_metadata(json_data)
@@ -670,7 +670,7 @@ class PandocExtractor(Extractor):
             raise ParsingError("Failed to extract file data", context={"file": str(path)}) from e
         finally:
             with contextlib.suppress(OSError):
-                Path(metadata_file).unlink()
+                os.unlink(metadata_file)
 
     def _extract_file_sync(self, path: Path) -> str:
         """Synchronous version of _handle_extract_file."""
@@ -695,12 +695,12 @@ class PandocExtractor(Extractor):
                 str(output_path),
             ]
 
-            result = subprocess.run(command, capture_output=True, text=True, check=False)  # noqa: S603
+            result = subprocess.run(command, capture_output=True, text=True, check=False)
 
             if result.returncode != 0:
                 raise ParsingError("Failed to extract file data", context={"file": str(path), "error": result.stderr})
 
-            with Path(output_path).open(encoding="utf-8") as f:
+            with open(output_path, encoding="utf-8") as f:
                 text = f.read()
 
             return normalize_spaces(text)
@@ -709,7 +709,7 @@ class PandocExtractor(Extractor):
             raise ParsingError("Failed to extract file data", context={"file": str(path)}) from e
         finally:
             with contextlib.suppress(OSError):
-                Path(output_path).unlink()
+                os.unlink(output_path)
 
 
 class MarkdownExtractor(PandocExtractor):

@@ -74,7 +74,7 @@ class ImageExtractor(Extractor):
             return self.extract_path_sync(Path(temp_path))
         finally:
             with contextlib.suppress(OSError):
-                Path(temp_path).unlink()
+                os.unlink(temp_path)
 
     def extract_path_sync(self, path: Path) -> ExtractionResult:
         """Pure sync implementation of extract_path."""
