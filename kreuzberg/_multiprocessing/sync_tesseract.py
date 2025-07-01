@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import io
 import os
 import subprocess
 import tempfile
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from PIL import Image
 
@@ -15,6 +14,9 @@ from kreuzberg._ocr._tesseract import TesseractConfig
 from kreuzberg._types import ExtractionResult
 from kreuzberg._utils._string import normalize_spaces
 from kreuzberg.exceptions import OCRError
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def process_image_sync_pure(
@@ -76,7 +78,7 @@ def process_image_sync_pure(
         env["OMP_THREAD_LIMIT"] = "1"
 
         # Run tesseract synchronously
-        result = subprocess.run(  # noqa: S603
+        result = subprocess.run(
             command,
             check=False,
             env=env,
@@ -90,7 +92,8 @@ def process_image_sync_pure(
 
         # Read output
         output_file = output_base + ".txt"
-        text = Path(output_file).read_text(encoding="utf-8")
+        with open(output_file, encoding="utf-8") as f:
+            text = f.read()
 
         # Normalize text
         text = normalize_spaces(text)
@@ -105,9 +108,9 @@ def process_image_sync_pure(
     finally:
         # Clean up temporary files
         for ext in [".txt"]:
-            temp_file = Path(output_base + ext)
-            if temp_file.exists():
-                temp_file.unlink()
+            temp_file = output_base + ext
+            if os.path.exists(temp_file):
+                os.unlink(temp_file)
 
 
 def process_image_bytes_sync_pure(
@@ -123,6 +126,8 @@ def process_image_bytes_sync_pure(
     Returns:
         Extraction result.
     """
+    import io
+
     # Save image bytes to temporary file
     with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_image:
         # Load image and save as PNG
@@ -134,9 +139,8 @@ def process_image_bytes_sync_pure(
         return process_image_sync_pure(image_path, config)
     finally:
         # Clean up temporary image file
-        image_file = Path(image_path)
-        if image_file.exists():
-            image_file.unlink()
+        if os.path.exists(image_path):
+            os.unlink(image_path)
 
 
 def process_batch_images_sync_pure(
@@ -188,17 +192,17 @@ def process_batch_images_threaded(
         }
 
         # Collect results in order
-        results: list[ExtractionResult] = [None] * len(image_paths)  # type: ignore[list-item]
+        results = [None] * len(image_paths)
         for future in as_completed(future_to_index):
             index = future_to_index[future]
             try:
                 results[index] = future.result()
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 # Create error result
                 results[index] = ExtractionResult(
                     content=f"Error: {e}",
                     mime_type=PLAIN_TEXT_MIME_TYPE,
-                    metadata={},
+                    metadata={"error": str(e)},
                     chunks=[],
                 )
 
@@ -247,7 +251,7 @@ def process_batch_images_process_pool(
         }
 
         # Collect results in order
-        results: list[ExtractionResult] = [None] * len(image_paths)  # type: ignore[list-item]
+        results = [None] * len(image_paths)
         for future in as_completed(future_to_index):
             index = future_to_index[future]
             try:
@@ -263,14 +267,14 @@ def process_batch_images_process_pool(
                     results[index] = ExtractionResult(
                         content=f"Error: {result_dict['error']}",
                         mime_type=PLAIN_TEXT_MIME_TYPE,
-                        metadata={},
+                        metadata={"error": result_dict["error"]},
                         chunks=[],
                     )
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 results[index] = ExtractionResult(
                     content=f"Error: {e}",
                     mime_type=PLAIN_TEXT_MIME_TYPE,
-                    metadata={},
+                    metadata={"error": str(e)},
                     chunks=[],
                 )
 

@@ -4,9 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-if TYPE_CHECKING:
-    import types
-
 from PIL import Image
 from typing_extensions import Self
 
@@ -85,7 +82,7 @@ def _process_image_with_tesseract(
             env["OMP_THREAD_LIMIT"] = "1"
 
             # Run tesseract
-            result = subprocess.run(  # noqa: S603
+            result = subprocess.run(
                 command,
                 check=False,
                 env=env,
@@ -95,14 +92,12 @@ def _process_image_with_tesseract(
             )
 
             if result.returncode != 0:
-                msg = f"Tesseract failed with return code {result.returncode}: {result.stderr}"
-                raise RuntimeError(msg)
+                raise Exception(f"Tesseract failed with return code {result.returncode}: {result.stderr}")
 
             # Read output
-            from pathlib import Path
-
             output_file = output_base + ".txt"
-            text = Path(output_file).read_text(encoding="utf-8")
+            with open(output_file, encoding="utf-8") as f:
+                text = f.read()
 
             # Normalize text
             from kreuzberg._utils._string import normalize_spaces
@@ -118,14 +113,12 @@ def _process_image_with_tesseract(
 
         finally:
             # Clean up temporary files
-            from pathlib import Path
-
             for ext in [".txt"]:
-                temp_file = Path(output_base + ext)
-                if temp_file.exists():
-                    temp_file.unlink()
+                temp_file = output_base + ext
+                if os.path.exists(temp_file):
+                    os.unlink(temp_file)
 
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         return {
             "success": False,
             "text": "",
@@ -149,6 +142,7 @@ def _process_image_bytes_with_tesseract(
     """
     try:
         import io
+        import os
         import tempfile
 
         # Save image bytes to temporary file
@@ -163,13 +157,10 @@ def _process_image_bytes_with_tesseract(
             return _process_image_with_tesseract(image_path, config_dict)
         finally:
             # Clean up temporary image file
-            from pathlib import Path
+            if os.path.exists(image_path):
+                os.unlink(image_path)
 
-            image_file = Path(image_path)
-            if image_file.exists():
-                image_file.unlink()
-
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         return {
             "success": False,
             "text": "",
@@ -228,7 +219,7 @@ class TesseractProcessPool:
         return ExtractionResult(
             content=result_dict["text"],
             mime_type=PLAIN_TEXT_MIME_TYPE,
-            metadata={},
+            metadata={"confidence": result_dict["confidence"]} if result_dict["confidence"] else {},
             chunks=[],
         )
 
@@ -374,11 +365,6 @@ class TesseractProcessPool:
         """Async context manager entry."""
         return self
 
-    async def __aexit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb: types.TracebackType | None,
-    ) -> None:
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Async context manager exit."""
         self.shutdown()
