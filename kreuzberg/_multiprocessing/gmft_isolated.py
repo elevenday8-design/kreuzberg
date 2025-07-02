@@ -28,11 +28,9 @@ def _extract_tables_in_process(
         config_dict: Serialized GMFTConfig as a dict
         result_queue: Queue to put results or errors
     """
-    # Ignore SIGINT in worker process
     signal.signal(signal.SIGINT, signal.SIG_IGN)
 
     try:
-        # Import here to ensure clean process state
         from gmft.auto import AutoTableDetector, AutoTableFormatter
         from gmft.detectors.tatr import TATRDetectorConfig
         from gmft.formatters.tatr import TATRFormatConfig
@@ -40,7 +38,6 @@ def _extract_tables_in_process(
 
         from kreuzberg._gmft import GMFTConfig
 
-        # Reconstruct config from dict
         config = GMFTConfig(**config_dict)
 
         formatter = AutoTableFormatter(
@@ -73,10 +70,8 @@ def _extract_tables_in_process(
                 formatted_table = formatter.extract(cropped_table)
                 dataframes.append(formatted_table.df())
 
-            # Create pickleable result objects
             results = []
             for data_frame, cropped_table in zip(dataframes, cropped_tables):
-                # Convert PIL image to bytes for pickling
                 import io
 
                 img_bytes = io.BytesIO()
@@ -99,7 +94,6 @@ def _extract_tables_in_process(
             doc.close()
 
     except Exception as e:  # noqa: BLE001
-        # Catch all exceptions in subprocess to send back to parent
         error_info = {"error": str(e), "type": type(e).__name__, "traceback": traceback.format_exc()}
         result_queue.put((False, error_info))
 
@@ -129,7 +123,6 @@ def extract_tables_isolated(
     config = config or GMFTConfig()
     config_dict = config.__dict__.copy()
 
-    # Use spawn to ensure clean process state
     ctx = mp.get_context("spawn")
     result_queue = ctx.Queue()
 
@@ -141,7 +134,7 @@ def extract_tables_isolated(
     process.start()
 
     try:
-        # Wait for result with timeout, checking for process death
+        # Wait for result with timeout, checking for process death  # ~keep
         import time
 
         start_time = time.time()
@@ -154,7 +147,7 @@ def extract_tables_isolated(
                     raise
 
                 if not process.is_alive():
-                    # Process died without putting result
+                    # Process died without putting result  # ~keep
                     if process.exitcode == -signal.SIGSEGV:
                         raise ParsingError(
                             "GMFT process crashed with segmentation fault",
@@ -174,10 +167,8 @@ def extract_tables_isolated(
                 time.sleep(0.1)
 
         if success:
-            # Reconstruct TableData objects
             tables = []
             for table_dict in result:
-                # Reconstruct PIL image from bytes
                 import io
                 import pickle
 
@@ -196,7 +187,7 @@ def extract_tables_isolated(
                 )
 
             return tables
-        # Extraction failed with exception
+
         error_info = result
         raise ParsingError(
             f"GMFT table extraction failed: {error_info['error']}",
@@ -208,7 +199,6 @@ def extract_tables_isolated(
         )
 
     except queue.Empty as e:
-        # Timeout occurred
         raise ParsingError(
             "GMFT table extraction timed out",
             context={
@@ -217,7 +207,6 @@ def extract_tables_isolated(
             },
         ) from e
     finally:
-        # Ensure process is terminated
         if process.is_alive():
             process.terminate()
             process.join(timeout=5)
@@ -253,7 +242,6 @@ async def extract_tables_isolated_async(
     config = config or GMFTConfig()
     config_dict = config.__dict__.copy()
 
-    # Use spawn to ensure clean process state
     ctx = mp.get_context("spawn")
     result_queue = ctx.Queue()
 
@@ -265,7 +253,7 @@ async def extract_tables_isolated_async(
     process.start()
 
     try:
-        # Async wait for result with timeout
+
         async def wait_for_result() -> tuple[bool, Any]:
             while True:
                 try:
@@ -273,7 +261,7 @@ async def extract_tables_isolated_async(
                 except queue.Empty:  # noqa: PERF203
                     await anyio.sleep(0.1)
                     if not process.is_alive():
-                        # Process died without putting result
+                        # Process died without putting result  # ~keep
                         if process.exitcode == -signal.SIGSEGV:
                             raise ParsingError(
                                 "GMFT process crashed with segmentation fault",
@@ -294,10 +282,8 @@ async def extract_tables_isolated_async(
             success, result = await wait_for_result()
 
         if success:
-            # Reconstruct TableData objects
             tables = []
             for table_dict in result:
-                # Reconstruct PIL image from bytes
                 import io
                 import pickle
 
@@ -316,7 +302,7 @@ async def extract_tables_isolated_async(
                 )
 
             return tables
-        # Extraction failed with exception
+
         error_info = result
         raise ParsingError(
             f"GMFT table extraction failed: {error_info['error']}",
@@ -328,7 +314,6 @@ async def extract_tables_isolated_async(
         )
 
     except TimeoutError as e:
-        # Timeout occurred
         raise ParsingError(
             "GMFT table extraction timed out",
             context={
@@ -337,7 +322,6 @@ async def extract_tables_isolated_async(
             },
         ) from e
     finally:
-        # Ensure process is terminated
         if process.is_alive():
             process.terminate()
             await anyio.to_thread.run_sync(lambda: process.join(timeout=5))

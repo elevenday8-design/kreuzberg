@@ -161,17 +161,14 @@ def validate_mime_type(
     Returns:
         The validated MIME type.
     """
-    # If explicit mime_type provided, skip caching and validate directly
     if mime_type:
         return _validate_explicit_mime_type(mime_type)
 
-    # For file-based detection, use caching
     if file_path:
         from kreuzberg._utils._cache import get_mime_cache
 
         path = Path(file_path)
 
-        # Generate cache key based on file path and metadata
         try:
             stat = path.stat() if check_file_exists else None
             file_info = {
@@ -190,21 +187,17 @@ def validate_mime_type(
 
         cache_kwargs = {"file_info": str(sorted(file_info.items())), "detector": "mime_type"}
 
-        # Check MIME cache first
         mime_cache = get_mime_cache()
         cached_result = mime_cache.get(**cache_kwargs)
         if cached_result is not None:
             return cached_result
 
-        # Detect MIME type and cache result
         detected_mime_type = _detect_mime_type_uncached(file_path, check_file_exists)
 
-        # Cache the result
         mime_cache.set(detected_mime_type, **cache_kwargs)
 
         return detected_mime_type
 
-    # Fallback to uncached detection
     return _detect_mime_type_uncached(file_path, check_file_exists)
 
 

@@ -12,10 +12,10 @@ from weakref import WeakValueDictionary
 if TYPE_CHECKING:
     from collections.abc import Generator
 
-# Global lock for pypdfium2 operations to prevent segfaults on macOS
+
 _PYPDFIUM_LOCK = threading.RLock()
 
-# Per-file locks for better concurrency
+
 _FILE_LOCKS_CACHE = WeakValueDictionary[str, threading.RLock]()
 _FILE_LOCKS_LOCK = threading.Lock()
 

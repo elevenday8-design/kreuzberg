@@ -12,14 +12,14 @@ if TYPE_CHECKING:
 
 T = TypeVar("T")
 
-# Global process pool for CPU-intensive operations
+
 _PROCESS_POOL: ProcessPoolExecutor | None = None
-_POOL_SIZE = max(1, mp.cpu_count() - 1)  # Leave one CPU for main process
+_POOL_SIZE = max(1, mp.cpu_count() - 1)
 
 
 def _init_process_pool() -> ProcessPoolExecutor:
     """Initialize the global process pool."""
-    global _PROCESS_POOL  # noqa: PLW0603
+    global _PROCESS_POOL
     if _PROCESS_POOL is None:
         _PROCESS_POOL = ProcessPoolExecutor(max_workers=_POOL_SIZE)
     return _PROCESS_POOL
@@ -32,7 +32,6 @@ def process_pool() -> Generator[ProcessPoolExecutor, None, None]:
     try:
         yield pool
     except Exception:  # noqa: BLE001
-        # On error, shutdown and recreate pool
         shutdown_process_pool()
         pool = _init_process_pool()
         yield pool
@@ -47,13 +46,12 @@ def submit_to_process_pool(func: Callable[..., T], *args: Any, **kwargs: Any) ->
 
 def shutdown_process_pool() -> None:
     """Shutdown the global process pool."""
-    global _PROCESS_POOL  # noqa: PLW0603
+    global _PROCESS_POOL
     if _PROCESS_POOL is not None:
         _PROCESS_POOL.shutdown(wait=True)
         _PROCESS_POOL = None
 
 
-# Process-safe function wrappers
 def _extract_pdf_text_worker(pdf_path: str) -> tuple[str, str]:
     """Worker function for extracting PDF text in a separate process."""
     import pypdfium2

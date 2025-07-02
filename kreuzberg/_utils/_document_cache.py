@@ -24,7 +24,7 @@ class DocumentCache:
         self._cache: dict[str, ExtractionResult] = {}
         self._processing: dict[str, threading.Event] = {}
         self._lock = threading.Lock()
-        # Track file metadata for cache invalidation
+
         self._file_metadata: dict[str, dict[str, Any]] = {}
 
     def _get_cache_key(self, file_path: Path | str, config: ExtractionConfig | None = None) -> str:
@@ -39,7 +39,6 @@ class DocumentCache:
         """
         path = Path(file_path).resolve()
 
-        # Include file metadata for cache validation
         try:
             stat = path.stat()
             file_info = {
@@ -48,10 +47,8 @@ class DocumentCache:
                 "mtime": stat.st_mtime,
             }
         except OSError:
-            # File doesn't exist or can't be accessed
             file_info = {"path": str(path), "size": 0, "mtime": 0}
 
-        # Include config-specific options that affect extraction
         config_info = {}
         if config:
             config_info = {
@@ -63,7 +60,6 @@ class DocumentCache:
                 "max_overlap": config.max_overlap,
             }
 
-        # Create cache key from file info + config
         cache_data = {**file_info, **config_info}
         cache_str = str(sorted(cache_data.items()))
 
@@ -87,10 +83,8 @@ class DocumentCache:
             current_stat = path.stat()
             cached_metadata = self._file_metadata[cache_key]
 
-            # Check if file has changed
             return cached_metadata["size"] == current_stat.st_size and cached_metadata["mtime"] == current_stat.st_mtime
         except OSError:
-            # File no longer exists
             return False
 
     def get(self, file_path: Path | str, config: ExtractionConfig | None = None) -> ExtractionResult | None:
@@ -109,7 +103,7 @@ class DocumentCache:
             if cache_key in self._cache:
                 if self._is_cache_valid(cache_key, file_path):
                     return self._cache[cache_key]
-                # Cache invalidated - remove stale entry
+
                 self._cache.pop(cache_key, None)
                 self._file_metadata.pop(cache_key, None)
 
@@ -126,7 +120,6 @@ class DocumentCache:
         cache_key = self._get_cache_key(file_path, config)
         path = Path(file_path)
 
-        # Store file metadata for validation
         try:
             stat = path.stat()
             file_metadata = {
@@ -195,7 +188,6 @@ class DocumentCache:
         with self._lock:
             self._cache.clear()
             self._file_metadata.clear()
-            # Don't clear processing events as they might be waited on
 
     def get_stats(self) -> dict[str, Any]:
         """Get cache statistics.
@@ -213,7 +205,6 @@ class DocumentCache:
             }
 
 
-# Global session cache instance
 _document_cache = DocumentCache()
 
 

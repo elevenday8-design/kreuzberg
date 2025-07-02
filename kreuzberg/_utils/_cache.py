@@ -49,10 +49,9 @@ class KreuzbergCache(Generic[T]):
         self.max_cache_size_mb = max_cache_size_mb
         self.max_age_days = max_age_days
 
-        # Ensure cache directory exists
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
-        # In-memory tracking of processing state (session-scoped)
+        # In-memory tracking of processing state (session-scoped)  # ~keep
         self._processing: dict[str, threading.Event] = {}
         self._lock = threading.Lock()
 
@@ -65,7 +64,7 @@ class KreuzbergCache(Generic[T]):
         Returns:
             Unique cache key string
         """
-        # Sort for consistent hashing
+        # Sort for consistent hashing  # ~keep
         cache_str = str(sorted(kwargs.items()))
         return hashlib.sha256(cache_str.encode()).hexdigest()[:16]
 
@@ -79,7 +78,6 @@ class KreuzbergCache(Generic[T]):
             if not cache_path.exists():
                 return False
 
-            # Check age
             mtime = cache_path.stat().st_mtime
             age_days = (time.time() - mtime) / (24 * 3600)
 
@@ -95,11 +93,10 @@ class KreuzbergCache(Generic[T]):
         """Deserialize cached result."""
         data = cached_data["data"]
 
-        # Handle ExtractionResult reconstruction
         if cached_data.get("type") == "ExtractionResult" and isinstance(data, dict):
             from kreuzberg._types import ExtractionResult
 
-            return ExtractionResult(**data)  # type: ignore
+            return ExtractionResult(**data)  # type: ignore[misc]
 
         return data
 
@@ -108,23 +105,20 @@ class KreuzbergCache(Generic[T]):
         try:
             cache_files = list(self.cache_dir.glob("*.msgpack"))
 
-            # Remove old files
             cutoff_time = time.time() - (self.max_age_days * 24 * 3600)
             for cache_file in cache_files[:]:
                 try:
                     if cache_file.stat().st_mtime < cutoff_time:
                         cache_file.unlink(missing_ok=True)
                         cache_files.remove(cache_file)
-                except OSError:
+                except OSError:  # noqa: PERF203
                     continue
 
-            # Check total cache size
             total_size = sum(cache_file.stat().st_size for cache_file in cache_files if cache_file.exists()) / (
                 1024 * 1024
-            )  # Convert to MB
+            )
 
             if total_size > self.max_cache_size_mb:
-                # Remove oldest files first
                 cache_files.sort(key=lambda f: f.stat().st_mtime if f.exists() else 0)
 
                 for cache_file in cache_files:
@@ -133,15 +127,13 @@ class KreuzbergCache(Generic[T]):
                         cache_file.unlink(missing_ok=True)
                         total_size -= size_mb
 
-                        if total_size <= self.max_cache_size_mb * 0.8:  # Leave some headroom
+                        if total_size <= self.max_cache_size_mb * 0.8:
                             break
                     except OSError:
                         continue
-        except Exception:
-            # Don't fail if cleanup fails
+        except (OSError, ValueError, TypeError):
             pass
 
-    # Sync interface
     def get(self, **kwargs: Any) -> T | None:
         """Get cached result (sync).
 
@@ -162,7 +154,6 @@ class KreuzbergCache(Generic[T]):
             cached_data = deserialize(content, dict)
             return self._deserialize_result(cached_data)
         except (OSError, ValueError, KeyError):
-            # Remove corrupted cache file
             with suppress(OSError):
                 cache_path.unlink(missing_ok=True)
             return None
@@ -182,14 +173,11 @@ class KreuzbergCache(Generic[T]):
             content = serialize(serialized)
             cache_path.write_bytes(content)
 
-            # Periodic cleanup (1% chance)
             if hash(cache_key) % 100 == 0:
                 self._cleanup_cache()
         except (OSError, TypeError, ValueError):
-            # Don't fail if caching fails
             pass
 
-    # Async interface
     async def aget(self, **kwargs: Any) -> T | None:
         """Get cached result (async).
 
@@ -210,7 +198,6 @@ class KreuzbergCache(Generic[T]):
             cached_data = deserialize(content, dict)
             return self._deserialize_result(cached_data)
         except (OSError, ValueError, KeyError):
-            # Remove corrupted cache file
             with suppress(Exception):
                 await cache_path.unlink(missing_ok=True)
             return None
@@ -230,14 +217,11 @@ class KreuzbergCache(Generic[T]):
             content = serialize(serialized)
             await cache_path.write_bytes(content)
 
-            # Periodic cleanup (1% chance)
             if hash(cache_key) % 100 == 0:
                 await run_sync(self._cleanup_cache)
         except (OSError, TypeError, ValueError):
-            # Don't fail if caching fails
             pass
 
-    # Processing coordination
     def is_processing(self, **kwargs: Any) -> bool:
         """Check if operation is currently being processed."""
         cache_key = self._get_cache_key(**kwargs)
@@ -271,7 +255,6 @@ class KreuzbergCache(Generic[T]):
             pass
 
         with self._lock:
-            # Don't clear processing events as they might be waited on
             pass
 
     def get_stats(self) -> dict[str, Any]:
@@ -303,7 +286,6 @@ class KreuzbergCache(Generic[T]):
             }
 
 
-# Global cache instances
 _ocr_cache: KreuzbergCache[ExtractionResult] | None = None
 _document_cache: KreuzbergCache[ExtractionResult] | None = None
 _table_cache: KreuzbergCache[Any] | None = None
@@ -314,7 +296,6 @@ def get_ocr_cache() -> KreuzbergCache[ExtractionResult]:
     """Get the global OCR cache instance."""
     global _ocr_cache
     if _ocr_cache is None:
-        # Check for environment variable override
         cache_dir = os.environ.get("KREUZBERG_CACHE_DIR")
         if cache_dir:
             cache_dir = Path(cache_dir) / "ocr"

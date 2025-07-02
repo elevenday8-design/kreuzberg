@@ -20,7 +20,6 @@ def encode_hook(obj: Any) -> Any:
     if isinstance(obj, Exception):
         return {"message": str(obj), "type": type(obj).__name__}
 
-    # Handle objects with serialization methods
     for key in (
         "to_dict",
         "as_dict",
@@ -33,11 +32,9 @@ def encode_hook(obj: Any) -> Any:
         if hasattr(obj, key) and callable(getattr(obj, key)):
             return getattr(obj, key)()
 
-    # Handle dataclasses
     if is_dataclass(obj) and not isinstance(obj, type):
         return {k: v if not isinstance(v, Enum) else v.value for (k, v) in asdict(obj).items()}
 
-    # Handle PIL Images (skip them)
     if hasattr(obj, "save") and hasattr(obj, "format"):
         return None
 
@@ -77,7 +74,6 @@ def serialize(value: Any, **kwargs: Any) -> bytes:
         ValueError: If serialization fails
     """
     if isinstance(value, dict) and kwargs:
-        # Merge additional data
         value = value | kwargs
 
     try:

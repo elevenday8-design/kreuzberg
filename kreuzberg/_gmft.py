@@ -106,7 +106,7 @@ class GMFTConfig:
     """
 
 
-async def extract_tables(
+async def extract_tables(  # noqa: PLR0915
     file_path: str | PathLike[str], config: GMFTConfig | None = None, use_isolated_process: bool | None = None
 ) -> list[TableData]:
     """Extracts tables from a PDF file.
@@ -130,11 +130,10 @@ async def extract_tables(
 
     from kreuzberg._utils._cache import get_table_cache
 
-    # Determine if we should use isolated process
+    # Determine if we should use isolated process  # ~keep
     if use_isolated_process is None:
         use_isolated_process = os.environ.get("KREUZBERG_GMFT_ISOLATED", "true").lower() in ("true", "1", "yes")
 
-    # Generate cache key based on file and config
     path = Path(file_path)
     try:
         stat = path.stat()
@@ -157,41 +156,34 @@ async def extract_tables(
         "config": str(sorted(config.__dict__.items())),
     }
 
-    # Check table cache first
     table_cache = get_table_cache()
     cached_result = await table_cache.aget(**cache_kwargs)
     if cached_result is not None:
         return cached_result
 
-    # Check if another thread is processing this file
     if table_cache.is_processing(**cache_kwargs):
-        # Wait for the other thread to complete
         import anyio
 
         event = table_cache.mark_processing(**cache_kwargs)
         await anyio.to_thread.run_sync(event.wait)
 
-        # Try cache again after waiting
+        # Try cache again after waiting for other process to complete  # ~keep
         cached_result = await table_cache.aget(**cache_kwargs)
         if cached_result is not None:
             return cached_result
 
-    # Mark as processing
     table_cache.mark_processing(**cache_kwargs)
 
     try:
-        # Use isolated process if enabled
         if use_isolated_process:
             from kreuzberg._multiprocessing.gmft_isolated import extract_tables_isolated_async
 
             result = await extract_tables_isolated_async(file_path, config)
 
-            # Cache the table extraction result
             await table_cache.aset(result, **cache_kwargs)
 
             return result
 
-        # Otherwise use direct extraction
         try:
             from gmft.auto import AutoTableDetector, AutoTableFormatter  # type: ignore[attr-defined]
             from gmft.detectors.tatr import TATRDetectorConfig  # type: ignore[attr-defined]
@@ -238,7 +230,6 @@ async def extract_tables(
                     for data_frame, cropped_table in zip(dataframes, cropped_tables)
                 ]
 
-                # Cache the table extraction result
                 await table_cache.aset(result, **cache_kwargs)
 
                 return result
@@ -250,7 +241,6 @@ async def extract_tables(
                 dependency_group="gmft", functionality="table extraction", package_name="gmft"
             ) from e
     finally:
-        # Mark processing complete
         table_cache.mark_complete(**cache_kwargs)
 
 
@@ -272,11 +262,10 @@ def extract_tables_sync(
 
     from kreuzberg._utils._cache import get_table_cache
 
-    # Determine if we should use isolated process
+    # Determine if we should use isolated process  # ~keep
     if use_isolated_process is None:
         use_isolated_process = os.environ.get("KREUZBERG_GMFT_ISOLATED", "true").lower() in ("true", "1", "yes")
 
-    # Generate cache key based on file and config
     path = Path(file_path)
     try:
         stat = path.stat()
@@ -299,24 +288,20 @@ def extract_tables_sync(
         "config": str(sorted(config.__dict__.items())),
     }
 
-    # Check table cache first (sync)
     table_cache = get_table_cache()
     cached_result = table_cache.get(**cache_kwargs)
     if cached_result is not None:
         return cached_result
 
-    # If not cached, run the sync extraction
     if use_isolated_process:
         from kreuzberg._multiprocessing.gmft_isolated import extract_tables_isolated
 
         result = extract_tables_isolated(file_path, config)
 
-        # Cache the result (sync)
         table_cache.set(result, **cache_kwargs)
 
         return result
 
-    # Otherwise use direct extraction
     try:
         from gmft.auto import AutoTableDetector, AutoTableFormatter  # type: ignore[attr-defined]
         from gmft.detectors.tatr import TATRDetectorConfig  # type: ignore[attr-defined]
@@ -343,8 +328,8 @@ def extract_tables_sync(
             config=TATRDetectorConfig(detector_base_threshold=config.detector_base_threshold)
         )
         doc = PyPDFium2Document(str(file_path))
-        cropped_tables: list[Any] = []  # CroppedTable type
-        dataframes: list[Any] = []  # DataFrame type
+        cropped_tables: list[Any] = []
+        dataframes: list[Any] = []
         try:
             for page in doc:
                 cropped_tables.extend(detector.extract(page))
@@ -363,7 +348,6 @@ def extract_tables_sync(
                 for data_frame, cropped_table in zip(dataframes, cropped_tables)
             ]
 
-            # Cache the result (sync)
             table_cache.set(result, **cache_kwargs)
 
             return result

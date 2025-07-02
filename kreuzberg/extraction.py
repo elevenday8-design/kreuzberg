@@ -108,28 +108,23 @@ async def extract_file(
     """
     from kreuzberg._utils._document_cache import get_document_cache
 
-    # Check cache first
     cache = get_document_cache()
     cached_result = cache.get(file_path, config)
     if cached_result is not None:
         return cached_result
 
-    # Check if another thread is processing this file
     if cache.is_processing(file_path, config):
-        # Wait for the other thread to complete
         event = cache.mark_processing(file_path, config)
         await anyio.to_thread.run_sync(event.wait)  # pragma: no cover
 
-        # Try cache again after waiting
+        # Try cache again after waiting for other process to complete  # ~keep
         cached_result = cache.get(file_path, config)  # pragma: no cover
         if cached_result is not None:  # pragma: no cover
             return cached_result
 
-    # Mark as processing
     cache.mark_processing(file_path, config)
 
     try:
-        # Always validate file existence first, even with explicit MIME type
         path = Path(file_path)
         if not path.exists():
             raise ValidationError("The file does not exist", context={"file_path": str(path)})
@@ -147,12 +142,10 @@ async def extract_file(
 
         result = await _validate_and_post_process_async(result=result, config=config)
 
-        # Cache the result
         cache.set(file_path, config, result)
 
         return result
     finally:
-        # Mark processing complete
         cache.mark_complete(file_path, config)
 
 
@@ -171,11 +164,9 @@ async def batch_extract_file(
     if not file_paths:
         return []
 
-    # Use semaphore to limit concurrent operations based on resource usage
     import multiprocessing as mp
 
-    # Simple concurrency limit - document caching handles same-file issues
-    max_concurrency = min(len(file_paths), mp.cpu_count() * 2)  # Standard I/O bound limit
+    max_concurrency = min(len(file_paths), mp.cpu_count() * 2)
     semaphore = anyio.Semaphore(max_concurrency)
 
     results = cast("list[ExtractionResult]", ([None] * len(file_paths)))
@@ -190,7 +181,6 @@ async def batch_extract_file(
                 )
                 results[index] = result
             except Exception as e:  # noqa: BLE001
-                # Store error information instead of failing entire batch
                 from kreuzberg._utils._errors import create_error_context
 
                 error_result = ExtractionResult(
@@ -231,10 +221,9 @@ async def batch_extract_bytes(
     if not contents:
         return []
 
-    # Use semaphore to limit concurrent operations based on resource usage
     import multiprocessing as mp
 
-    max_concurrency = min(len(contents), mp.cpu_count() * 2)  # Allow 2x CPU count for I/O bound ops
+    max_concurrency = min(len(contents), mp.cpu_count() * 2)
     semaphore = anyio.Semaphore(max_concurrency)
 
     results = cast("list[ExtractionResult]", [None] * len(contents))
@@ -245,7 +234,6 @@ async def batch_extract_bytes(
                 result = await extract_bytes(content, mime_type, config)
                 results[index] = result
             except Exception as e:  # noqa: BLE001
-                # Store error information instead of failing entire batch
                 from kreuzberg._utils._errors import create_error_context
 
                 error_result = ExtractionResult(
@@ -312,28 +300,23 @@ def extract_file_sync(
     """
     from kreuzberg._utils._document_cache import get_document_cache
 
-    # Check cache first
     cache = get_document_cache()
     cached_result = cache.get(file_path, config)
     if cached_result is not None:
         return cached_result
 
-    # Check if another thread is processing this file
     if cache.is_processing(file_path, config):
-        # Wait for the other thread to complete
         event = cache.mark_processing(file_path, config)
         event.wait()  # pragma: no cover
 
-        # Try cache again after waiting
+        # Try cache again after waiting for other process to complete  # ~keep
         cached_result = cache.get(file_path, config)  # pragma: no cover
         if cached_result is not None:  # pragma: no cover
             return cached_result
 
-    # Mark as processing
     cache.mark_processing(file_path, config)
 
     try:
-        # Always validate file existence first, even with explicit MIME type
         path = Path(file_path)
         if not path.exists():
             raise ValidationError("The file does not exist", context={"file_path": str(path)})
@@ -351,12 +334,10 @@ def extract_file_sync(
 
         result = _validate_and_post_process_sync(result=result, config=config)
 
-        # Cache the result
         cache.set(file_path, config, result)
 
         return result
     finally:
-        # Mark processing complete
         cache.mark_complete(file_path, config)
 
 
@@ -373,10 +354,8 @@ def batch_extract_file_sync(
         A list of extraction results in the same order as the input paths.
     """
     if len(file_paths) <= 1:
-        # Single file or empty - no need for parallelization
         return [extract_file_sync(file_path=Path(file_path), mime_type=None, config=config) for file_path in file_paths]
 
-    # Use ThreadPoolExecutor for I/O bound operations
     import multiprocessing as mp
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -389,8 +368,7 @@ def batch_extract_file_sync(
                 file_paths.index(file_path),
                 extract_file_sync(file_path=Path(file_path), mime_type=None, config=config),
             )
-        except Exception as e:
-            # Return error result instead of failing
+        except Exception as e:  # noqa: BLE001
             from kreuzberg._utils._errors import create_error_context
 
             error_result = ExtractionResult(
@@ -409,10 +387,8 @@ def batch_extract_file_sync(
             return (file_paths.index(file_path), error_result)
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # Submit all tasks
         future_to_index = {executor.submit(extract_single, fp): i for i, fp in enumerate(file_paths)}
 
-        # Collect results maintaining order
         results: list[ExtractionResult] = [None] * len(file_paths)  # type: ignore[list-item]
         for future in as_completed(future_to_index):
             index, result = future.result()
@@ -434,12 +410,10 @@ def batch_extract_bytes_sync(
         A list of extraction results in the same order as the input contents.
     """
     if len(contents) <= 1:
-        # Single item or empty - no need for parallelization
         return [
             extract_bytes_sync(content=content, mime_type=mime_type, config=config) for content, mime_type in contents
         ]
 
-    # Use ThreadPoolExecutor for I/O bound operations
     import multiprocessing as mp
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -450,8 +424,7 @@ def batch_extract_bytes_sync(
         index, (content, mime_type) = index_and_content
         try:
             return (index, extract_bytes_sync(content=content, mime_type=mime_type, config=config))
-        except Exception as e:
-            # Return error result instead of failing
+        except Exception as e:  # noqa: BLE001
             from kreuzberg._utils._errors import create_error_context
 
             error_result = ExtractionResult(
@@ -472,11 +445,9 @@ def batch_extract_bytes_sync(
             return (index, error_result)
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # Submit all tasks with indices
         indexed_contents = list(enumerate(contents))
         future_to_index = {executor.submit(extract_single, ic): i for i, ic in enumerate(indexed_contents)}
 
-        # Collect results maintaining order
         results: list[ExtractionResult] = [None] * len(contents)  # type: ignore[list-item]
         for future in as_completed(future_to_index):
             index, result = future.result()

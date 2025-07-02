@@ -36,7 +36,6 @@ def create_error_context(
         "operation": operation,
     }
 
-    # Add file info if provided
     if file_path:
         from pathlib import Path
 
@@ -48,7 +47,6 @@ def create_error_context(
             "size": path.stat().st_size if path.exists() else None,
         }
 
-    # Add error details
     if error:
         context["error"] = {
             "type": type(error).__name__,
@@ -56,7 +54,6 @@ def create_error_context(
             "traceback": traceback.format_exception_only(type(error), error),
         }
 
-    # Add system info for resource-related errors
     if (
         any(keyword in str(error).lower() for keyword in ["memory", "resource", "process", "thread"])
         if error
@@ -71,10 +68,9 @@ def create_error_context(
                 "process_count": len(psutil.pids()),
                 "platform": platform.platform(),
             }
-        except Exception:  # noqa: S110, BLE001
-            pass  # Don't fail on system info collection
+        except Exception:  # noqa: BLE001
+            pass
 
-    # Add any extra context
     context.update(extra)
 
     return context
@@ -89,7 +85,6 @@ def is_transient_error(error: Exception) -> bool:
     Returns:
         True if the error is likely transient
     """
-    # Check for specific exception types first
     transient_types = (
         OSError,
         PermissionError,
@@ -102,21 +97,17 @@ def is_transient_error(error: Exception) -> bool:
         return True
 
     transient_patterns = [
-        # File system
         "temporary",
         "locked",
         "in use",
         "access denied",
         "permission",
-        # Network
         "timeout",
         "connection",
         "network",
-        # Resources
         "too many open files",
         "cannot allocate memory",
         "resource temporarily unavailable",
-        # Process
         "broken pipe",
         "subprocess",
         "signal",
@@ -167,13 +158,11 @@ def should_retry(error: Exception, attempt: int, max_attempts: int = 3) -> bool:
     if attempt >= max_attempts:
         return False
 
-    # Don't retry validation errors
     from kreuzberg.exceptions import ValidationError
 
     if isinstance(error, ValidationError):
         return False
 
-    # Retry transient errors
     return is_transient_error(error)
 
 

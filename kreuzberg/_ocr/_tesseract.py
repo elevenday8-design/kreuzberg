@@ -145,7 +145,7 @@ TESSERACT_SUPPORTED_LANGUAGE_CODES: Final[set[str]] = {
     "tel",
     "tgk",
     "tgl",
-    "tha",  # codespell:ignore
+    "tha",
     "tir",
     "ton",
     "tur",
@@ -154,7 +154,7 @@ TESSERACT_SUPPORTED_LANGUAGE_CODES: Final[set[str]] = {
     "urd",
     "uzb",
     "uzb_cyrl",
-    "vie",  # codespell:ignore
+    "vie",
     "yid",
     "yor",
 }
@@ -232,38 +232,32 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
 
         from kreuzberg._utils._cache import get_ocr_cache
 
-        # Create image content for caching
         image_buffer = io.BytesIO()
         await run_sync(image.save, image_buffer, format="PNG")
         image_content = image_buffer.getvalue()
 
-        # Generate cache key based on image content and config
         cache_kwargs = {
             "image_hash": hashlib.sha256(image_content).hexdigest()[:16],
             "ocr_backend": "tesseract",
             "ocr_config": str(sorted(kwargs.items())),
         }
 
-        # Check OCR cache first
         ocr_cache = get_ocr_cache()
         cached_result = await ocr_cache.aget(**cache_kwargs)
         if cached_result is not None:
             return cached_result
 
-        # Check if another thread is processing this image
         if ocr_cache.is_processing(**cache_kwargs):
-            # Wait for the other thread to complete
             import anyio
 
             event = ocr_cache.mark_processing(**cache_kwargs)
             await anyio.to_thread.run_sync(event.wait)
 
-            # Try cache again after waiting
+            # Try cache again after waiting for other process to complete  # ~keep
             cached_result = await ocr_cache.aget(**cache_kwargs)
             if cached_result is not None:
                 return cached_result
 
-        # Mark as processing
         ocr_cache.mark_processing(**cache_kwargs)
 
         try:
@@ -273,14 +267,12 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
             try:
                 result = await self.process_file(image_path, **kwargs)
 
-                # Cache the OCR result
                 await ocr_cache.aset(result, **cache_kwargs)
 
                 return result
             finally:
                 await unlink()
         finally:
-            # Mark processing complete
             ocr_cache.mark_complete(**cache_kwargs)
 
     async def process_file(
@@ -290,7 +282,6 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
     ) -> ExtractionResult:
         from kreuzberg._utils._cache import get_ocr_cache
 
-        # Generate cache key based on file path and config
         try:
             stat = path.stat()
             file_info = {
@@ -311,26 +302,22 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
             "ocr_config": str(sorted(kwargs.items())),
         }
 
-        # Check OCR cache first
         ocr_cache = get_ocr_cache()
         cached_result = await ocr_cache.aget(**cache_kwargs)
         if cached_result is not None:
             return cached_result
 
-        # Check if another thread is processing this file
         if ocr_cache.is_processing(**cache_kwargs):
-            # Wait for the other thread to complete
             import anyio
 
             event = ocr_cache.mark_processing(**cache_kwargs)
             await anyio.to_thread.run_sync(event.wait)
 
-            # Try cache again after waiting
+            # Try cache again after waiting for other process to complete  # ~keep
             cached_result = await ocr_cache.aget(**cache_kwargs)
             if cached_result is not None:
                 return cached_result
 
-        # Mark as processing
         ocr_cache.mark_processing(**cache_kwargs)
 
         try:
@@ -358,7 +345,6 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
 
                 env: dict[str, Any] | None = None
                 if sys.platform.startswith("linux"):
-                    # we have to prevent multithreading this way otherwise we will get deadlocks
                     env = {"OMP_THREAD_LIMIT": "1"}
 
                 result = await run_process(command, env=env)
@@ -376,7 +362,6 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
                     content=normalize_spaces(output), mime_type=PLAIN_TEXT_MIME_TYPE, metadata={}, chunks=[]
                 )
 
-                # Cache the OCR result
                 final_cache_kwargs = cache_kwargs.copy()
                 final_cache_kwargs["ocr_config"] = str(sorted({**kwargs, "language": language, "psm": psm}.items()))
                 await ocr_cache.aset(extraction_result, **final_cache_kwargs)
@@ -387,7 +372,6 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
             finally:
                 await unlink()
         finally:
-            # Mark processing complete
             ocr_cache.mark_complete(**cache_kwargs)
 
     @classmethod

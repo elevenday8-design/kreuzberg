@@ -74,17 +74,13 @@ class PDFExtractor(Extractor):
         import os
         import tempfile
 
-        # Create temporary file
         fd, temp_path = tempfile.mkstemp(suffix=".pdf")
         try:
-            # Write content to temp file
             with os.fdopen(fd, "wb") as f:
                 f.write(content)
 
-            # Extract using path method
             result = self.extract_path_sync(Path(temp_path))
 
-            # Extract metadata
             from kreuzberg._playa import extract_pdf_metadata_sync
 
             metadata = extract_pdf_metadata_sync(content)
@@ -92,21 +88,16 @@ class PDFExtractor(Extractor):
 
             return result
         finally:
-            # Clean up temp file
             with contextlib.suppress(OSError):
                 Path(temp_path).unlink()
 
     def extract_path_sync(self, path: Path) -> ExtractionResult:
         """Pure sync implementation of PDF extraction from path."""
-        # Try text extraction first
         text = self._extract_pdf_searchable_text_sync(path)
 
-        # Check if we need OCR
         if self.config.force_ocr or not self._validate_extracted_text(text):
-            # Use OCR
             text = self._extract_pdf_with_ocr_sync(path)
 
-        # Extract tables if requested
         tables = []
         if self.config.extract_tables:
             try:
@@ -114,9 +105,8 @@ class PDFExtractor(Extractor):
 
                 tables = extract_tables_sync(path)
             except ImportError:
-                pass  # gmft not available
+                pass
 
-        # Normalize text
         text = normalize_spaces(text)
 
         return ExtractionResult(
@@ -170,12 +160,12 @@ class PDFExtractor(Extractor):
         document: pypdfium2.PdfDocument | None = None
         last_error = None
 
-        for attempt in range(3):  # Try up to 3 times
+        for attempt in range(3):  # Try up to 3 times  # ~keep
             try:
                 with pypdfium_file_lock(input_file):
                     document = await run_sync(pypdfium2.PdfDocument, str(input_file))
                     return [page.render(scale=4.25).to_pil() for page in cast("pypdfium2.PdfDocument", document)]
-            except pypdfium2.PdfiumError as e:
+            except pypdfium2.PdfiumError as e:  # noqa: PERF203
                 last_error = e
                 if not should_retry(e, attempt + 1):
                     raise ParsingError(
@@ -187,14 +177,14 @@ class PDFExtractor(Extractor):
                             attempt=attempt + 1,
                         ),
                     ) from e
-                # Wait before retry
+                # Wait before retry with exponential backoff  # ~keep
                 await anyio.sleep(0.5 * (attempt + 1))
             finally:
                 if document:
                     with pypdfium_file_lock(input_file), contextlib.suppress(Exception):
                         await run_sync(document.close)
 
-        # All retries failed
+        # All retries failed  # ~keep
         raise ParsingError(
             "Could not convert PDF to images after retries",
             context=create_error_context(
@@ -247,23 +237,19 @@ class PDFExtractor(Extractor):
                 text_parts = []
                 page_errors = []
 
-                # Extract text page by page to handle partial failures
                 for i, page in enumerate(cast("pypdfium2.PdfDocument", document)):
                     try:
                         text_page = page.get_textpage()
                         text_parts.append(text_page.get_text_bounded())
-                    except Exception as e:
+                    except Exception as e:  # noqa: PERF203, BLE001
                         page_errors.append({"page": i + 1, "error": str(e)})
                         text_parts.append(f"[Error extracting page {i + 1}]")
 
                 text = "\n".join(text_parts)
 
-                # If we got some text but had errors, include that in result
                 if page_errors and text_parts:
-                    # Partial success - return what we got
                     return normalize_spaces(text)
                 if not text_parts:
-                    # Complete failure
                     raise ParsingError(
                         "Could not extract any text from PDF",
                         context=create_error_context(
@@ -313,22 +299,18 @@ class PDFExtractor(Extractor):
         """Extract text from PDF using OCR (sync version)."""
         pdf = None
         try:
-            # Import our pure sync tesseract implementation
             from kreuzberg._multiprocessing.sync_tesseract import process_batch_images_sync_pure
 
-            # Render PDF pages to images
             images = []
             with pypdfium_file_lock(path):
                 pdf = pypdfium2.PdfDocument(str(path))
                 for page in pdf:
-                    # Render at 200 DPI for OCR
                     bitmap = page.render(scale=200 / 72)
                     pil_image = bitmap.to_pil()
                     images.append(pil_image)
                     bitmap.close()
                     page.close()
 
-            # Save images to temporary files for OCR
             import os
             import tempfile
 
@@ -343,7 +325,6 @@ class PDFExtractor(Extractor):
                     os.close(fd)
                     image_paths.append(temp_path)
 
-                # Process all images with OCR
                 if self.config.ocr_backend == "tesseract":
                     from kreuzberg._ocr._tesseract import TesseractConfig
 
@@ -354,11 +335,10 @@ class PDFExtractor(Extractor):
                     results = process_batch_images_sync_pure([str(p) for p in image_paths], config)
                     text_parts = [r.content for r in results]
                     return "\n\n".join(text_parts)
-                # For other OCR backends, fall back to error
+
                 raise NotImplementedError(f"Sync OCR not implemented for {self.config.ocr_backend}")
 
             finally:
-                # Clean up temp files
                 for _, temp_path in temp_files:
                     with contextlib.suppress(OSError):
                         Path(temp_path).unlink()

@@ -29,10 +29,9 @@ class ProcessPoolManager:
         """
         self.max_processes = max_processes or mp.cpu_count()
 
-        # Set memory limit based on available system memory
         if memory_limit_gb is None:
             available_memory = psutil.virtual_memory().available
-            self.memory_limit_bytes = int(available_memory * 0.75)  # Use 75% of available
+            self.memory_limit_bytes = int(available_memory * 0.75)  # Use 75% of available  # ~keep
         else:
             self.memory_limit_bytes = int(memory_limit_gb * 1024**3)
 
@@ -82,11 +81,9 @@ class ProcessPoolManager:
         Returns:
             Result of the function execution.
         """
-        # Calculate optimal workers for this task
         workers = self.get_optimal_workers(task_memory_mb)
         executor = self._ensure_executor(workers)
 
-        # Submit task and await result
         loop = asyncio.get_event_loop()
         self._active_tasks += 1
 
@@ -116,14 +113,12 @@ class ProcessPoolManager:
         if not arg_batches:
             return []
 
-        # Calculate optimal concurrency
         workers = self.get_optimal_workers(task_memory_mb)
         max_concurrent = max_concurrent or workers
 
         executor = self._ensure_executor(workers)
         loop = asyncio.get_event_loop()
 
-        # Create semaphore to limit concurrency
         semaphore = asyncio.Semaphore(max_concurrent)
 
         async def submit_single(args: tuple[Any, ...]) -> T:
@@ -134,7 +129,6 @@ class ProcessPoolManager:
                 finally:
                     self._active_tasks -= 1
 
-        # Submit all tasks and gather results
         tasks = [submit_single(args) for args in arg_batches]
         return await asyncio.gather(*tasks)
 
