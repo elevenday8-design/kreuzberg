@@ -115,7 +115,7 @@ def test_is_cache_valid_os_error(cache: KreuzbergCache[ExtractionResult]) -> Non
     """Test cache validity check with OS error."""
     cache_path = cache.cache_dir / "error.msgpack"
 
-    with patch.object(cache_path, "stat", side_effect=OSError("Permission denied")):
+    with patch("pathlib.Path.stat", side_effect=OSError("Permission denied")):
         assert not cache._is_cache_valid(cache_path)
 
 
@@ -294,7 +294,7 @@ def test_set_serialization_error(cache: KreuzbergCache[str]) -> None:
 
     unserializable = lambda x: x  # noqa: E731
 
-    with patch("kreuzberg._utils._cache.serialize", side_effect=Exception("Serialize error")):
+    with patch("kreuzberg._utils._cache.serialize", side_effect=TypeError("Serialize error")):
         cache.set(unserializable, key="test")  # type: ignore
 
 
@@ -469,5 +469,5 @@ async def test_aset_serialization_error(cache: KreuzbergCache[str]) -> None:
 
     unserializable = lambda x: x  # noqa: E731
 
-    with patch("kreuzberg._utils._cache.serialize", side_effect=Exception("Serialize error")):
+    with patch("kreuzberg._utils._cache.serialize", side_effect=TypeError("Serialize error")):
         await cache.aset(unserializable, key="test")  # type: ignore

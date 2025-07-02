@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import io
 from typing import TYPE_CHECKING, Any
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 from PIL import Image
@@ -41,12 +41,24 @@ def test_image_path(tmp_path: Path) -> Path:
     return img_path
 
 
+class _MockSubprocessResult:
+    """Simple mock for subprocess result that can be pickled."""
+
+    def __init__(self, returncode: int, stdout: str = "", stderr: str = ""):
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
+
+
 def test_process_image_with_tesseract_success(test_image_path: Path, tesseract_config: dict[str, Any]) -> None:
     """Test successful image processing with tesseract."""
     with patch("subprocess.run") as mock_run:
-        mock_run.return_value = Mock(returncode=0)
+        mock_run.return_value = _MockSubprocessResult(returncode=0)
 
-        with patch("pathlib.Path.read_text", return_value="Test OCR output"):
+        with patch("pathlib.Path.open") as mock_open:
+            mock_file = mock_open.return_value.__enter__.return_value
+            mock_file.read.return_value = "Test OCR output"
+
             result = _process_image_with_tesseract(str(test_image_path), tesseract_config)
 
             assert result["success"] is True
@@ -58,7 +70,7 @@ def test_process_image_with_tesseract_success(test_image_path: Path, tesseract_c
 def test_process_image_with_tesseract_error(test_image_path: Path, tesseract_config: dict[str, Any]) -> None:
     """Test image processing with tesseract error."""
     with patch("subprocess.run") as mock_run:
-        mock_run.return_value = Mock(returncode=1, stderr="Tesseract error")
+        mock_run.return_value = _MockSubprocessResult(returncode=1, stderr="Tesseract error")
 
         result = _process_image_with_tesseract(str(test_image_path), tesseract_config)
 
@@ -89,9 +101,12 @@ def test_process_image_with_tesseract_custom_params(test_image_path: Path) -> No
     }
 
     with patch("subprocess.run") as mock_run:
-        mock_run.return_value = Mock(returncode=0)
+        mock_run.return_value = _MockSubprocessResult(returncode=0)
 
-        with patch("pathlib.Path.read_text", return_value="French text"):
+        with patch("pathlib.Path.open") as mock_open:
+            mock_file = mock_open.return_value.__enter__.return_value
+            mock_file.read.return_value = "French text"
+
             _process_image_with_tesseract(str(test_image_path), config)
 
             args = mock_run.call_args[0][0]

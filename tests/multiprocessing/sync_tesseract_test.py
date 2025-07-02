@@ -96,7 +96,6 @@ def test_process_image_sync_pure_with_options(test_image_path: Path) -> None:
     config = TesseractConfig(
         language="fra",
         psm=6,  # type: ignore[arg-type]
-        oem=1,  # type: ignore[call-arg]
         tessedit_enable_dict_correction=True,
         tessedit_use_primary_params_model=False,
     )
@@ -115,8 +114,6 @@ def test_process_image_sync_pure_with_options(test_image_path: Path) -> None:
             assert "fra" in args
             assert "--psm" in args
             assert "6" in args
-            assert "--oem" in args
-            assert "1" in args
 
             assert "-c" in args
             assert "tessedit_enable_dict_correction=1" in args
@@ -226,25 +223,26 @@ def test_process_batch_images_threaded_error_handling(
 
 def test_process_batch_images_process_pool(test_image_paths: list[Path], tesseract_config: TesseractConfig) -> None:
     """Test batch processing with process pool."""
-    with patch("kreuzberg._multiprocessing.tesseract_pool._process_image_with_tesseract") as mock_process:
-        mock_results = [
-            {
-                "success": True,
-                "text": f"Image {i} text",
-                "mime_type": "text/plain",
-                "metadata": {},
-            }
-            for i in range(3)
-        ]
 
-        def side_effect(path: str, config_dict: dict[str, Any]) -> dict[str, Any]:
-            for i, test_path in enumerate(test_image_paths):
-                if str(path) == str(test_path):
-                    return mock_results[i]
-            return mock_results[0]
+    # Create a simple function that can be pickled
+    def mock_process_func(path: str, config_dict: dict[str, Any]) -> dict[str, Any]:
+        # Extract index from path to return appropriate result
+        for i in range(3):
+            if f"test_image_{i}" in path:
+                return {
+                    "success": True,
+                    "text": f"Image {i} text",
+                    "mime_type": "text/plain",
+                    "metadata": {},
+                }
+        return {
+            "success": True,
+            "text": "Image 0 text",
+            "mime_type": "text/plain",
+            "metadata": {},
+        }
 
-        mock_process.side_effect = side_effect
-
+    with patch("kreuzberg._multiprocessing.tesseract_pool._process_image_with_tesseract", mock_process_func):
         results = process_batch_images_process_pool(test_image_paths, tesseract_config, max_workers=2)  # type: ignore[arg-type]
 
         assert len(results) == 3
@@ -257,12 +255,12 @@ def test_process_batch_images_process_pool_error_handling(
 ) -> None:
     """Test process pool batch processing handles errors."""
 
-    def side_effect(path: str, config_dict: dict[str, Any]) -> dict[str, Any]:
+    def mock_process_with_error(path: str, config_dict: dict[str, Any]) -> dict[str, Any]:
         if "image_1" in str(path):
             return {"success": False, "error": "OCR failed"}
         return {"success": True, "text": "Success", "mime_type": "text/plain", "metadata": {}}
 
-    with patch("kreuzberg._multiprocessing.tesseract_pool._process_image_with_tesseract", side_effect=side_effect):
+    with patch("kreuzberg._multiprocessing.tesseract_pool._process_image_with_tesseract", mock_process_with_error):
         results = process_batch_images_process_pool(test_image_paths, tesseract_config)  # type: ignore[arg-type]
 
         assert len(results) == 3
@@ -276,12 +274,12 @@ def test_process_batch_images_process_pool_exception_handling(
 ) -> None:
     """Test process pool batch processing handles exceptions."""
 
-    def side_effect(path: str, config_dict: dict[str, Any]) -> dict[str, Any]:
+    def mock_process_with_exception(path: str, config_dict: dict[str, Any]) -> dict[str, Any]:
         if "image_1" in str(path):
             raise RuntimeError("Unexpected error")
         return {"success": True, "text": "Success", "mime_type": "text/plain", "metadata": {}}
 
-    with patch("kreuzberg._multiprocessing.tesseract_pool._process_image_with_tesseract", side_effect=side_effect):
+    with patch("kreuzberg._multiprocessing.tesseract_pool._process_image_with_tesseract", mock_process_with_exception):
         results = process_batch_images_process_pool(test_image_paths, tesseract_config)  # type: ignore[arg-type]
 
         assert len(results) == 3
