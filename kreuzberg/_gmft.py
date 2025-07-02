@@ -104,6 +104,26 @@ class GMFTConfig:
     """
     Force the large table assumption to be applied, regardless of the number of rows and overlap.
     """
+    total_overlap_reject_threshold: float = 0.9
+    """
+    Reject if total overlap is > 90% of table area.
+    """
+    total_overlap_warn_threshold: float = 0.1
+    """
+    Warn if total overlap is > 10% of table area.
+    """
+    nms_warn_threshold: int = 5
+    """
+    Warn if non maxima suppression removes > 5 rows.
+    """
+    iob_reject_threshold: float = 0.05
+    """
+    Reject if iob between textbox and cell is < 5%.
+    """
+    iob_warn_threshold: float = 0.5
+    """
+    Warn if iob between textbox and cell is < 50%.
+    """
 
 
 async def extract_tables(  # noqa: PLR0915

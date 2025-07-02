@@ -98,7 +98,7 @@ psm = 3
         tesseract_config = parse_ocr_backend_config(config_dict, "tesseract")
         assert isinstance(tesseract_config, TesseractConfig)
         assert tesseract_config.language == "eng"
-        assert tesseract_config.psm.value == 3
+        assert (tesseract_config.psm.value if hasattr(tesseract_config.psm, "value") else tesseract_config.psm) == 3
 
         assert parse_ocr_backend_config(config_dict, "paddleocr") is None
 
@@ -123,7 +123,7 @@ psm = 3
         assert config.ocr_backend == "tesseract"
         assert isinstance(config.ocr_config, TesseractConfig)
         assert config.ocr_config.language == "eng"
-        assert config.ocr_config.psm.value == 6
+        assert (config.ocr_config.psm.value if hasattr(config.ocr_config.psm, "value") else config.ocr_config.psm) == 6
 
     def test_build_extraction_config_ocr_none(self) -> None:
         """Test building config with OCR disabled."""

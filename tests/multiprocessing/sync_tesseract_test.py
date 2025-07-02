@@ -64,6 +64,40 @@ class _MockSubprocessResult:
         self.stderr = stderr
 
 
+# Module-level functions for process pool tests (must be picklable)
+def _mock_process_image_success(path: str, config_dict: dict[str, Any]) -> dict[str, Any]:
+    """Mock successful image processing for process pool tests."""
+    # Extract index from path to return appropriate result
+    for i in range(3):
+        if f"test_image_{i}" in path:
+            return {
+                "success": True,
+                "text": f"Image {i} text",
+                "mime_type": "text/plain",
+                "metadata": {},
+            }
+    return {
+        "success": True,
+        "text": "Image 0 text",
+        "mime_type": "text/plain",
+        "metadata": {},
+    }
+
+
+def _mock_process_image_with_error(path: str, config_dict: dict[str, Any]) -> dict[str, Any]:
+    """Mock image processing with error for process pool tests."""
+    if "image_1" in str(path):
+        return {"success": False, "error": "OCR failed"}
+    return {"success": True, "text": "Success", "mime_type": "text/plain", "metadata": {}}
+
+
+def _mock_process_image_with_exception(path: str, config_dict: dict[str, Any]) -> dict[str, Any]:
+    """Mock image processing with exception for process pool tests."""
+    if "image_1" in str(path):
+        raise RuntimeError("Unexpected error")
+    return {"success": True, "text": "Success", "mime_type": "text/plain", "metadata": {}}
+
+
 def test_process_image_sync_pure_success(test_image_path: Path, tesseract_config: TesseractConfig) -> None:
     """Test successful synchronous image processing."""
     with patch("subprocess.run") as mock_run:
@@ -223,26 +257,7 @@ def test_process_batch_images_threaded_error_handling(
 
 def test_process_batch_images_process_pool(test_image_paths: list[Path], tesseract_config: TesseractConfig) -> None:
     """Test batch processing with process pool."""
-
-    # Create a simple function that can be pickled
-    def mock_process_func(path: str, config_dict: dict[str, Any]) -> dict[str, Any]:
-        # Extract index from path to return appropriate result
-        for i in range(3):
-            if f"test_image_{i}" in path:
-                return {
-                    "success": True,
-                    "text": f"Image {i} text",
-                    "mime_type": "text/plain",
-                    "metadata": {},
-                }
-        return {
-            "success": True,
-            "text": "Image 0 text",
-            "mime_type": "text/plain",
-            "metadata": {},
-        }
-
-    with patch("kreuzberg._multiprocessing.tesseract_pool._process_image_with_tesseract", mock_process_func):
+    with patch("kreuzberg._multiprocessing.tesseract_pool._process_image_with_tesseract", _mock_process_image_success):
         results = process_batch_images_process_pool(test_image_paths, tesseract_config, max_workers=2)  # type: ignore[arg-type]
 
         assert len(results) == 3
@@ -254,13 +269,9 @@ def test_process_batch_images_process_pool_error_handling(
     test_image_paths: list[Path], tesseract_config: TesseractConfig
 ) -> None:
     """Test process pool batch processing handles errors."""
-
-    def mock_process_with_error(path: str, config_dict: dict[str, Any]) -> dict[str, Any]:
-        if "image_1" in str(path):
-            return {"success": False, "error": "OCR failed"}
-        return {"success": True, "text": "Success", "mime_type": "text/plain", "metadata": {}}
-
-    with patch("kreuzberg._multiprocessing.tesseract_pool._process_image_with_tesseract", mock_process_with_error):
+    with patch(
+        "kreuzberg._multiprocessing.tesseract_pool._process_image_with_tesseract", _mock_process_image_with_error
+    ):
         results = process_batch_images_process_pool(test_image_paths, tesseract_config)  # type: ignore[arg-type]
 
         assert len(results) == 3
@@ -273,13 +284,9 @@ def test_process_batch_images_process_pool_exception_handling(
     test_image_paths: list[Path], tesseract_config: TesseractConfig
 ) -> None:
     """Test process pool batch processing handles exceptions."""
-
-    def mock_process_with_exception(path: str, config_dict: dict[str, Any]) -> dict[str, Any]:
-        if "image_1" in str(path):
-            raise RuntimeError("Unexpected error")
-        return {"success": True, "text": "Success", "mime_type": "text/plain", "metadata": {}}
-
-    with patch("kreuzberg._multiprocessing.tesseract_pool._process_image_with_tesseract", mock_process_with_exception):
+    with patch(
+        "kreuzberg._multiprocessing.tesseract_pool._process_image_with_tesseract", _mock_process_image_with_exception
+    ):
         results = process_batch_images_process_pool(test_image_paths, tesseract_config)  # type: ignore[arg-type]
 
         assert len(results) == 3

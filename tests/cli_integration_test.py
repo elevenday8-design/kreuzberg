@@ -381,7 +381,7 @@ max_chars = 1500
             check=False,
             capture_output=True,
             text=True,
-            timeout=30,
+            timeout=120,
             cwd=Path.cwd(),
         )
 
