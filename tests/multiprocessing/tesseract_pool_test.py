@@ -137,41 +137,62 @@ class TestTesseractProcessPool:
     def test_init_default(self) -> None:
         """Test TesseractPool initialization with defaults."""
         pool = TesseractProcessPool()
-        assert pool.max_workers > 0
-        assert pool._config == TesseractConfig()
-        assert pool._pool is None
+        assert pool.config is not None
+        assert pool.process_manager is not None
+        # Check that config was set to a default TesseractConfig
+        assert isinstance(pool.config, TesseractConfig)
 
-    def test_init_custom_workers(self) -> None:
-        """Test TesseractPool initialization with custom workers."""
-        pool = TesseractProcessPool(max_workers=4)
-        assert pool.max_workers == 4
+    def test_init_custom_processes(self) -> None:
+        """Test TesseractPool initialization with custom processes."""
+        pool = TesseractProcessPool(max_processes=4)
+        assert pool.process_manager.max_processes == 4
 
     def test_init_custom_config(self) -> None:
         """Test TesseractPool initialization with custom config."""
         config = TesseractConfig(language="fra", psm=6)
         pool = TesseractProcessPool(config=config)
-        assert pool._config == config
+        assert pool.config == config
 
-    def test_enter_exit(self) -> None:
-        """Test context manager functionality."""
-        pool = TesseractProcessPool(max_workers=2)
+    def test_config_to_dict(self) -> None:
+        """Test _config_to_dict method - covers lines 309 and others."""
+        config = TesseractConfig(language="fra", psm=6)
+        pool = TesseractProcessPool(config=config)
 
-        with (
-            patch("kreuzberg._multiprocessing.process_manager.ProcessPoolManager.__enter__") as mock_enter,
-            patch("kreuzberg._multiprocessing.process_manager.ProcessPoolManager.__exit__") as mock_exit,
-        ):
-            mock_enter.return_value = pool
+        config_dict = pool._config_to_dict()
 
-            with pool as p:
-                assert p is pool
+        assert config_dict["language"] == "fra"
+        assert config_dict["psm"] == 6
 
-            mock_enter.assert_called_once()
-            mock_exit.assert_called_once()
+        # Test with override config
+        override_config = TesseractConfig(language="eng", psm=3)
+        override_dict = pool._config_to_dict(override_config)
+        assert override_dict["language"] == "eng"
+        assert override_dict["psm"] == 3
+
+    @pytest.mark.anyio
+    async def test_process_batch_images_empty_list(self) -> None:
+        """Test batch processing with empty list - covers line 309."""
+        pool = TesseractProcessPool(max_processes=2)
+
+        results = await pool.process_batch_images([])
+
+        assert results == []
+
+    def test_result_from_dict_error(self) -> None:
+        """Test _result_from_dict with error result - covers line 345."""
+        pool = TesseractProcessPool()
+
+        error_result = {"success": False, "text": "", "confidence": None, "error": "Tesseract failed"}
+
+        from kreuzberg.exceptions import OCRError
+
+        with pytest.raises(OCRError, match="Tesseract processing failed: Tesseract failed"):
+            pool._result_from_dict(error_result)
 
     @pytest.mark.anyio
     async def test_process_image_async(self, test_image_path: Path) -> None:
         """Test async image processing."""
-        pool = TesseractProcessPool(max_workers=2)
+        pool = TesseractProcessPool(max_processes=2)
 
         # Mock the sync processing result
         mock_result = {
@@ -190,7 +211,7 @@ class TestTesseractProcessPool:
     @pytest.mark.anyio
     async def test_process_image_error(self, test_image_path: Path) -> None:
         """Test async image processing with error."""
-        pool = TesseractProcessPool(max_workers=2)
+        pool = TesseractProcessPool(max_processes=2)
 
         # Mock error result
         mock_result = {
@@ -209,7 +230,7 @@ class TestTesseractProcessPool:
     @pytest.mark.anyio
     async def test_process_image_bytes_async(self) -> None:
         """Test async image bytes processing."""
-        pool = TesseractProcessPool(max_workers=2)
+        pool = TesseractProcessPool(max_processes=2)
 
         # Create test image bytes
         img = Image.new("RGB", (100, 100), color="white")
@@ -242,7 +263,7 @@ class TestTesseractProcessPool:
             img.save(img_path)
             images.append(img_path)
 
-        pool = TesseractProcessPool(max_workers=2)
+        pool = TesseractProcessPool(max_processes=2)
 
         # Mock results
         mock_results = [
@@ -273,7 +294,7 @@ class TestTesseractProcessPool:
             img.save(img_bytes, format="PNG")
             image_bytes_list.append(img_bytes.getvalue())
 
-        pool = TesseractProcessPool(max_workers=2)
+        pool = TesseractProcessPool(max_processes=2)
 
         # Mock results
         mock_results = [
@@ -295,7 +316,7 @@ class TestTesseractProcessPool:
 
     def test_shutdown(self) -> None:
         """Test pool shutdown."""
-        pool = TesseractProcessPool(max_workers=2)
+        pool = TesseractProcessPool(max_processes=2)
 
         with patch.object(pool.process_manager, "shutdown") as mock_shutdown:
             pool.shutdown()
@@ -313,7 +334,7 @@ class TestTesseractProcessPool:
     @pytest.mark.anyio
     async def test_async_context_manager(self) -> None:
         """Test async context manager functionality."""
-        pool = TesseractProcessPool(max_workers=2)
+        pool = TesseractProcessPool(max_processes=2)
 
         async with pool as p:
             assert p is pool

@@ -5,16 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
-from unittest.mock import Mock
 
 import pytest
 
 from kreuzberg._utils._serialization import (
     deserialize,
-    deserialize_from_str,
     encode_hook,
     serialize,
-    serialize_to_str,
 )
 
 
@@ -84,11 +81,12 @@ def test_encode_hook_dataclass_type() -> None:
 
 def test_encode_hook_dict_methods() -> None:
     """Test encoding objects with dict methods."""
-    # to_dict  
+
+    # to_dict
     class MockClass:
         def to_dict(self):
             return {"key": "value"}
-    
+
     obj = MockClass()
     assert encode_hook(obj) == {"key": "value"}
 
@@ -96,62 +94,70 @@ def test_encode_hook_dict_methods() -> None:
     class MockClass2:
         def as_dict(self):
             return {"key2": "value2"}
-    
+
     obj = MockClass2()
     assert encode_hook(obj) == {"key2": "value2"}
 
-    # dict method  
+    # dict method
     class MockClass3:
         def dict(self):
             return {"key3": "value3"}
-    
+
     obj = MockClass3()
     assert encode_hook(obj) == {"key3": "value3"}
 
     # model_dump (Pydantic v2)
-    obj = Mock(spec=[])
-    obj.model_dump = Mock(return_value={"key4": "value4"})
+    class MockClass4:
+        def model_dump(self):
+            return {"key4": "value4"}
+
+    obj = MockClass4()
     assert encode_hook(obj) == {"key4": "value4"}
 
 
 def test_encode_hook_list_methods() -> None:
     """Test encoding objects with list methods."""
+
     # to_list
-    obj = Mock(spec=[])
-    obj.to_list = Mock(return_value=[1, 2, 3])
+    class MockClass1:
+        def to_list(self):
+            return [1, 2, 3]
+
+    obj = MockClass1()
     assert encode_hook(obj) == [1, 2, 3]
 
     # tolist (numpy style)
-    obj = Mock(spec=[])
-    obj.tolist = Mock(return_value=[4, 5, 6])
+    class MockClass2:
+        def tolist(self):
+            return [4, 5, 6]
+
+    obj = MockClass2()
     assert encode_hook(obj) == [4, 5, 6]
 
 
 def test_encode_hook_pil_image() -> None:
     """Test encoding PIL images returns None."""
-    mock_image = Mock()
-    mock_image.save = Mock()
-    mock_image.format = "PNG"
 
+    class MockImage:
+        def save(self, *args, **kwargs) -> None:
+            pass
+
+        format = "PNG"
+
+    mock_image = MockImage()
     assert encode_hook(mock_image) is None
 
 
-def test_encode_hook_pandas_dataframe() -> None:
-    """Test encoding pandas DataFrames."""
-    mock_df = Mock()
-    mock_df.to_dict.return_value = {"col1": [1, 2], "col2": [3, 4]}
+def test_encode_hook_to_dict() -> None:
+    """Test encoding objects with to_dict method."""
 
+    class MockDataFrame:
+        def to_dict(self):
+            return {"col1": [1, 2], "col2": [3, 4]}
+
+    mock_df = MockDataFrame()
     result = encode_hook(mock_df)
-    assert result == {"__dataframe__": {"col1": [1, 2], "col2": [3, 4]}}
-
-
-def test_encode_hook_pandas_dataframe_error() -> None:
-    """Test encoding pandas DataFrames with error falls through."""
-    mock_df = Mock()
-    mock_df.to_dict.side_effect = Exception("DataFrame error")
-
-    with pytest.raises(TypeError, match="Unsupported type"):
-        encode_hook(mock_df)
+    assert result == {"col1": [1, 2], "col2": [3, 4]}
 
 
 def test_encode_hook_unsupported() -> None:
@@ -262,34 +268,6 @@ def test_deserialize_error() -> None:
         deserialize(data, int)
 
 
-def test_serialize_to_str() -> None:
-    """Test serializing to string."""
-    result = serialize_to_str({"key": "value"})
-
-    assert isinstance(result, str)
-    assert len(result) > 0
-
-
-def test_serialize_to_str_with_kwargs() -> None:
-    """Test serializing to string with kwargs."""
-    result = serialize_to_str({"base": "value"}, extra="data")
-
-    # Decode to verify
-    from msgspec import msgpack
-
-    decoded = msgpack.decode(result.encode("utf-8"))
-
-    assert decoded == {"base": "value", "extra": "data"}
-
-
-def test_deserialize_from_str() -> None:
-    """Test deserializing from string."""
-    data_str = serialize_to_str([1, 2, 3])
-    result = deserialize_from_str(data_str, list[int])
-
-    assert result == [1, 2, 3]
-
-
 def test_roundtrip_complex() -> None:
     """Test roundtrip serialization of complex objects."""
     original = {
@@ -325,24 +303,31 @@ def test_serialize_none_values() -> None:
 
 def test_encode_hook_method_priority() -> None:
     """Test method priority in encode_hook."""
-    # Object with multiple methods - to_dict should be used first
-    obj = Mock()
-    obj.to_dict = Mock(return_value={"from": "to_dict"})
-    obj.as_dict = Mock(return_value={"from": "as_dict"})
-    obj.dict = Mock(return_value={"from": "dict"})
 
+    # Create a non-callable object with multiple methods
+    class MultiMethodObject:
+        def to_dict(self):
+            return {"from": "to_dict"}
+
+        def as_dict(self):
+            return {"from": "as_dict"}
+
+        def dict(self):
+            return {"from": "dict"}
+
+    obj = MultiMethodObject()
     result = encode_hook(obj)
     assert result == {"from": "to_dict"}
-    obj.to_dict.assert_called_once()
-    obj.as_dict.assert_not_called()
-    obj.dict.assert_not_called()
 
 
 def test_encode_hook_json_method() -> None:
     """Test encoding objects with json method."""
-    obj = Mock(spec=[])
-    obj.json = Mock(return_value='{"key": "json_value"}')
 
+    class JsonObject:
+        def json(self) -> str:
+            return '{"key": "json_value"}'
+
+    obj = JsonObject()
     result = encode_hook(obj)
     assert result == '{"key": "json_value"}'
 
@@ -367,14 +352,4 @@ def test_deserialize_with_bytes_input() -> None:
 
     # Should work with bytes
     result = deserialize(serialized, dict[str, str])
-    assert result == original
-
-
-def test_deserialize_with_string_input() -> None:
-    """Test deserialize with string input."""
-    original = {"test": "data"}
-    serialized_str = serialize_to_str(original)
-
-    # Should work with string
-    result = deserialize(serialized_str, dict[str, str])
     assert result == original

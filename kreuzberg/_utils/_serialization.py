@@ -41,13 +41,6 @@ def encode_hook(obj: Any) -> Any:
     if hasattr(obj, "save") and hasattr(obj, "format"):
         return None
 
-    # Handle pandas DataFrames
-    if hasattr(obj, "to_dict"):
-        try:
-            return {"__dataframe__": obj.to_dict()}
-        except Exception:
-            pass
-
     raise TypeError(f"Unsupported type: {type(obj)!r}")
 
 
@@ -89,31 +82,5 @@ def serialize(value: Any, **kwargs: Any) -> bytes:
 
     try:
         return encode(value, enc_hook=encode_hook)
-    except MsgspecError as e:
+    except (MsgspecError, TypeError) as e:
         raise ValueError(f"Failed to serialize {type(value).__name__}: {e}") from e
-
-
-def serialize_to_str(value: Any, **kwargs: Any) -> str:
-    """Serialize value to string.
-
-    Args:
-        value: Object to serialize
-        **kwargs: Additional data to merge with value if it's a dict
-
-    Returns:
-        Serialized string
-    """
-    return serialize(value, **kwargs).decode("utf-8")
-
-
-def deserialize_from_str(value: str, target_type: type[T]) -> T:
-    """Deserialize string to target type.
-
-    Args:
-        value: Serialized string
-        target_type: Type to deserialize to
-
-    Returns:
-        Deserialized object
-    """
-    return deserialize(value.encode("utf-8"), target_type)

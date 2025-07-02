@@ -289,3 +289,161 @@ async def test_process_file_linux(backend: TesseractBackend, mocker: MockerFixtu
     await backend.process_file(Path("test.png"), language="eng", psm=PSMMode.AUTO)
 
     assert any(call[1].get("env") == {"OMP_THREAD_LIMIT": "1"} for call in mock_run.call_args_list)
+
+
+@pytest.mark.anyio
+async def test_process_image_cache_processing_coordination(
+    backend: TesseractBackend, tmp_path: Path, mocker: MockerFixture
+) -> None:
+    """Test cache processing coordination for process_image - covers lines 256-264."""
+    from kreuzberg._utils._cache import get_ocr_cache
+
+    # Create a test image
+    test_image = Image.new("RGB", (100, 50), color="white")
+
+    # Mock successful tesseract execution
+    mocker.patch(
+        "kreuzberg._ocr._tesseract.run_process", return_value=Mock(returncode=0, stdout=b"tesseract 5.0.0", stderr=b"")
+    )
+
+    # Get the cache and mark as processing
+    cache = get_ocr_cache()
+
+    # Simulate cache key for the image
+    import hashlib
+
+    image_bytes = b"fake image bytes"
+    image_hash = hashlib.sha256(image_bytes).hexdigest()[:16]
+
+    # Mark as processing to trigger coordination
+    cache.mark_processing(image_hash=image_hash, config="test_config")
+
+    # Set up background thread to complete processing
+    import threading
+    import time
+
+    def complete_processing() -> None:
+        time.sleep(0.1)  # Small delay
+        cache.mark_complete(image_hash=image_hash, config="test_config")
+        # Add cached result
+        cache.set(
+            ExtractionResult(content="cached text", mime_type="text/plain", metadata={}, chunks=[], tables=[]),
+            image_hash=image_hash,
+            config="test_config",
+        )
+
+    # Start background thread
+    thread = threading.Thread(target=complete_processing)
+    thread.start()
+
+    # This should wait for coordination and get cached result
+    # Mock the image hash calculation
+    mock_hash_obj = Mock()
+    mock_hash_obj.hexdigest.return_value = image_hash + "0" * 48  # 64 char hash
+    mocker.patch("kreuzberg._ocr._tesseract.hashlib.sha256", return_value=mock_hash_obj)
+
+    result = await backend.process_image(test_image, language="eng")
+
+    # Should get cached result
+    assert result.content == "cached text"
+
+    thread.join()
+
+
+@pytest.mark.anyio
+async def test_process_file_cache_processing_coordination(
+    backend: TesseractBackend, tmp_path: Path, mocker: MockerFixture
+) -> None:
+    """Test cache processing coordination for process_file - covers lines 323-331."""
+    from kreuzberg._utils._cache import get_ocr_cache
+
+    # Create a test file
+    test_file = tmp_path / "test.png"
+    test_image = Image.new("RGB", (100, 50), color="white")
+    test_image.save(test_file)
+
+    # Mock successful tesseract execution
+    mocker.patch(
+        "kreuzberg._ocr._tesseract.run_process", return_value=Mock(returncode=0, stdout=b"tesseract 5.0.0", stderr=b"")
+    )
+
+    # Get the cache and set up processing coordination
+    cache = get_ocr_cache()
+
+    # Generate cache key based on file - must match the format in process_file
+    file_stat = test_file.stat()
+    file_info = {
+        "path": str(test_file.resolve()),
+        "size": file_stat.st_size,
+        "mtime": file_stat.st_mtime,
+    }
+    cache_kwargs = {
+        "file_info": str(sorted(file_info.items())),
+        "ocr_backend": "tesseract",
+        "ocr_config": str(sorted([("language", "eng")])),  # Match the kwargs passed to process_file
+    }
+
+    # Mark as processing
+    cache.mark_processing(**cache_kwargs)
+
+    # Set up background completion
+    import threading
+    import time
+
+    def complete_processing() -> None:
+        time.sleep(0.1)
+        cache.mark_complete(**cache_kwargs)
+        cache.set(
+            ExtractionResult(content="cached file text", mime_type="text/plain", metadata={}, chunks=[], tables=[]),
+            **cache_kwargs,
+        )
+
+    thread = threading.Thread(target=complete_processing)
+    thread.start()
+
+    # This should trigger cache coordination
+    result = await backend.process_file(test_file, language="eng")
+
+    # Should get cached result
+    assert result.content == "cached file text"
+
+    thread.join()
+
+
+def test_validate_language_code_error() -> None:
+    """Test language code validation error - covers line 436."""
+    backend = TesseractBackend()
+
+    # Test with invalid language code that would cause validation error
+    with pytest.raises(ValidationError, match="provided language code is not supported"):
+        backend._validate_language_code("invalid_language_code_that_is_too_long_and_invalid")
+
+
+@pytest.mark.anyio
+async def test_process_image_validation_error(backend: TesseractBackend) -> None:
+    """Test validation error in process_image - covers line 251."""
+    # Create invalid image that will cause issues
+    test_image = Image.new("RGB", (1, 1), color="white")  # Very small image
+
+    # Mock validation to raise error
+    from unittest.mock import patch
+
+    with patch.object(backend, "_validate_language_code", side_effect=ValidationError("Invalid language")):
+        with pytest.raises(ValidationError, match="Invalid language"):
+            await backend.process_image(test_image, language="invalid")
+
+
+@pytest.mark.anyio
+async def test_process_file_validation_error(backend: TesseractBackend, tmp_path: Path) -> None:
+    """Test validation error in process_file - covers line 357."""
+    # Create test file
+    test_file = tmp_path / "test.png"
+    test_image = Image.new("RGB", (100, 50), color="white")
+    test_image.save(test_file)
+
+    # Mock validation to raise error
+    from unittest.mock import patch
+
+    with patch.object(backend, "_validate_language_code", side_effect=ValidationError("Invalid language")):
+        with pytest.raises(ValidationError, match="Invalid language"):
+            await backend.process_file(test_file, language="invalid")

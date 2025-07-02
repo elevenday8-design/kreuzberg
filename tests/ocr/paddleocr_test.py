@@ -672,6 +672,188 @@ def test_validate_language_code_invalid(invalid_language_code: str) -> None:
 
 
 @pytest.mark.anyio
+async def test_process_image_grayscale_conversion() -> None:
+    """Test grayscale to RGB conversion - covers lines 130-133."""
+    from unittest.mock import Mock, patch
+
+    from PIL import Image
+
+    backend = PaddleBackend()
+
+    # Create a grayscale image
+    grayscale_image = Image.new("L", (100, 100), color=128)
+
+    # Mock the init and ocr call
+    with patch.object(backend, "_init_paddle_ocr"):
+        backend._paddle_ocr = Mock()
+        backend._paddle_ocr.ocr.return_value = [[]]
+
+        with patch("kreuzberg._ocr._paddleocr.run_sync") as mock_run_sync:
+            mock_run_sync.return_value = [[]]
+
+            await backend.process_image(grayscale_image)
+
+            # Verify run_sync was called with converted RGB image
+            mock_run_sync.assert_called_once()
+            np_array_arg = mock_run_sync.call_args[0][1]  # Second argument should be the numpy array
+            # The image should have been converted to RGB (3 channels)
+            assert len(np_array_arg.shape) == 3
+            assert np_array_arg.shape[2] == 3  # RGB has 3 channels
+
+
+@pytest.mark.anyio
+async def test_process_paddle_result_current_line_handling() -> None:
+    """Test current line handling in result processing - covers lines 198-201."""
+    from PIL import Image
+
+    # Create test image
+    test_image = Image.new("RGB", (200, 100), color="white")
+
+    # Mock OCR results with multiple boxes that should be grouped into lines
+    mock_results = [
+        [  # Single page result
+            # First line (y=10-30)
+            [[[10, 10], [50, 10], [50, 30], [10, 30]], ("Hello", 0.9)],
+            [[[60, 12], [100, 12], [100, 32], [60, 32]], ("World", 0.8)],
+            # Second line (y=50-70)
+            [[[10, 50], [80, 50], [80, 70], [10, 70]], ("Second", 0.7)],
+            [[[90, 52], [150, 52], [150, 72], [90, 72]], ("Line", 0.6)],
+        ]
+    ]
+
+    result = PaddleBackend._process_paddle_result(mock_results, test_image)
+
+    # Should have processed both lines with proper grouping
+    assert "Hello World" in result.content
+    assert "Second Line" in result.content
+
+
+def test_process_paddle_result_image_size_fallback() -> None:
+    """Test image size fallback for mocked images - covers line 218."""
+    from unittest.mock import Mock
+
+    # Create a mock image without width/height attributes but with size
+    mock_image = Mock()
+    del mock_image.width
+    del mock_image.height
+    mock_image.size = (300, 200)
+
+    # Mock result with some text
+    mock_results = [[[[[10, 10], [50, 10], [50, 30], [10, 30]], ("Test", 0.9)]]]
+
+    result = PaddleBackend._process_paddle_result(mock_results, mock_image)
+
+    # Should use size tuple as fallback
+    assert result.metadata["width"] == 300
+    assert result.metadata["height"] == 200
+
+
+@pytest.mark.anyio
+async def test_init_paddle_ocr_gpu_memory_conversion() -> None:
+    """Test GPU memory limit conversion - covers line 284."""
+    from unittest.mock import Mock, patch
+
+    # Reset the paddle_ocr instance
+    PaddleBackend._paddle_ocr = None
+
+    mock_paddle_ocr_class = Mock()
+    mock_paddle_ocr_instance = Mock()
+    mock_paddle_ocr_class.return_value = mock_paddle_ocr_instance
+
+    # Mock device info for CUDA
+    mock_device_info = Mock()
+    mock_device_info.device_type = "cuda"
+
+    # Mock run_sync to actually call the function so we can inspect the call
+    async def mock_run_sync_func(func, *args, **kwargs):
+        return func(*args, **kwargs)
+
+    with (
+        patch("kreuzberg._ocr._paddleocr.find_spec", return_value=True),
+        patch.dict("sys.modules", {"paddleocr": Mock(PaddleOCR=mock_paddle_ocr_class)}),
+        patch.object(PaddleBackend, "_validate_language_code", return_value="en"),
+        patch.object(PaddleBackend, "_resolve_device_config", return_value=mock_device_info),
+        patch("kreuzberg._ocr._paddleocr.run_sync", side_effect=mock_run_sync_func),
+    ):
+        await PaddleBackend._init_paddle_ocr(language="en", gpu_memory_limit=2.5)
+
+        # Verify that gpu_mem was set to converted value (2.5 GB * 1024 = 2560 MB)
+        mock_paddle_ocr_class.assert_called_once()
+        expected_call_kwargs = mock_paddle_ocr_class.call_args[1]
+        assert expected_call_kwargs["gpu_mem"] == 2560
+
+
+@pytest.mark.anyio
+async def test_resolve_device_config_deprecated_use_gpu_warnings() -> None:
+    """Test deprecated use_gpu warnings - covers lines 312-319, 321."""
+    import warnings
+    from unittest.mock import patch
+
+    # Test case 1: use_gpu=True with device="auto" (lines 312-319)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+
+        with patch("kreuzberg._utils._device.validate_device_request") as mock_validate:
+            mock_validate.return_value = Mock(device_type="cpu", name="CPU")
+
+            PaddleBackend._resolve_device_config(use_gpu=True, device="auto")
+
+            # Should have issued deprecation warning
+            assert len(w) == 1
+            assert issubclass(w[0].category, DeprecationWarning)
+            assert "'use_gpu' parameter is deprecated" in str(w[0].message)
+
+    # Test case 2: use_gpu=True with device="cpu" (line 321)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+
+        with patch("kreuzberg._utils._device.validate_device_request") as mock_validate:
+            mock_validate.return_value = Mock(device_type="cpu", name="CPU")
+
+            PaddleBackend._resolve_device_config(use_gpu=True, device="cpu")
+
+            # Should have issued both warnings
+            assert len(w) == 1
+            assert issubclass(w[0].category, DeprecationWarning)
+            assert "Both 'use_gpu' and 'device' parameters specified" in str(w[0].message)
+
+
+@pytest.mark.anyio
+async def test_resolve_device_config_mps_warning() -> None:
+    """Test MPS not supported warning - covers lines 330-335."""
+    import warnings
+    from unittest.mock import patch
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+
+        with patch("kreuzberg._utils._device.validate_device_request") as mock_validate:
+            mock_validate.return_value = Mock(device_type="cpu", name="CPU")
+
+            PaddleBackend._resolve_device_config(device="mps")
+
+            # Should have issued MPS warning and fallback to CPU
+            assert len(w) == 1
+            assert issubclass(w[0].category, UserWarning)
+            assert "PaddlePaddle does not support MPS" in str(w[0].message)
+
+
+@pytest.mark.anyio
+async def test_resolve_device_config_validation_error_fallback() -> None:
+    """Test ValidationError fallback for deprecated use_gpu=False - covers lines 345-348."""
+    from unittest.mock import patch
+
+    with patch("kreuzberg._utils._device.validate_device_request") as mock_validate:
+        mock_validate.side_effect = ValidationError("Device validation failed")
+
+        # Should fallback to CPU device for deprecated use_gpu=False case
+        result = PaddleBackend._resolve_device_config(use_gpu=False, device="cpu")
+
+        assert result.device_type == "cpu"
+        assert result.name == "CPU"
+
+
+@pytest.mark.anyio
 async def test_init_paddle_ocr_with_invalid_language(
     backend: PaddleBackend, mock_find_spec: Mock, mocker: MockerFixture
 ) -> None:

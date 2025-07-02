@@ -7,7 +7,13 @@ import time
 from pathlib import Path
 
 from kreuzberg import ExtractionConfig, extract_file
-from kreuzberg._utils._cache import clear_all_caches, get_document_cache, get_mime_cache, get_ocr_cache, get_table_cache
+from kreuzberg._utils._cache import (
+    clear_all_caches,
+    get_document_cache,
+    get_mime_cache,
+    get_ocr_cache,
+    get_table_cache,
+)
 
 
 async def run_final_benchmark():
@@ -21,7 +27,9 @@ async def run_final_benchmark():
     single_file = pdf_files[0]
 
     # Configuration that uses all cache layers
-    full_config = ExtractionConfig(force_ocr=True, ocr_backend="tesseract", extract_tables=True, chunk_content=True)
+    full_config = ExtractionConfig(
+        force_ocr=True, ocr_backend="tesseract", extract_tables=True, chunk_content=True
+    )
 
     # Baseline: Cold extraction (no cache)
     clear_all_caches()
@@ -44,8 +52,14 @@ async def run_final_benchmark():
         result_cached = await extract_file(single_file, config=full_config)
         cached_duration = time.time() - start_time
 
-        total_speedup = baseline_duration / cached_duration if cached_duration > 0 else float("inf")
-        content_match = result_baseline.content == result_cached.content if result_baseline and result_cached else False
+        total_speedup = (
+            baseline_duration / cached_duration if cached_duration > 0 else float("inf")
+        )
+        content_match = (
+            result_baseline.content == result_cached.content
+            if result_baseline and result_cached
+            else False
+        )
 
         cached_success = True
     except Exception:

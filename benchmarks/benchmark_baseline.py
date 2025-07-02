@@ -76,7 +76,9 @@ async def run_baseline_benchmark():
     mixed_duration = time.time() - start_time
 
     mixed_successes = sum(1 for r in mixed_results if not r.metadata.get("error"))
-    mixed_failure_rate = ((len(mixed_results) - mixed_successes) / len(mixed_results)) * 100
+    mixed_failure_rate = (
+        (len(mixed_results) - mixed_successes) / len(mixed_results)
+    ) * 100
 
     results["mixed_files_batch"] = {
         "duration": mixed_duration,

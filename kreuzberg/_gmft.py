@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -105,7 +106,9 @@ class GMFTConfig:
     """
 
 
-async def extract_tables(file_path: str | PathLike[str], config: GMFTConfig | None = None) -> list[TableData]:
+async def extract_tables(
+    file_path: str | PathLike[str], config: GMFTConfig | None = None, use_isolated_process: bool | None = None
+) -> list[TableData]:
     """Extracts tables from a PDF file.
 
     This function takes a file path to a PDF file, and an optional configuration object.
@@ -114,6 +117,8 @@ async def extract_tables(file_path: str | PathLike[str], config: GMFTConfig | No
     Args:
         file_path: The path to the PDF file.
         config: An optional configuration object.
+        use_isolated_process: Whether to use an isolated process for extraction.
+            If None, uses environment variable KREUZBERG_GMFT_ISOLATED (default: True).
 
     Raises:
         MissingDependencyError: Raised when the required dependencies are not installed.
@@ -124,6 +129,10 @@ async def extract_tables(file_path: str | PathLike[str], config: GMFTConfig | No
     from pathlib import Path
 
     from kreuzberg._utils._cache import get_table_cache
+
+    # Determine if we should use isolated process
+    if use_isolated_process is None:
+        use_isolated_process = os.environ.get("KREUZBERG_GMFT_ISOLATED", "true").lower() in ("true", "1", "yes")
 
     # Generate cache key based on file and config
     path = Path(file_path)
@@ -171,6 +180,18 @@ async def extract_tables(file_path: str | PathLike[str], config: GMFTConfig | No
     table_cache.mark_processing(**cache_kwargs)
 
     try:
+        # Use isolated process if enabled
+        if use_isolated_process:
+            from kreuzberg._multiprocessing.gmft_isolated import extract_tables_isolated_async
+
+            result = await extract_tables_isolated_async(file_path, config)
+
+            # Cache the table extraction result
+            await table_cache.aset(result, **cache_kwargs)
+
+            return result
+
+        # Otherwise use direct extraction
         try:
             from gmft.auto import AutoTableDetector, AutoTableFormatter  # type: ignore[attr-defined]
             from gmft.detectors.tatr import TATRDetectorConfig  # type: ignore[attr-defined]
@@ -233,12 +254,16 @@ async def extract_tables(file_path: str | PathLike[str], config: GMFTConfig | No
         table_cache.mark_complete(**cache_kwargs)
 
 
-def extract_tables_sync(file_path: str | PathLike[str], config: GMFTConfig | None = None) -> list[TableData]:
+def extract_tables_sync(
+    file_path: str | PathLike[str], config: GMFTConfig | None = None, use_isolated_process: bool | None = None
+) -> list[TableData]:
     """Synchronous wrapper for extract_tables.
 
     Args:
         file_path: The path to the PDF file.
         config: An optional configuration object.
+        use_isolated_process: Whether to use an isolated process for extraction.
+            If None, uses environment variable KREUZBERG_GMFT_ISOLATED (default: True).
 
     Returns:
         A list of table data dictionaries.
@@ -246,6 +271,10 @@ def extract_tables_sync(file_path: str | PathLike[str], config: GMFTConfig | Non
     from pathlib import Path
 
     from kreuzberg._utils._cache import get_table_cache
+
+    # Determine if we should use isolated process
+    if use_isolated_process is None:
+        use_isolated_process = os.environ.get("KREUZBERG_GMFT_ISOLATED", "true").lower() in ("true", "1", "yes")
 
     # Generate cache key based on file and config
     path = Path(file_path)
@@ -276,7 +305,18 @@ def extract_tables_sync(file_path: str | PathLike[str], config: GMFTConfig | Non
     if cached_result is not None:
         return cached_result
 
-    # If not cached, run the sync extraction without using the async cache coordination
+    # If not cached, run the sync extraction
+    if use_isolated_process:
+        from kreuzberg._multiprocessing.gmft_isolated import extract_tables_isolated
+
+        result = extract_tables_isolated(file_path, config)
+
+        # Cache the result (sync)
+        table_cache.set(result, **cache_kwargs)
+
+        return result
+
+    # Otherwise use direct extraction
     try:
         from gmft.auto import AutoTableDetector, AutoTableFormatter  # type: ignore[attr-defined]
         from gmft.detectors.tatr import TATRDetectorConfig  # type: ignore[attr-defined]

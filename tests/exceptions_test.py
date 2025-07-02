@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from kreuzberg.exceptions import KreuzbergError, MissingDependencyError, ParsingError, ValidationError, OCRError
+from kreuzberg.exceptions import KreuzbergError, MissingDependencyError, OCRError, ParsingError, ValidationError
 
 
 def test_kreuzberg_error_serialize_context_with_bytes() -> None:
@@ -17,7 +17,7 @@ def test_kreuzberg_error_serialize_context_with_list() -> None:
 
 
 def test_kreuzberg_error_serialize_context_with_tuple() -> None:
-    """Test serialization of tuple context.""" 
+    """Test serialization of tuple context."""
     error = KreuzbergError("Test error")
     serialized = error._serialize_context((b"bytes", "string", 123))
     assert serialized == ["bytes", "string", 123]
@@ -94,9 +94,7 @@ def test_ocr_error() -> None:
 def test_missing_dependency_error_create_for_package() -> None:
     """Test MissingDependencyError creation."""
     error = MissingDependencyError.create_for_package(
-        dependency_group="ocr",
-        functionality="optical character recognition",
-        package_name="tesseract"
+        dependency_group="ocr", functionality="optical character recognition", package_name="tesseract"
     )
     assert "tesseract" in str(error)
     assert "optical character recognition" in str(error)

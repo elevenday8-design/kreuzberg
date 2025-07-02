@@ -37,14 +37,14 @@ def test_safe_decode_fallback_to_latin1() -> None:
     """Test safe_decode fallback to latin-1 when all other encodings fail."""
     # Create bytes that will fail UTF-8 and other common encodings
     problematic_bytes = b"\xff\xfe\x00\x01\x02"
-    
+
     # Mock detect to return None/empty to force fallback
     with patch("kreuzberg._utils._string.detect") as mock_detect:
         mock_detect.return_value = {"encoding": None}
-        
+
         # This should trigger the latin-1 fallback on line 27
         result = safe_decode(problematic_bytes)
-        
+
         # Latin-1 can decode any byte sequence, so we should get a result
         assert isinstance(result, str)
         assert len(result) == len(problematic_bytes)
@@ -82,5 +82,5 @@ def test_normalize_spaces_single_word() -> None:
 
 def test_normalize_spaces_multiple_types() -> None:
     """Test normalize_spaces with multiple whitespace types."""
-    result = normalize_spaces("word1\u00A0\u2000word2\u2003\u2009word3")
+    result = normalize_spaces("word1\u00a0\u2000word2\u2003\u2009word3")
     assert result == "word1 word2 word3"

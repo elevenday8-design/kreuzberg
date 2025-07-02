@@ -66,14 +66,16 @@ async def test_batch_extract_file_multiple(test_files: list[Path]) -> None:
 @pytest.mark.anyio
 async def test_batch_extract_file_with_error() -> None:
     """Test batch extraction with file error."""
-    with patch("kreuzberg.extraction.extract_file") as mock_extract:
-        # First file succeeds, second fails, third succeeds
-        mock_extract.side_effect = [
-            ExtractionResult(content="OK1", mime_type="text/plain", metadata={}, chunks=[]),
-            RuntimeError("Extract failed"),
-            ExtractionResult(content="OK3", mime_type="text/plain", metadata={}, chunks=[]),
-        ]
 
+    async def mock_extract_file(file_path: Path, mime_type: Any, config: Any) -> ExtractionResult:
+        if file_path == Path("file1"):
+            return ExtractionResult(content="OK1", mime_type="text/plain", metadata={}, chunks=[])
+        if file_path == Path("file2"):
+            raise RuntimeError("Extract failed")
+        # file3
+        return ExtractionResult(content="OK3", mime_type="text/plain", metadata={}, chunks=[])
+
+    with patch("kreuzberg.extraction.extract_file", side_effect=mock_extract_file):
         results = await batch_extract_file([Path("file1"), Path("file2"), Path("file3")])
 
         assert len(results) == 3
@@ -146,7 +148,7 @@ def test_batch_extract_file_sync_with_error(tmp_path: Path) -> None:
 
 def test_batch_extract_file_sync_with_config(test_files: list[Path]) -> None:
     """Test sync batch extraction with custom config."""
-    config = ExtractionConfig(include_formatting=True)
+    config = ExtractionConfig(chunk_content=True, max_chars=100)
 
     with patch("kreuzberg.extraction.extract_file_sync") as mock_extract:
         mock_extract.return_value = ExtractionResult(
@@ -261,12 +263,12 @@ async def test_batch_extract_file_preserves_order() -> None:
 
     with patch("kreuzberg.extraction.extract_file") as mock_extract:
         # Create results with different delays to test ordering
-        async def extract_with_delay(file_path: Path, **kwargs: Any) -> ExtractionResult:
-            import asyncio
+        async def extract_with_delay(file_path: Path, config: Any = None, mime_type: Any = None) -> ExtractionResult:
+            import anyio
 
             # Reverse delay to test ordering is preserved
             delay = 0.1 * (5 - int(file_path.name[-1]))
-            await asyncio.sleep(delay)
+            await anyio.sleep(delay)
             return ExtractionResult(
                 content=f"Content from {file_path.name}", mime_type="text/plain", metadata={}, chunks=[]
             )

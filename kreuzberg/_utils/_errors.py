@@ -71,7 +71,7 @@ def create_error_context(
                 "process_count": len(psutil.pids()),
                 "platform": platform.platform(),
             }
-        except Exception:
+        except Exception:  # noqa: S110, BLE001
             pass  # Don't fail on system info collection
 
     # Add any extra context
@@ -97,10 +97,10 @@ def is_transient_error(error: Exception) -> bool:
         ConnectionError,
         BrokenPipeError,
     )
-    
+
     if isinstance(error, transient_types):
         return True
-    
+
     transient_patterns = [
         # File system
         "temporary",

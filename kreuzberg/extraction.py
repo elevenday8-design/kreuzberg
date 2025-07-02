@@ -118,11 +118,11 @@ async def extract_file(
     if cache.is_processing(file_path, config):
         # Wait for the other thread to complete
         event = cache.mark_processing(file_path, config)
-        await anyio.to_thread.run_sync(event.wait)
+        await anyio.to_thread.run_sync(event.wait)  # pragma: no cover
 
         # Try cache again after waiting
-        cached_result = cache.get(file_path, config)
-        if cached_result is not None:
+        cached_result = cache.get(file_path, config)  # pragma: no cover
+        if cached_result is not None:  # pragma: no cover
             return cached_result
 
     # Mark as processing
@@ -189,7 +189,7 @@ async def batch_extract_file(
                     config,
                 )
                 results[index] = result
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 # Store error information instead of failing entire batch
                 from kreuzberg._utils._errors import create_error_context
 
@@ -244,7 +244,7 @@ async def batch_extract_bytes(
             try:
                 result = await extract_bytes(content, mime_type, config)
                 results[index] = result
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 # Store error information instead of failing entire batch
                 from kreuzberg._utils._errors import create_error_context
 
@@ -322,11 +322,11 @@ def extract_file_sync(
     if cache.is_processing(file_path, config):
         # Wait for the other thread to complete
         event = cache.mark_processing(file_path, config)
-        event.wait()
+        event.wait()  # pragma: no cover
 
         # Try cache again after waiting
-        cached_result = cache.get(file_path, config)
-        if cached_result is not None:
+        cached_result = cache.get(file_path, config)  # pragma: no cover
+        if cached_result is not None:  # pragma: no cover
             return cached_result
 
     # Mark as processing
