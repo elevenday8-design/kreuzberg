@@ -69,7 +69,6 @@ class SpreadSheetExtractor(Extractor):
         fd, temp_path = tempfile.mkstemp(suffix=".xlsx")
 
         try:
-            # Write content to temp file
             with os.fdopen(fd, "wb") as f:
                 f.write(content)
 
@@ -163,7 +162,6 @@ class SpreadSheetExtractor(Extractor):
         csv_data = csv_buffer.getvalue()
         csv_buffer.close()
 
-        # Process CSV data into markdown table
         csv_reader = csv.reader(StringIO(csv_data))
         rows = list(csv_reader)
         result = ""

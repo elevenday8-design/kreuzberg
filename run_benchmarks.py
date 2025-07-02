@@ -1,16 +1,16 @@
-#!/usr/bin/env python3
 """Quick benchmark runner for Kreuzberg sync vs async performance.
 This is a simplified version that works with the current setup.
 """
+
+from __future__ import annotations
 
 import asyncio
 import json
 import platform
 import sys
 import time
-from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import psutil
 
@@ -30,7 +30,6 @@ def collect_system_info() -> dict[str, Any]:
         "memory_total_gb": memory_info.total / (1024**3),
         "architecture": platform.architecture()[0],
         "machine": platform.machine(),
-        "processor": platform.processor(),
     }
 
 
@@ -54,7 +53,7 @@ def benchmark_sync_function(name: str, func: Callable[..., Any], *args: Any, **k
             "memory_mb": memory_used,
             "result_size": len(result.content) if hasattr(result, "content") else len(str(result)),
         }
-    except (OSError, ValueError, RuntimeError) as e:
+    except Exception as e:  # noqa: BLE001
         duration = time.perf_counter() - start_time
         return {
             "name": name,
@@ -88,7 +87,7 @@ async def benchmark_async_function(name: str, func: Callable[..., Any], *args: A
             "memory_mb": memory_used,
             "result_size": len(result.content) if hasattr(result, "content") else len(str(result)),
         }
-    except (OSError, ValueError, RuntimeError) as e:
+    except Exception as e:  # noqa: BLE001
         duration = time.perf_counter() - start_time
         return {
             "name": name,
@@ -99,46 +98,39 @@ async def benchmark_async_function(name: str, func: Callable[..., Any], *args: A
         }
 
 
-async def run_comparison_benchmarks() -> list[dict[str, Any]]:
+async def run_comparison_benchmarks() -> list[dict[str, Any]] | None:
     """Run sync vs async comparison benchmarks."""
     test_files_dir = Path("tests/test_source_files")
     if not test_files_dir.exists():
-        return []
+        return None
 
-    # Find test files
     test_files: list[Path] = []
     for ext in [".md", ".html", ".pdf", ".docx"]:
         test_files.extend(test_files_dir.glob(f"*{ext}"))
 
     if not test_files:
-        return []
+        return None
 
-    test_files = test_files[:5]  # Limit to first 5 files
+    test_files = test_files[:5]
 
     results = []
 
-    # Single file benchmarks
     for test_file in test_files:
-        # Sync version
         sync_result = benchmark_sync_function(f"sync_{test_file.stem}", extract_file_sync, test_file)
         results.append(sync_result)
 
-        # Async version
         async_result = await benchmark_async_function(f"async_{test_file.stem}", extract_file, test_file)
         results.append(async_result)
 
-    # Batch benchmarks
-    min_batch_size = 3
-    if len(test_files) >= min_batch_size:
-        batch_files = test_files[:min_batch_size]
+    batch_size = 3
+    if len(test_files) >= batch_size:
+        batch_files = test_files[:batch_size]
 
-        # Sync batch (sequential)
         sync_batch_result = benchmark_sync_function(
             "sync_batch_sequential", lambda files: [extract_file_sync(f) for f in files], batch_files
         )
         results.append(sync_batch_result)
 
-        # Async batch (concurrent)
         async_batch_result = await benchmark_async_function("async_batch_concurrent", batch_extract_file, batch_files)
         results.append(async_batch_result)
 
@@ -153,26 +145,20 @@ def print_summary(results: list[dict[str, Any]], _system_info: dict[str, Any]) -
 
     if sync_results:
         sync_avg = sum(r["duration_seconds"] for r in sync_results) / len(sync_results)
-        print(f"Sync average: {sync_avg:.3f}s")  # noqa: T201
 
     if async_results:
         async_avg = sum(r["duration_seconds"] for r in async_results) / len(async_results)
-        print(f"Async average: {async_avg:.3f}s")  # noqa: T201
 
     if sync_results and async_results:
-        improvement = async_avg - sync_avg
-        print(f"Async improvement: {improvement:.3f}s")  # noqa: T201
+        async_avg - sync_avg
 
     for result in results:
-        status = "✓" if result["success"] else "✗"
-        duration = result["duration_seconds"]
-        memory = result.get("memory_mb", 0)
-        print(f"{status} {result['name']}: {duration:.3f}s, {memory:.1f}MB")  # noqa: T201
+        "✓" if result["success"] else "✗"
+        result["duration_seconds"]
+        result.get("memory_mb", 0)
 
 
-def save_results(
-    results: list[dict[str, Any]], system_info: dict[str, Any], output_file: str = "benchmark_results.json"
-) -> None:
+def save_results(results: list[dict[str, Any]], system_info: dict[str, Any], output_file: str) -> None:
     """Save results to JSON file."""
     output_data = {
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -196,14 +182,13 @@ async def main() -> None:
 
     start_time = time.perf_counter()
     results = await run_comparison_benchmarks()
-    total_time = time.perf_counter() - start_time
-    print(f"Total benchmark time: {total_time:.3f}s")  # noqa: T201
+    time.perf_counter() - start_time
 
     if results:
         print_summary(results, system_info)
-        save_results(results, system_info)
+        save_results(results, system_info, "benchmark_results.json")
     else:
-        print("No benchmark results to display")  # noqa: T201
+        pass
 
 
 if __name__ == "__main__":

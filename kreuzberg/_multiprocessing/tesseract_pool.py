@@ -4,9 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-if TYPE_CHECKING:
-    import types
-
 from PIL import Image
 from typing_extensions import Self
 
@@ -16,7 +13,9 @@ from kreuzberg._types import ExtractionResult
 from .process_manager import ProcessPoolManager
 
 if TYPE_CHECKING:
-    from pathlib import Path
+    import types
+
+from pathlib import Path
 
 
 def _process_image_with_tesseract(
@@ -40,14 +39,12 @@ def _process_image_with_tesseract(
         import subprocess
         import tempfile
 
-        # Create temporary output file
         with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as tmp_file:
             output_base = tmp_file.name.replace(".txt", "")
 
         try:
-            # Build tesseract command
             language = config_dict.get("language", "eng")
-            psm = config_dict.get("psm", 3)  # Default to AUTO
+            psm = config_dict.get("psm", 3)
 
             command = [
                 "tesseract",
@@ -63,7 +60,6 @@ def _process_image_with_tesseract(
                 "OFF",
             ]
 
-            # Add boolean config options
             boolean_options = [
                 "classify_use_pre_adapted_templates",
                 "language_model_ngram_on",
@@ -80,31 +76,25 @@ def _process_image_with_tesseract(
                     value = 1 if config_dict[option] else 0
                     command.extend(["-c", f"{option}={value}"])
 
-            # Set environment to prevent multithreading deadlocks
             env = os.environ.copy()
             env["OMP_THREAD_LIMIT"] = "1"
 
-            # Run tesseract
-            result = subprocess.run(  # noqa: S603
+            result = subprocess.run(
                 command,
                 check=False,
                 env=env,
                 capture_output=True,
                 text=True,
-                timeout=30,  # 30 second timeout
+                timeout=30,
             )
 
             if result.returncode != 0:
-                msg = f"Tesseract failed with return code {result.returncode}: {result.stderr}"
-                raise RuntimeError(msg)
-
-            # Read output
-            from pathlib import Path
+                raise Exception(f"Tesseract failed with return code {result.returncode}: {result.stderr}")
 
             output_file = output_base + ".txt"
-            text = Path(output_file).read_text(encoding="utf-8")
+            with Path(output_file).open(encoding="utf-8") as f:
+                text = f.read()
 
-            # Normalize text
             from kreuzberg._utils._string import normalize_spaces
 
             text = normalize_spaces(text)
@@ -117,13 +107,11 @@ def _process_image_with_tesseract(
             }
 
         finally:
-            # Clean up temporary files
-            from pathlib import Path
-
             for ext in [".txt"]:
-                temp_file = Path(output_base + ext)
-                if temp_file.exists():
-                    temp_file.unlink()
+                temp_file = output_base + ext
+                temp_path = Path(temp_file)
+                if temp_path.exists():
+                    temp_path.unlink()
 
     except Exception as e:  # noqa: BLE001
         return {
@@ -151,20 +139,14 @@ def _process_image_bytes_with_tesseract(
         import io
         import tempfile
 
-        # Save image bytes to temporary file
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_image:
-            # Load image and save as PNG
             with Image.open(io.BytesIO(image_bytes)) as image:
                 image.save(tmp_image.name, format="PNG")
             image_path = tmp_image.name
 
         try:
-            # Use the file processing function
             return _process_image_with_tesseract(image_path, config_dict)
         finally:
-            # Clean up temporary image file
-            from pathlib import Path
-
             image_file = Path(image_path)
             if image_file.exists():
                 image_file.unlink()
@@ -204,11 +186,10 @@ class TesseractProcessPool:
         """Convert TesseractConfig to dictionary for pickling."""
         cfg = config or self.config
 
-        # Convert all TesseractConfig fields to a dictionary
         config_dict = {}
         for field_name in cfg.__dataclass_fields__:
             value = getattr(cfg, field_name)
-            # Handle enum values
+
             if hasattr(value, "value"):
                 config_dict[field_name] = value.value
             else:
@@ -228,7 +209,7 @@ class TesseractProcessPool:
         return ExtractionResult(
             content=result_dict["text"],
             mime_type=PLAIN_TEXT_MIME_TYPE,
-            metadata={},
+            metadata={"confidence": result_dict["confidence"]} if result_dict["confidence"] else {},  # type: ignore[typeddict-unknown-key]
             chunks=[],
         )
 
@@ -248,7 +229,6 @@ class TesseractProcessPool:
         """
         config_dict = self._config_to_dict(config)
 
-        # Estimate memory usage (typical Tesseract process uses ~50-100MB)
         task_memory_mb = 80
 
         result_dict = await self.process_manager.submit_task(
@@ -276,9 +256,8 @@ class TesseractProcessPool:
         """
         config_dict = self._config_to_dict(config)
 
-        # Estimate memory usage based on image size
         image_size_mb = len(image_bytes) / 1024 / 1024
-        task_memory_mb = max(80, image_size_mb * 2 + 50)  # Tesseract + image processing
+        task_memory_mb = max(80, image_size_mb * 2 + 50)
 
         result_dict = await self.process_manager.submit_task(
             _process_image_bytes_with_tesseract,
@@ -310,10 +289,8 @@ class TesseractProcessPool:
 
         config_dict = self._config_to_dict(config)
 
-        # Prepare arguments for batch processing
         arg_batches = [(str(path), config_dict) for path in image_paths]
 
-        # Estimate memory usage
         task_memory_mb = 80
 
         result_dicts = await self.process_manager.submit_batch(
@@ -346,10 +323,8 @@ class TesseractProcessPool:
 
         config_dict = self._config_to_dict(config)
 
-        # Prepare arguments for batch processing
         arg_batches = [(image_bytes, config_dict) for image_bytes in image_bytes_list]
 
-        # Estimate memory usage based on average image size
         avg_image_size_mb = sum(len(img) for img in image_bytes_list) / len(image_bytes_list) / 1024 / 1024
         task_memory_mb = max(80, avg_image_size_mb * 2 + 50)
 

@@ -67,7 +67,6 @@ class ImageExtractor(Extractor):
         fd, temp_path = tempfile.mkstemp(suffix=f".{extension}")
 
         try:
-            # Write content to temp file
             with os.fdopen(fd, "wb") as f:
                 f.write(content)
 
@@ -81,7 +80,6 @@ class ImageExtractor(Extractor):
         if self.config.ocr_backend is None:
             raise ValidationError("ocr_backend is None, cannot perform OCR")
 
-        # Use sync OCR processing
         from kreuzberg._ocr._tesseract import TesseractConfig
         from kreuzberg._types import ExtractionResult
 
@@ -93,12 +91,11 @@ class ImageExtractor(Extractor):
             else:
                 config = TesseractConfig()
 
-            # Process single image
             results = process_batch_images_sync_pure([str(path)], config)
             if results:
                 return results[0]
             return ExtractionResult(content="", mime_type="text/plain", metadata={}, chunks=[])
-        # For other OCR backends, we don't have sync implementations yet
+
         raise NotImplementedError(f"Sync OCR not implemented for {self.config.ocr_backend}")
 
     def _get_extension_from_mime_type(self, mime_type: str) -> str:

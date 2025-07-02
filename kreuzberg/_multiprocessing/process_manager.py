@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import asyncio
 import multiprocessing as mp
 from concurrent.futures import ProcessPoolExecutor
 from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
+import anyio
 import psutil
 from typing_extensions import Self
 
@@ -32,10 +32,9 @@ class ProcessPoolManager:
         """
         self.max_processes = max_processes or mp.cpu_count()
 
-        # Set memory limit based on available system memory
         if memory_limit_gb is None:
             available_memory = psutil.virtual_memory().available
-            self.memory_limit_bytes = int(available_memory * 0.75)  # Use 75% of available
+            self.memory_limit_bytes = int(available_memory * 0.75)  # Use 75% of available  # ~keep
         else:
             self.memory_limit_bytes = int(memory_limit_gb * 1024**3)
 
@@ -72,7 +71,6 @@ class ProcessPoolManager:
         func: Callable[..., T],
         *args: Any,
         task_memory_mb: float = 100,
-        **_kwargs: Any,
     ) -> T:
         """Submit a task to the process pool.
 
@@ -80,21 +78,17 @@ class ProcessPoolManager:
             func: Function to execute.
             *args: Positional arguments for the function.
             task_memory_mb: Estimated memory usage in MB.
-            **kwargs: Keyword arguments for the function.
 
         Returns:
             Result of the function execution.
         """
-        # Calculate optimal workers for this task
         workers = self.get_optimal_workers(task_memory_mb)
-        executor = self._ensure_executor(workers)
+        self._ensure_executor(workers)
 
-        # Submit task and await result
-        loop = asyncio.get_event_loop()
         self._active_tasks += 1
 
         try:
-            return await loop.run_in_executor(executor, func, *args)
+            return await anyio.to_thread.run_sync(func, *args)
         finally:
             self._active_tasks -= 1
 
@@ -119,27 +113,31 @@ class ProcessPoolManager:
         if not arg_batches:
             return []
 
-        # Calculate optimal concurrency
         workers = self.get_optimal_workers(task_memory_mb)
         max_concurrent = max_concurrent or workers
 
-        executor = self._ensure_executor(workers)
-        loop = asyncio.get_event_loop()
+        self._ensure_executor(workers)
 
-        # Create semaphore to limit concurrency
-        semaphore = asyncio.Semaphore(max_concurrent)
+        semaphore = anyio.CapacityLimiter(max_concurrent)
 
         async def submit_single(args: tuple[Any, ...]) -> T:
             async with semaphore:
                 self._active_tasks += 1
                 try:
-                    return await loop.run_in_executor(executor, func, *args)
+                    return await anyio.to_thread.run_sync(func, *args)
                 finally:
                     self._active_tasks -= 1
 
-        # Submit all tasks and gather results
-        tasks = [submit_single(args) for args in arg_batches]
-        return await asyncio.gather(*tasks)
+        async with anyio.create_task_group() as tg:
+            results: list[T] = [None] * len(arg_batches)  # type: ignore[list-item]
+
+            async def run_task(idx: int, args: tuple[Any, ...]) -> None:
+                results[idx] = await submit_single(args)
+
+            for idx, args in enumerate(arg_batches):
+                tg.start_soon(run_task, idx, args)
+
+        return results
 
     def get_system_info(self) -> dict[str, Any]:
         """Get current system resource information."""
