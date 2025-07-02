@@ -44,7 +44,7 @@ def process_image_sync_pure(
             "-l",
             cfg.language,
             "--psm",
-            str(cfg.psm.value),
+            str(cfg.psm.value if hasattr(cfg.psm, "value") else cfg.psm),
             "--oem",
             "1",
             "--loglevel",
