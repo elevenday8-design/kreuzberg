@@ -5,10 +5,14 @@
 [![Documentation](https://img.shields.io/badge/docs-GitHub_Pages-blue)](https://goldziher.github.io/kreuzberg/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Kreuzberg is a Python library for text extraction from documents. It provides a unified interface for extracting text from PDFs, images, office documents, and more, with both async and sync APIs.
+Kreuzberg is a **high-performance** Python library for text extraction from documents. **Benchmarked as one of the fastest text extraction libraries available**, it provides a unified interface for extracting text from PDFs, images, office documents, and more, with both async and sync APIs optimized for speed and efficiency.
 
 ## Why Kreuzberg?
 
+- **🚀 Substantially Faster**: Extraction speeds that significantly outperform other text extraction libraries
+- **⚡ Unique Dual API**: The only framework supporting both sync and async APIs for maximum flexibility
+- **💾 Memory Efficient**: Lower memory footprint compared to competing libraries
+- **📊 Proven Performance**: [Comprehensive benchmarks](https://github.com/Goldziher/python-text-extraction-libs-benchmarks) demonstrate superior performance across formats
 - **Simple and Hassle-Free**: Clean API that just works, without complex configuration
 - **Local Processing**: No external API calls or cloud dependencies required
 - **Resource Efficient**: Lightweight processing without GPU requirements
@@ -150,7 +154,31 @@ For comparison and selection guidance, see the [OCR Backends](https://goldziher.
 
 ## Performance
 
-Kreuzberg offers both sync and async APIs. Choose the right one based on your use case:
+Kreuzberg delivers **exceptional performance** compared to other text extraction libraries:
+
+### 🏆 Competitive Benchmarks
+
+[Comprehensive benchmarks](https://github.com/Goldziher/python-text-extraction-libs-benchmarks) comparing Kreuzberg against other popular Python text extraction libraries show:
+
+- **Fastest Extraction**: Consistently fastest processing times across file formats
+- **Lowest Memory Usage**: Most memory-efficient text extraction solution
+- **100% Success Rate**: Reliable extraction across all tested document types
+- **Optimal for High-Throughput**: Designed for real-time, production applications
+
+### 💾 Installation Size Efficiency
+
+Kreuzberg delivers maximum performance with minimal overhead:
+
+1. **Kreuzberg**: 71.0 MB (20 deps) - Most lightweight
+1. **Unstructured**: 145.8 MB (54 deps) - Moderate footprint
+1. **MarkItDown**: 250.7 MB (25 deps) - ML inference overhead
+1. **Docling**: 1,031.9 MB (88 deps) - Full ML stack included
+
+**Kreuzberg is up to 14x smaller** than competing solutions while delivering superior performance.
+
+### ⚡ Sync vs Async Performance
+
+Kreuzberg is the only library offering both sync and async APIs. Choose based on your use case:
 
 | Operation              | Sync Time | Async Time | Async Advantage    |
 | ---------------------- | --------- | ---------- | ------------------ |
@@ -160,11 +188,7 @@ Kreuzberg offers both sync and async APIs. Choose the right one based on your us
 | OCR processing         | 0.4s      | 0.7s       | **✅ 1.7x faster** |
 | Batch operations       | 38.6s     | 8.5s       | **✅ 4.5x faster** |
 
-**Rule of thumb:**
-
-- Use **sync** for simple documents and CLI applications
-- Use **async** for complex PDFs, OCR, and batch processing
-- Use **batch operations** for multiple files
+**Rule of thumb:** Use async for complex documents, OCR, batch processing, and backend APIs.
 
 For detailed benchmarks and methodology, see our [Performance Documentation](https://goldziher.github.io/kreuzberg/advanced/performance/).
 

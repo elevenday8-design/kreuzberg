@@ -4,18 +4,29 @@ Kreuzberg provides both synchronous and asynchronous APIs, each optimized for di
 
 ## Quick Reference
 
-| Use Case            | Recommended API              | Reason                       |
-| ------------------- | ---------------------------- | ---------------------------- |
-| CLI tools           | `extract_file_sync()`        | Lower overhead, simpler code |
-| Web applications    | `await extract_file()`       | Better concurrency           |
-| Simple documents    | `extract_file_sync()`        | Faster for small files       |
-| Complex PDFs        | `await extract_file()`       | Parallelized processing      |
-| Batch processing    | `await batch_extract_file()` | Concurrent execution         |
-| OCR-heavy workloads | `await extract_file()`       | Multiprocessing benefits     |
+| Use Case            | Recommended API              | Reason                                 |
+| ------------------- | ---------------------------- | -------------------------------------- |
+| CLI tools           | `extract_file_sync()`        | Lower overhead, simpler code           |
+| **Backend APIs**    | `await extract_file()`       | **Always use async in async contexts** |
+| Web applications    | `await extract_file()`       | Better concurrency                     |
+| Simple documents    | `extract_file_sync()`        | Faster for small files                 |
+| Complex PDFs        | `await extract_file()`       | Parallelized processing                |
+| Batch processing    | `await batch_extract_file()` | Concurrent execution                   |
+| OCR-heavy workloads | `await extract_file()`       | Multiprocessing benefits               |
 
-## Benchmark Results
+## Competitive Performance
 
-All benchmarks were conducted on macOS 15.5 with ARM64 (14 cores, 48GB RAM) using Python 3.13.3.
+[Comprehensive benchmarks](https://github.com/Goldziher/python-text-extraction-libs-benchmarks) comparing Kreuzberg against other popular Python text extraction libraries demonstrate:
+
+- **Fastest Extraction**: Consistently fastest processing times across file formats
+- **Lowest Memory Usage**: Most memory-efficient text extraction solution
+- **Smallest Installation**: 71.0 MB vs competitors ranging from 145.8 MB to 1,031.9 MB
+- **100% Success Rate**: Reliable extraction across all tested document types
+- **Optimal for High-Throughput**: Designed for real-time, production applications
+
+## Internal Benchmark Results
+
+All internal benchmarks were conducted on macOS 15.5 with ARM64 (14 cores, 48GB RAM) using Python 3.13.3.
 
 ### Single Document Processing
 
@@ -49,6 +60,29 @@ All benchmarks were conducted on macOS 15.5 with ARM64 (14 cores, 48GB RAM) usin
 1. **Lower Memory**: No event loop or task scheduling overhead
 1. **Simpler Path**: Direct execution without thread/process coordination
 1. **Fast Startup**: Immediate execution for quick operations
+
+### Backend API Considerations
+
+**Important**: When working in an async context (like FastAPI, Django async views, aiohttp), **always use the async API** even for simple documents:
+
+```python
+# ✅ Correct: Use async in async contexts
+async def extract_endpoint(file_path: str):
+    result = await extract_file(file_path)  # Non-blocking
+    return result
+
+# ❌ Wrong: Sync in async context blocks the event loop
+async def extract_endpoint(file_path: str):
+    result = extract_file_sync(file_path)  # Blocks event loop!
+    return result
+```
+
+**Why this matters:**
+
+- Sync operations in async contexts block the entire event loop
+- This prevents other requests from being processed concurrently
+- Backend throughput drops dramatically
+- Use async consistently throughout your async application stack
 
 ### The Crossover Point
 
@@ -219,6 +253,17 @@ Choose your API based on your specific needs:
 
 - **Sync for simplicity**: CLI tools, simple documents, single-threaded applications
 - **Async for scale**: Web applications, batch processing, complex documents
+- **Async for backends**: **Always use async in async contexts** (FastAPI, Django async, etc.)
 - **Batch for efficiency**: Multiple files, concurrent processing requirements
 
+### Key Decision Points
+
+1. **Are you in an async context?** → Use async API
+1. **Processing multiple files?** → Use batch operations
+1. **Simple single document in sync context?** → Sync may be faster
+1. **Complex documents or OCR required?** → Use async API
+1. **Building a web API?** → Use async API
+
 The performance characteristics will vary based on your specific documents, hardware, and usage patterns. We recommend benchmarking with your actual data to make informed decisions.
+
+**Remember**: Kreuzberg is benchmarked as one of the fastest text extraction libraries available, delivering superior performance regardless of which API you choose.
