@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Final, cast
 
@@ -7,6 +8,7 @@ import anyio
 
 from kreuzberg import ExtractionResult
 from kreuzberg._chunker import get_chunker
+from kreuzberg._entity_extraction import extract_entities, extract_keywords
 from kreuzberg._mime_types import (
     validate_mime_type,
 )
@@ -21,6 +23,7 @@ if TYPE_CHECKING:
 
 
 DEFAULT_CONFIG: Final[ExtractionConfig] = ExtractionConfig()
+logger = logging.getLogger(__name__)
 
 
 async def _validate_and_post_process_async(result: ExtractionResult, config: ExtractionConfig) -> ExtractionResult:
@@ -33,6 +36,26 @@ async def _validate_and_post_process_async(result: ExtractionResult, config: Ext
             config=config,
             content=result.content,
         )
+
+    if config.extract_entities:
+        try:
+            result.entities = extract_entities(
+                result.content,
+                custom_patterns=config.custom_entity_patterns,
+            )
+        except RuntimeError as e:
+            logger.warning("Entity extraction failed: %s", e)
+            result.entities = None
+
+    if config.extract_keywords:
+        try:
+            result.keywords = extract_keywords(
+                result.content,
+                keyword_count=config.keyword_count,
+            )
+        except RuntimeError as e:
+            logger.warning("Keyword extraction failed: %s", e)
+            result.keywords = None
 
     for post_processor in config.post_processing_hooks or []:
         result = await run_maybe_sync(post_processor, result)
@@ -50,6 +73,26 @@ def _validate_and_post_process_sync(result: ExtractionResult, config: Extraction
             config=config,
             content=result.content,
         )
+
+    if config.extract_entities:
+        try:
+            result.entities = extract_entities(
+                result.content,
+                custom_patterns=config.custom_entity_patterns,
+            )
+        except RuntimeError as e:
+            logger.warning("Entity extraction failed: %s", e)
+            result.entities = None
+
+    if config.extract_keywords:
+        try:
+            result.keywords = extract_keywords(
+                result.content,
+                keyword_count=config.keyword_count,
+            )
+        except RuntimeError as e:
+            logger.warning("Keyword extraction failed: %s", e)
+            result.keywords = None
 
     for post_processor in config.post_processing_hooks or []:
         result = run_maybe_async(post_processor, result)
