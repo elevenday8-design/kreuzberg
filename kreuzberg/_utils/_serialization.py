@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, is_dataclass
 from enum import Enum
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from msgspec import MsgspecError
 from msgspec.msgpack import decode, encode
@@ -55,7 +55,7 @@ def deserialize(value: str | bytes, target_type: type[T]) -> T:
         ValueError: If deserialization fails
     """
     try:
-        return decode(value, type=target_type, strict=False)
+        return decode(cast("bytes", value), type=target_type, strict=False)
     except MsgspecError as e:
         raise ValueError(f"Failed to deserialize to {target_type.__name__}: {e}") from e
 

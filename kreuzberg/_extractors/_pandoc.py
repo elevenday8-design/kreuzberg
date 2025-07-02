@@ -645,7 +645,7 @@ class PandocExtractor(Extractor):
                 str(metadata_file),
             ]
 
-            result = subprocess.run(command, capture_output=True, text=True, check=False)  # noqa: S603
+            result = subprocess.run(command, capture_output=True, text=True, check=False)
 
             if result.returncode != 0:
                 raise ParsingError("Failed to extract file data", context={"file": str(path), "error": result.stderr})
@@ -684,7 +684,7 @@ class PandocExtractor(Extractor):
                 str(output_path),
             ]
 
-            result = subprocess.run(command, capture_output=True, text=True, check=False)  # noqa: S603
+            result = subprocess.run(command, capture_output=True, text=True, check=False)
 
             if result.returncode != 0:
                 raise ParsingError("Failed to extract file data", context={"file": str(path), "error": result.stderr})

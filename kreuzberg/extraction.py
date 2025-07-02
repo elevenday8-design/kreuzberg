@@ -105,27 +105,30 @@ async def extract_file(
 
     Returns:
         The extracted content and the mime type of the content.
+
+    Raises:
+        ValidationError: If the file path or configuration is invalid.
     """
     from kreuzberg._utils._document_cache import get_document_cache
 
     cache = get_document_cache()
-    cached_result = cache.get(file_path, config)
+    path = Path(file_path)
+    cached_result = cache.get(path, config)
     if cached_result is not None:
         return cached_result
 
-    if cache.is_processing(file_path, config):
-        event = cache.mark_processing(file_path, config)
+    if cache.is_processing(path, config):
+        event = cache.mark_processing(path, config)
         await anyio.to_thread.run_sync(event.wait)  # pragma: no cover
 
         # Try cache again after waiting for other process to complete  # ~keep
-        cached_result = cache.get(file_path, config)  # pragma: no cover
+        cached_result = cache.get(path, config)  # pragma: no cover
         if cached_result is not None:  # pragma: no cover
             return cached_result
 
-    cache.mark_processing(file_path, config)
+    cache.mark_processing(path, config)
 
     try:
-        path = Path(file_path)
         if not path.exists():
             raise ValidationError("The file does not exist", context={"file_path": str(path)})
 
@@ -142,11 +145,11 @@ async def extract_file(
 
         result = await _validate_and_post_process_async(result=result, config=config)
 
-        cache.set(file_path, config, result)
+        cache.set(path, config, result)
 
         return result
     finally:
-        cache.mark_complete(file_path, config)
+        cache.mark_complete(path, config)
 
 
 async def batch_extract_file(
@@ -186,7 +189,7 @@ async def batch_extract_file(
                 error_result = ExtractionResult(
                     content=f"Error: {type(e).__name__}: {e!s}",
                     mime_type="text/plain",
-                    metadata={
+                    metadata={  # type: ignore[typeddict-unknown-key]
                         "error": True,
                         "error_context": create_error_context(
                             operation="batch_extract_file",
@@ -239,7 +242,7 @@ async def batch_extract_bytes(
                 error_result = ExtractionResult(
                     content=f"Error: {type(e).__name__}: {e!s}",
                     mime_type="text/plain",
-                    metadata={
+                    metadata={  # type: ignore[typeddict-unknown-key]
                         "error": True,
                         "error_context": create_error_context(
                             operation="batch_extract_bytes",
@@ -297,27 +300,30 @@ def extract_file_sync(
 
     Returns:
         The extracted content and the mime type of the content.
+
+    Raises:
+        ValidationError: If the file path or configuration is invalid.
     """
     from kreuzberg._utils._document_cache import get_document_cache
 
     cache = get_document_cache()
-    cached_result = cache.get(file_path, config)
+    path = Path(file_path)
+    cached_result = cache.get(path, config)
     if cached_result is not None:
         return cached_result
 
-    if cache.is_processing(file_path, config):
-        event = cache.mark_processing(file_path, config)
+    if cache.is_processing(path, config):
+        event = cache.mark_processing(path, config)
         event.wait()  # pragma: no cover
 
         # Try cache again after waiting for other process to complete  # ~keep
-        cached_result = cache.get(file_path, config)  # pragma: no cover
+        cached_result = cache.get(path, config)  # pragma: no cover
         if cached_result is not None:  # pragma: no cover
             return cached_result
 
-    cache.mark_processing(file_path, config)
+    cache.mark_processing(path, config)
 
     try:
-        path = Path(file_path)
         if not path.exists():
             raise ValidationError("The file does not exist", context={"file_path": str(path)})
 
@@ -334,11 +340,11 @@ def extract_file_sync(
 
         result = _validate_and_post_process_sync(result=result, config=config)
 
-        cache.set(file_path, config, result)
+        cache.set(path, config, result)
 
         return result
     finally:
-        cache.mark_complete(file_path, config)
+        cache.mark_complete(path, config)
 
 
 def batch_extract_file_sync(
@@ -374,7 +380,7 @@ def batch_extract_file_sync(
             error_result = ExtractionResult(
                 content=f"Error: {type(e).__name__}: {e!s}",
                 mime_type="text/plain",
-                metadata={
+                metadata={  # type: ignore[typeddict-unknown-key]
                     "error": True,
                     "error_context": create_error_context(
                         operation="batch_extract_file_sync",
@@ -430,7 +436,7 @@ def batch_extract_bytes_sync(
             error_result = ExtractionResult(
                 content=f"Error: {type(e).__name__}: {e!s}",
                 mime_type="text/plain",
-                metadata={
+                metadata={  # type: ignore[typeddict-unknown-key]
                     "error": True,
                     "error_context": create_error_context(
                         operation="batch_extract_bytes_sync",

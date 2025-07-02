@@ -83,7 +83,9 @@ class DocumentCache:
             current_stat = path.stat()
             cached_metadata = self._file_metadata[cache_key]
 
-            return cached_metadata["size"] == current_stat.st_size and cached_metadata["mtime"] == current_stat.st_mtime
+            return bool(
+                cached_metadata["size"] == current_stat.st_size and cached_metadata["mtime"] == current_stat.st_mtime
+            )
         except OSError:
             return False
 

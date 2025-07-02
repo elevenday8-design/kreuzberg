@@ -69,7 +69,7 @@ def format_extraction_result(result: ExtractionResult, show_metadata: bool, outp
         if result.chunks:
             output_data["chunks"] = result.chunks
         return json.dumps(output_data, indent=2, ensure_ascii=False)
-    # Text format
+
     output_parts = [result.content]
 
     if show_metadata:
@@ -91,15 +91,13 @@ def _load_config(config: Path | None, verbose: bool) -> dict[str, Any]:
     if config:
         file_config = load_config_from_file(config)
     else:
-        # Try to find default config
         default_config = find_default_config()
         if default_config:
             try:
                 file_config = load_config_from_file(default_config)
                 if verbose:
                     console.print(f"[dim]Using configuration from: {default_config}[/dim]")
-            except Exception:  # noqa: S110, BLE001
-                # Silently ignore errors in default config
+            except Exception:  # noqa: BLE001
                 pass
     return file_config
 
@@ -126,7 +124,6 @@ def _build_cli_args(
         "ocr_backend": ocr_backend,
     }
 
-    # Handle OCR backend specific arguments
     if ocr_backend == "tesseract" and (tesseract_lang or tesseract_psm is not None):
         tesseract_config = {}
         if tesseract_lang:
@@ -145,13 +142,11 @@ def _build_cli_args(
 def _perform_extraction(file: Path | None, extraction_config: ExtractionConfig, verbose: bool) -> ExtractionResult:
     """Perform text extraction from file or stdin."""
     if file is None or (isinstance(file, Path) and file.name == "-"):
-        # Read from stdin
         if verbose:
             console.print("[dim]Reading from stdin...[/dim]")
         try:
             input_bytes = sys.stdin.buffer.read()
         except Exception:  # noqa: BLE001
-            # Fallback to reading text and encoding
             input_text = sys.stdin.read()
             input_bytes = input_text.encode("utf-8")
 
@@ -162,19 +157,17 @@ def _perform_extraction(file: Path | None, extraction_config: ExtractionConfig, 
             transient=True,
         ) as progress:
             progress.add_task("Extracting text...", total=None)
-            # Try to detect MIME type from content, fallback to text/plain
+
             try:
                 import magic  # type: ignore[import-not-found]
 
                 mime_type = magic.from_buffer(input_bytes, mime=True)
             except ImportError:
-                # Fallback: assume text/html if it looks like HTML, otherwise text/plain
                 content_str = input_bytes.decode("utf-8", errors="ignore").lower()
                 mime_type = "text/html" if "<html" in content_str or "<body" in content_str else "text/plain"
 
             return extract_bytes_sync(input_bytes, mime_type, config=extraction_config)
     else:
-        # Read from file
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
@@ -196,7 +189,6 @@ def _write_output(
         if verbose:
             console.print(f"[green]✓[/green] Output written to: {output}")
     else:
-        # Write to stdout
         click.echo(formatted_output)
 
 
@@ -263,7 +255,6 @@ def cli(ctx: click.Context) -> None:
 @click.option("--show-metadata", is_flag=True, help="Include metadata in output")
 @click.option("--output-format", type=click.Choice(["text", "json"]), default="text", help="Output format")
 @click.option("-v", "--verbose", is_flag=True, help="Verbose output for debugging")
-# OCR backend specific options
 @click.option("--tesseract-lang", help="Tesseract language(s) (e.g., 'eng+deu')")
 @click.option("--tesseract-psm", type=int, help="Tesseract PSM mode (0-13)")
 @click.option("--easyocr-languages", help="EasyOCR language codes (comma-separated, e.g., 'en,de')")
@@ -294,10 +285,8 @@ def extract(  # noqa: PLR0913
     If FILE is omitted, reads from stdin.
     """
     try:
-        # Load configuration
         file_config = _load_config(config, verbose)
 
-        # Build CLI arguments dict
         cli_args = _build_cli_args(
             force_ocr,
             chunk_content,
@@ -311,13 +300,10 @@ def extract(  # noqa: PLR0913
             paddleocr_languages,
         )
 
-        # Build extraction config
         extraction_config = build_extraction_config(file_config, cli_args)
 
-        # Perform extraction
         result = _perform_extraction(file, extraction_config, verbose)
 
-        # Format and write output
         _write_output(result, output, show_metadata, output_format, verbose)
 
     except Exception as e:  # noqa: BLE001

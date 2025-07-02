@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import subprocess
 import tempfile
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 from PIL import Image
 
@@ -14,9 +14,6 @@ from kreuzberg._ocr._tesseract import TesseractConfig
 from kreuzberg._types import ExtractionResult
 from kreuzberg._utils._string import normalize_spaces
 from kreuzberg.exceptions import OCRError
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 def process_image_sync_pure(
@@ -36,12 +33,10 @@ def process_image_sync_pure(
     """
     cfg = config or TesseractConfig()
 
-    # Create temporary output file
     with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as tmp_file:
         output_base = tmp_file.name.replace(".txt", "")
 
     try:
-        # Build tesseract command
         command = [
             "tesseract",
             str(image_path),
@@ -56,7 +51,6 @@ def process_image_sync_pure(
             "OFF",
         ]
 
-        # Add boolean config options
         boolean_fields = [
             "classify_use_pre_adapted_templates",
             "language_model_ngram_on",
@@ -73,11 +67,9 @@ def process_image_sync_pure(
                 value = 1 if getattr(cfg, field) else 0
                 command.extend(["-c", f"{field}={value}"])
 
-        # Set environment to prevent multithreading deadlocks
         env = os.environ.copy()
         env["OMP_THREAD_LIMIT"] = "1"
 
-        # Run tesseract synchronously
         result = subprocess.run(
             command,
             check=False,
@@ -90,12 +82,10 @@ def process_image_sync_pure(
         if result.returncode != 0:
             raise OCRError(f"Tesseract failed with return code {result.returncode}: {result.stderr}")
 
-        # Read output
         output_file = output_base + ".txt"
-        with open(output_file, encoding="utf-8") as f:
+        with Path(output_file).open(encoding="utf-8") as f:
             text = f.read()
 
-        # Normalize text
         text = normalize_spaces(text)
 
         return ExtractionResult(
@@ -106,11 +96,11 @@ def process_image_sync_pure(
         )
 
     finally:
-        # Clean up temporary files
         for ext in [".txt"]:
             temp_file = output_base + ext
-            if os.path.exists(temp_file):
-                os.unlink(temp_file)
+            temp_path = Path(temp_file)
+            if temp_path.exists():
+                temp_path.unlink()
 
 
 def process_image_bytes_sync_pure(
@@ -128,9 +118,7 @@ def process_image_bytes_sync_pure(
     """
     import io
 
-    # Save image bytes to temporary file
     with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_image:
-        # Load image and save as PNG
         with Image.open(io.BytesIO(image_bytes)) as image:
             image.save(tmp_image.name, format="PNG")
         image_path = tmp_image.name
@@ -138,9 +126,9 @@ def process_image_bytes_sync_pure(
     try:
         return process_image_sync_pure(image_path, config)
     finally:
-        # Clean up temporary image file
-        if os.path.exists(image_path):
-            os.unlink(image_path)
+        image_file = Path(image_path)
+        if image_file.exists():
+            image_file.unlink()
 
 
 def process_batch_images_sync_pure(
@@ -163,7 +151,6 @@ def process_batch_images_sync_pure(
     return results
 
 
-# For comparison, let's also create a threaded version
 def process_batch_images_threaded(
     image_paths: list[str | Path],
     config: TesseractConfig | None = None,
@@ -186,30 +173,26 @@ def process_batch_images_threaded(
         max_workers = min(len(image_paths), mp.cpu_count())
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # Submit all tasks
         future_to_index = {
             executor.submit(process_image_sync_pure, path, config): i for i, path in enumerate(image_paths)
         }
 
-        # Collect results in order
-        results = [None] * len(image_paths)
+        results: list[ExtractionResult] = [None] * len(image_paths)  # type: ignore[list-item]
         for future in as_completed(future_to_index):
             index = future_to_index[future]
             try:
                 results[index] = future.result()
-            except Exception as e:
-                # Create error result
+            except Exception as e:  # noqa: BLE001  # noqa: BLE001
                 results[index] = ExtractionResult(
                     content=f"Error: {e}",
                     mime_type=PLAIN_TEXT_MIME_TYPE,
-                    metadata={"error": str(e)},
+                    metadata={"error": str(e)},  # type: ignore[typeddict-unknown-key]
                     chunks=[],
                 )
 
     return results
 
 
-# Process pool version (our existing implementation)
 def process_batch_images_process_pool(
     image_paths: list[str | Path],
     config: TesseractConfig | None = None,
@@ -231,7 +214,6 @@ def process_batch_images_process_pool(
     if max_workers is None:
         max_workers = min(len(image_paths), mp.cpu_count())
 
-    # Convert config to dict for pickling
     cfg = config or TesseractConfig()
     config_dict = {}
     for field_name in cfg.__dataclass_fields__:
@@ -242,7 +224,6 @@ def process_batch_images_process_pool(
             config_dict[field_name] = value
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        # Submit all tasks using our existing process function
         from kreuzberg._multiprocessing.tesseract_pool import _process_image_with_tesseract
 
         future_to_index = {
@@ -250,8 +231,7 @@ def process_batch_images_process_pool(
             for i, path in enumerate(image_paths)
         }
 
-        # Collect results in order
-        results = [None] * len(image_paths)
+        results: list[ExtractionResult] = [None] * len(image_paths)  # type: ignore[list-item]
         for future in as_completed(future_to_index):
             index = future_to_index[future]
             try:
@@ -267,14 +247,14 @@ def process_batch_images_process_pool(
                     results[index] = ExtractionResult(
                         content=f"Error: {result_dict['error']}",
                         mime_type=PLAIN_TEXT_MIME_TYPE,
-                        metadata={"error": result_dict["error"]},
+                        metadata={"error": result_dict["error"]},  # type: ignore[typeddict-unknown-key]
                         chunks=[],
                     )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 results[index] = ExtractionResult(
                     content=f"Error: {e}",
                     mime_type=PLAIN_TEXT_MIME_TYPE,
-                    metadata={"error": str(e)},
+                    metadata={"error": str(e)},  # type: ignore[typeddict-unknown-key]
                     chunks=[],
                 )
 

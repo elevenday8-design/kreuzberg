@@ -96,9 +96,9 @@ class KreuzbergCache(Generic[T]):
         if cached_data.get("type") == "ExtractionResult" and isinstance(data, dict):
             from kreuzberg._types import ExtractionResult
 
-            return ExtractionResult(**data)  # type: ignore[misc]
+            return ExtractionResult(**data)  # type: ignore[return-value]
 
-        return data
+        return data  # type: ignore[no-any-return]
 
     def _cleanup_cache(self) -> None:
         """Clean up old and oversized cache entries."""
@@ -296,9 +296,10 @@ def get_ocr_cache() -> KreuzbergCache[ExtractionResult]:
     """Get the global OCR cache instance."""
     global _ocr_cache
     if _ocr_cache is None:
-        cache_dir = os.environ.get("KREUZBERG_CACHE_DIR")
-        if cache_dir:
-            cache_dir = Path(cache_dir) / "ocr"
+        cache_dir_str = os.environ.get("KREUZBERG_CACHE_DIR")
+        cache_dir: Path | None = None
+        if cache_dir_str:
+            cache_dir = Path(cache_dir_str) / "ocr"
 
         _ocr_cache = KreuzbergCache[ExtractionResult](
             cache_type="ocr",
@@ -313,9 +314,10 @@ def get_document_cache() -> KreuzbergCache[ExtractionResult]:
     """Get the global document cache instance."""
     global _document_cache
     if _document_cache is None:
-        cache_dir = os.environ.get("KREUZBERG_CACHE_DIR")
-        if cache_dir:
-            cache_dir = Path(cache_dir) / "documents"
+        cache_dir_str = os.environ.get("KREUZBERG_CACHE_DIR")
+        cache_dir: Path | None = None
+        if cache_dir_str:
+            cache_dir = Path(cache_dir_str) / "documents"
 
         _document_cache = KreuzbergCache[ExtractionResult](
             cache_type="documents",
@@ -330,9 +332,10 @@ def get_table_cache() -> KreuzbergCache[Any]:
     """Get the global table cache instance."""
     global _table_cache
     if _table_cache is None:
-        cache_dir = os.environ.get("KREUZBERG_CACHE_DIR")
-        if cache_dir:
-            cache_dir = Path(cache_dir) / "tables"
+        cache_dir_str = os.environ.get("KREUZBERG_CACHE_DIR")
+        cache_dir: Path | None = None
+        if cache_dir_str:
+            cache_dir = Path(cache_dir_str) / "tables"
 
         _table_cache = KreuzbergCache[Any](
             cache_type="tables",
@@ -347,9 +350,10 @@ def get_mime_cache() -> KreuzbergCache[str]:
     """Get the global MIME type cache instance."""
     global _mime_cache
     if _mime_cache is None:
-        cache_dir = os.environ.get("KREUZBERG_CACHE_DIR")
-        if cache_dir:
-            cache_dir = Path(cache_dir) / "mime"
+        cache_dir_str = os.environ.get("KREUZBERG_CACHE_DIR")
+        cache_dir: Path | None = None
+        if cache_dir_str:
+            cache_dir = Path(cache_dir_str) / "mime"
 
         _mime_cache = KreuzbergCache[str](
             cache_type="mime",

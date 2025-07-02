@@ -151,7 +151,7 @@ def get_device_memory_info(device: DeviceInfo) -> tuple[float | None, float | No
 def _is_cuda_available() -> bool:
     """Check if CUDA is available."""
     try:
-        import torch
+        import torch  # type: ignore[import-not-found,unused-ignore]
 
         return torch.cuda.is_available()
     except ImportError:
@@ -161,7 +161,7 @@ def _is_cuda_available() -> bool:
 def _is_mps_available() -> bool:
     """Check if MPS (Apple Silicon) is available."""
     try:
-        import torch
+        import torch  # type: ignore[import-not-found,unused-ignore]
 
         return torch.backends.mps.is_available()
     except ImportError:

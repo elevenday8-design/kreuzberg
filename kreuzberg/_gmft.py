@@ -159,7 +159,7 @@ async def extract_tables(  # noqa: PLR0915
     table_cache = get_table_cache()
     cached_result = await table_cache.aget(**cache_kwargs)
     if cached_result is not None:
-        return cached_result
+        return cached_result  # type: ignore[no-any-return]
 
     if table_cache.is_processing(**cache_kwargs):
         import anyio
@@ -170,7 +170,7 @@ async def extract_tables(  # noqa: PLR0915
         # Try cache again after waiting for other process to complete  # ~keep
         cached_result = await table_cache.aget(**cache_kwargs)
         if cached_result is not None:
-            return cached_result
+            return cached_result  # type: ignore[no-any-return]
 
     table_cache.mark_processing(**cache_kwargs)
 
@@ -291,7 +291,7 @@ def extract_tables_sync(
     table_cache = get_table_cache()
     cached_result = table_cache.get(**cache_kwargs)
     if cached_result is not None:
-        return cached_result
+        return cached_result  # type: ignore[no-any-return]
 
     if use_isolated_process:
         from kreuzberg._multiprocessing.gmft_isolated import extract_tables_isolated
@@ -352,7 +352,7 @@ def extract_tables_sync(
 
             return result
         finally:
-            doc.close()
+            doc.close()  # type: ignore[no-untyped-call]
 
     except ImportError as e:
         raise MissingDependencyError.create_for_package(

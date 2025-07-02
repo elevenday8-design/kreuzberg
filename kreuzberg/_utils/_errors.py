@@ -31,7 +31,7 @@ def create_error_context(
     Returns:
         Dictionary with error context including system info
     """
-    context = {
+    context: dict[str, Any] = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "operation": operation,
     }

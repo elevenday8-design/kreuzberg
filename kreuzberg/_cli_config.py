@@ -42,7 +42,6 @@ def load_config_from_file(config_path: Path) -> dict[str, Any]:
     except tomllib.TOMLDecodeError as e:
         raise ValidationError(f"Invalid TOML in configuration file: {e}") from e
 
-    # Extract kreuzberg-specific configuration
     return data.get("tool", {}).get("kreuzberg", {})  # type: ignore[no-any-return]
 
 
@@ -106,29 +105,22 @@ def build_extraction_config(  # noqa: C901, PLR0912
     Returns:
         ExtractionConfig instance.
     """
-    # Start with default values
     config_dict: dict[str, Any] = {}
 
-    # Apply file configuration
     if file_config:
-        # Map direct fields
         for field in ["force_ocr", "chunk_content", "extract_tables", "max_chars", "max_overlap", "ocr_backend"]:
             if field in file_config:
                 config_dict[field] = file_config[field]
 
-    # Apply CLI overrides
     for field in ["force_ocr", "chunk_content", "extract_tables", "max_chars", "max_overlap", "ocr_backend"]:
         cli_key = field
         if cli_key in cli_args and cli_args[cli_key] is not None:
             config_dict[field] = cli_args[cli_key]
 
-    # Handle OCR backend configuration
     ocr_backend = config_dict.get("ocr_backend")
     if ocr_backend and ocr_backend != "none":
-        # Try CLI args first, then file config
         ocr_config = None
 
-        # Check for backend-specific CLI args
         if cli_args.get(f"{ocr_backend}_config"):
             backend_args = cli_args[f"{ocr_backend}_config"]
             if ocr_backend == "tesseract":
@@ -138,28 +130,24 @@ def build_extraction_config(  # noqa: C901, PLR0912
             elif ocr_backend == "paddleocr":
                 ocr_config = PaddleOCRConfig(**backend_args)  # type: ignore[assignment]
 
-        # Fall back to file config
         if not ocr_config and file_config:
             ocr_config = parse_ocr_backend_config(file_config, ocr_backend)  # type: ignore[assignment]
 
         if ocr_config:
             config_dict["ocr_config"] = ocr_config
 
-    # Handle GMFT configuration
     if config_dict.get("extract_tables"):
         gmft_config = None
 
-        # Check CLI args
         if cli_args.get("gmft_config"):
             gmft_config = GMFTConfig(**cli_args["gmft_config"])
-        # Fall back to file config
+
         elif "gmft" in file_config and isinstance(file_config["gmft"], dict):
             gmft_config = GMFTConfig(**file_config["gmft"])
 
         if gmft_config:
             config_dict["gmft_config"] = gmft_config
 
-    # Convert ocr_backend string to None if "none"
     if config_dict.get("ocr_backend") == "none":
         config_dict["ocr_backend"] = None
 
@@ -172,18 +160,16 @@ def find_default_config() -> Path | None:
     Returns:
         Path to the configuration file or None if not found.
     """
-    # Look for pyproject.toml in current directory and parent directories
     current = Path.cwd()
     while current != current.parent:
         config_path = current / "pyproject.toml"
         if config_path.exists():
-            # Check if it contains kreuzberg configuration
             try:
                 with config_path.open("rb") as f:
                     data = tomllib.load(f)
                 if "tool" in data and "kreuzberg" in data["tool"]:
                     return config_path
-            except Exception:  # noqa: S110, BLE001
+            except Exception:  # noqa: BLE001
                 pass
         current = current.parent
     return None
