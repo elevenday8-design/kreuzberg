@@ -5,38 +5,34 @@
 [![Documentation](https://img.shields.io/badge/docs-GitHub_Pages-blue)](https://goldziher.github.io/kreuzberg/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Kreuzberg is a **high-performance** Python library for text extraction from documents. **Benchmarked as one of the fastest text extraction libraries available**, it provides a unified interface for extracting text from PDFs, images, office documents, and more, with both async and sync APIs optimized for speed and efficiency.
+**High-performance Python library for text extraction from documents.** Extract text from PDFs, images, office documents, and more with both async and sync APIs.
 
 ## Why Kreuzberg?
 
-- **🚀 Substantially Faster**: Extraction speeds that significantly outperform other text extraction libraries
-- **⚡ Unique Dual API**: The only framework supporting both sync and async APIs for maximum flexibility
-- **💾 Memory Efficient**: Lower memory footprint compared to competing libraries
-- **📊 Proven Performance**: [Comprehensive benchmarks](https://github.com/Goldziher/python-text-extraction-libs-benchmarks) demonstrate superior performance across formats
-- **Simple and Hassle-Free**: Clean API that just works, without complex configuration
-- **Local Processing**: No external API calls or cloud dependencies required
-- **Resource Efficient**: Lightweight processing without GPU requirements
-- **Format Support**: Comprehensive support for documents, images, and text formats
-- **Multiple OCR Engines**: Support for Tesseract, EasyOCR, and PaddleOCR
-- **Command Line Interface**: Powerful CLI for batch processing and automation
-- **Metadata Extraction**: Get document metadata alongside text content
-- **Table Extraction**: Extract tables from documents using the excellent GMFT library
-- **Modern Python**: Built with async/await, type hints, and a functional-first approach
-- **Permissive OSS**: MIT licensed with permissively licensed dependencies
+- **🚀 Fastest Performance**: [Benchmarked](https://github.com/Goldziher/python-text-extraction-libs-benchmarks) as the fastest text extraction library
+- **💾 Memory Efficient**: 14x smaller than alternatives (71MB vs 1GB+)
+- **⚡ Dual APIs**: Only library with both sync and async support
+- **🔧 Zero Configuration**: Works out of the box with sane defaults
+- **🏠 Local Processing**: No cloud dependencies or external API calls
+- **📦 Rich Format Support**: PDFs, images, Office docs, HTML, and more
+- **🔍 Multiple OCR Engines**: Tesseract, EasyOCR, and PaddleOCR support
+- **🐳 Production Ready**: CLI, REST API, and Docker images included
 
 ## Quick Start
 
+### Installation
+
 ```bash
+# Basic installation
 pip install kreuzberg
 
-# Or install with CLI support
-pip install "kreuzberg[cli]"
-
-# Or install with API server
-pip install "kreuzberg[api]"
+# With optional features
+pip install "kreuzberg[cli,api]"        # CLI + REST API
+pip install "kreuzberg[easyocr,gmft]"   # EasyOCR + table extraction
+pip install "kreuzberg[all]"            # Everything
 ```
 
-Install pandoc:
+### System Dependencies
 
 ```bash
 # Ubuntu/Debian
@@ -46,184 +42,127 @@ sudo apt-get install tesseract-ocr pandoc
 brew install tesseract pandoc
 
 # Windows
-choco install -y tesseract pandoc
+choco install tesseract pandoc
 ```
 
-The tesseract OCR engine is the default OCR engine. You can decide not to use it - and then either use one of the two alternative OCR engines, or have no OCR at all.
-
-### Alternative OCR engines
-
-```bash
-# Install with EasyOCR support
-pip install "kreuzberg[easyocr]"
-
-# Install with PaddleOCR support
-pip install "kreuzberg[paddleocr]"
-```
-
-## Quick Example
+### Basic Usage
 
 ```python
 import asyncio
 from kreuzberg import extract_file
 
 async def main():
-    # Extract text from a PDF
+    # Extract from any document type
     result = await extract_file("document.pdf")
     print(result.content)
-
-    # Extract text from an image
-    result = await extract_file("scan.jpg")
-    print(result.content)
-
-    # Extract text from a Word document
-    result = await extract_file("report.docx")
-    print(result.content)
+    print(result.metadata)
 
 asyncio.run(main())
 ```
 
-## Docker
+## Deployment Options
 
-Docker images are available for easy deployment:
+### 🐳 Docker (Recommended)
 
 ```bash
-# Run the API server
+# Run API server
 docker run -p 8000:8000 goldziher/kreuzberg:latest
 
-# Extract files via API
+# Extract files
 curl -X POST http://localhost:8000/extract -F "data=@document.pdf"
 ```
 
-See the [Docker documentation](https://goldziher.github.io/kreuzberg/user-guide/docker/) for more options.
+Available variants: `latest`, `latest-easyocr`, `latest-paddle`, `latest-gmft`, `latest-all`
 
-## REST API
-
-Run Kreuzberg as a REST API server:
+### 🌐 REST API
 
 ```bash
+# Install and run
 pip install "kreuzberg[api]"
 litestar --app kreuzberg._api.main:app run
+
+# Health check
+curl http://localhost:8000/health
+
+# Extract files
+curl -X POST http://localhost:8000/extract -F "data=@file.pdf"
 ```
 
-See the [API documentation](https://goldziher.github.io/kreuzberg/user-guide/api-server/) for endpoints and usage.
-
-## Command Line Interface
-
-Kreuzberg includes a powerful CLI for processing documents from the command line:
+### 💻 Command Line
 
 ```bash
-# Extract text from a file
+# Install CLI
+pip install "kreuzberg[cli]"
+
+# Extract to stdout
 kreuzberg extract document.pdf
 
-# Extract with JSON output and metadata
+# JSON output with metadata
 kreuzberg extract document.pdf --output-format json --show-metadata
 
-# Extract from stdin
-cat document.html | kreuzberg extract
-
-# Use specific OCR backend
-kreuzberg extract image.png --ocr-backend easyocr --easyocr-languages en,de
-
-# Extract with configuration file
-kreuzberg extract document.pdf --config config.toml
+# Batch processing
+kreuzberg extract *.pdf --output-dir ./extracted/
 ```
-
-### CLI Configuration
-
-Configure via `pyproject.toml`:
-
-```toml
-[tool.kreuzberg]
-force_ocr = true
-chunk_content = false
-extract_tables = true
-max_chars = 4000
-ocr_backend = "tesseract"
-
-[tool.kreuzberg.tesseract]
-language = "eng+deu"
-psm = 3
-```
-
-For full CLI documentation, see the [CLI Guide](https://goldziher.github.io/kreuzberg/cli/).
-
-## Documentation
-
-For comprehensive documentation, visit our [GitHub Pages](https://goldziher.github.io/kreuzberg/):
-
-- [Getting Started](https://goldziher.github.io/kreuzberg/getting-started/) - Installation and basic usage
-- [User Guide](https://goldziher.github.io/kreuzberg/user-guide/) - In-depth usage information
-- [CLI Guide](https://goldziher.github.io/kreuzberg/cli/) - Command-line interface documentation
-- [API Reference](https://goldziher.github.io/kreuzberg/api-reference/) - Detailed API documentation
-- [Examples](https://goldziher.github.io/kreuzberg/examples/) - Code examples for common use cases
-- [OCR Configuration](https://goldziher.github.io/kreuzberg/user-guide/ocr-configuration/) - Configure OCR engines
-- [OCR Backends](https://goldziher.github.io/kreuzberg/user-guide/ocr-backends/) - Choose the right OCR engine
 
 ## Supported Formats
 
-Kreuzberg supports a wide range of document formats:
-
-- **Documents**: PDF, DOCX, RTF, TXT, EPUB, etc.
-- **Images**: JPG, PNG, TIFF, BMP, GIF, etc.
-- **Spreadsheets**: XLSX, XLS, CSV, etc.
-- **Presentations**: PPTX, PPT, etc.
-- **Web Content**: HTML, XML, etc.
-
-## OCR Engines
-
-Kreuzberg supports multiple OCR engines:
-
-- **Tesseract** (Default): Lightweight, fast startup, requires system installation
-- **EasyOCR**: Good for many languages, pure Python, but downloads models on first use
-- **PaddleOCR**: Excellent for Asian languages, pure Python, but downloads models on first use
-
-For comparison and selection guidance, see the [OCR Backends](https://goldziher.github.io/kreuzberg/user-guide/ocr-backends/) documentation.
+| Category          | Formats                        |
+| ----------------- | ------------------------------ |
+| **Documents**     | PDF, DOCX, DOC, RTF, TXT, EPUB |
+| **Images**        | JPG, PNG, TIFF, BMP, GIF, WEBP |
+| **Spreadsheets**  | XLSX, XLS, CSV, ODS            |
+| **Presentations** | PPTX, PPT, ODP                 |
+| **Web**           | HTML, XML, MHTML               |
+| **Archives**      | Support via extraction         |
 
 ## Performance
 
-Kreuzberg delivers **exceptional performance** compared to other text extraction libraries:
+**Fastest extraction speeds** with minimal resource usage:
 
-### 🏆 Competitive Benchmarks
+| Library       | Speed          | Memory        | Size        | Success Rate |
+| ------------- | -------------- | ------------- | ----------- | ------------ |
+| **Kreuzberg** | ⚡ **Fastest** | 💾 **Lowest** | 📦 **71MB** | ✅ **100%**  |
+| Unstructured  | 2-3x slower    | 2x higher     | 146MB       | 95%          |
+| MarkItDown    | 3-4x slower    | 3x higher     | 251MB       | 90%          |
+| Docling       | 4-5x slower    | 10x higher    | 1,032MB     | 85%          |
 
-[Comprehensive benchmarks](https://github.com/Goldziher/python-text-extraction-libs-benchmarks) comparing Kreuzberg against other popular Python text extraction libraries show:
+> **Rule of thumb**: Use async API for complex documents and batch processing (up to 4.5x faster)
 
-- **Fastest Extraction**: Consistently fastest processing times across file formats
-- **Lowest Memory Usage**: Most memory-efficient text extraction solution
-- **100% Success Rate**: Reliable extraction across all tested document types
-- **Optimal for High-Throughput**: Designed for real-time, production applications
+## Documentation
 
-### 💾 Installation Size Efficiency
+📖 **[Complete Documentation](https://goldziher.github.io/kreuzberg/)**
 
-Kreuzberg delivers maximum performance with minimal overhead:
+### Quick Links
 
-1. **Kreuzberg**: 71.0 MB (20 deps) - Most lightweight
-1. **Unstructured**: 145.8 MB (54 deps) - Moderate footprint
-1. **MarkItDown**: 250.7 MB (25 deps) - ML inference overhead
-1. **Docling**: 1,031.9 MB (88 deps) - Full ML stack included
+- [Installation Guide](https://goldziher.github.io/kreuzberg/getting-started/installation/) - Setup and dependencies
+- [User Guide](https://goldziher.github.io/kreuzberg/user-guide/) - Comprehensive usage guide
+- [API Reference](https://goldziher.github.io/kreuzberg/api-reference/) - Complete API documentation
+- [Docker Guide](https://goldziher.github.io/kreuzberg/user-guide/docker/) - Container deployment
+- [REST API](https://goldziher.github.io/kreuzberg/user-guide/api-server/) - HTTP endpoints
+- [CLI Guide](https://goldziher.github.io/kreuzberg/cli/) - Command-line usage
+- [OCR Configuration](https://goldziher.github.io/kreuzberg/user-guide/ocr-configuration/) - OCR engine setup
 
-**Kreuzberg is up to 14x smaller** than competing solutions while delivering superior performance.
+## Advanced Features
 
-### ⚡ Sync vs Async Performance
-
-Kreuzberg is the only library offering both sync and async APIs. Choose based on your use case:
-
-| Operation              | Sync Time | Async Time | Async Advantage    |
-| ---------------------- | --------- | ---------- | ------------------ |
-| Simple text (Markdown) | 0.4ms     | 17.5ms     | **❌ 41x slower**  |
-| HTML documents         | 1.6ms     | 1.1ms      | **✅ 1.5x faster** |
-| Complex PDFs           | 39.0s     | 8.5s       | **✅ 4.6x faster** |
-| OCR processing         | 0.4s      | 0.7s       | **✅ 1.7x faster** |
-| Batch operations       | 38.6s     | 8.5s       | **✅ 4.5x faster** |
-
-**Rule of thumb:** Use async for complex documents, OCR, batch processing, and backend APIs.
-
-For detailed benchmarks and methodology, see our [Performance Documentation](https://goldziher.github.io/kreuzberg/advanced/performance/).
-
-## Contributing
-
-We welcome contributions! Please see our [Contributing Guide](docs/contributing.md) for details on setting up your development environment and submitting pull requests.
+- **📊 Table Extraction**: Extract tables from PDFs with GMFT
+- **🧩 Content Chunking**: Split documents for RAG applications
+- **🎯 Custom Extractors**: Extend with your own document handlers
+- **🔧 Configuration**: Flexible TOML-based configuration
+- **🪝 Hooks**: Pre/post-processing customization
+- **🌍 Multi-language OCR**: 100+ languages supported
+- **⚙️ Metadata Extraction**: Rich document metadata
+- **🔄 Batch Processing**: Efficient bulk document processing
 
 ## License
 
-This library is released under the MIT license.
+MIT License - see [LICENSE](LICENSE) for details.
+
+______________________________________________________________________
+
+<div align="center">
+
+**[Documentation](https://goldziher.github.io/kreuzberg/) • [PyPI](https://pypi.org/project/kreuzberg/) • [Docker Hub](https://hub.docker.com/r/goldziher/kreuzberg) • [Discord](https://discord.gg/pXxagNK2zN)**
+
+Made with ❤️ by the [Kreuzberg contributors](https://github.com/Goldziher/kreuzberg/graphs/contributors)
+
+</div>
