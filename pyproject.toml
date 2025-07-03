@@ -67,6 +67,8 @@ optional-dependencies.all = [
   "setuptools>=80.9.0",
   "tomli>=2.0.0; python_version<'3.11'",
 ]
+optional-dependencies.api = [ "litestar[standard,structlog,opentelemetry]", "structlog" ]
+
 optional-dependencies.chunking = [ "semantic-text-splitter>=0.27.0" ]
 optional-dependencies.cli = [
   "click>=8.2.1",
@@ -203,11 +205,24 @@ show_error_codes = true
 strict = true
 
 [[tool.mypy.overrides]]
-module = [ "rich.*", "typer.*", "matplotlib.*", "memory_profiler.*", "py_spy.*" ]
+module = [
+  "rich.*",
+  "typer.*",
+  "matplotlib.*",
+  "memory_profiler.*",
+  "py_spy.*",
+  "litestar.*",
+  "structlog.*",
+  "opentelemetry.*",
+]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "benchmarks.src.kreuzberg_benchmarks.*"
+disable_error_code = [ "misc" ]
+
+[[tool.mypy.overrides]]
+module = "kreuzberg.docker.main"
 disable_error_code = [ "misc" ]
 
 [tool.uv.sources]

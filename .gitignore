@@ -31,3 +31,5 @@ Dockerfile
 GEMINI.md
 prompt_template.egg-info/
 requirements.txt
+*temp/
+grantflow-tmp/

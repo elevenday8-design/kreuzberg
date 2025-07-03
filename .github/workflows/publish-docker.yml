@@ -1,0 +1,74 @@
+# .github/workflows/publish-docker.yml
+
+name: Publish Docker Images
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      matrix:
+        include:
+          - name: core
+            extras: ""
+            tag_suffix: "" # The base image tag
+          - name: tesseract
+            extras: "tesseract"
+            tag_suffix: "-tesseract"
+          - name: paddle
+            extras: "paddleocr"
+            tag_suffix: "-paddle"
+          - name: all
+            extras: "all"
+            tag_suffix: "-all"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: yourdockerhubusername/kreuzberg
+          tags: |
+            type=schedule
+            type=ref,event=branch,suffix=${{ matrix.tag_suffix }}
+            type=semver,pattern={{version}},suffix=${{ matrix.tag_suffix }}
+            type=semver,pattern={{major}}.{{minor}},suffix=${{ matrix.tag_suffix }}
+            # Add a 'latest' tag only for the 'tesseract' build on the main branch
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' && matrix.name == 'tesseract' }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            EXTRAS=${{ matrix.extras }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
