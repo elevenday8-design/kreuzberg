@@ -129,17 +129,33 @@ The async API leverages Python's asyncio with intelligent task scheduling:
 
 ```python
 from kreuzberg import ExtractionConfig, extract_file_sync
-from kreuzberg._ocr import TesseractConfig
+from kreuzberg._ocr._tesseract import TesseractConfig, PSMMode
 
 # Optimized for speed
-fast_config = ExtractionConfig(ocr_backend="tesseract", ocr_config=TesseractConfig(psm=6))  # Assume uniform text block
+fast_config = ExtractionConfig(
+    ocr_backend="tesseract",
+    ocr_config=TesseractConfig(
+        psm=PSMMode.SINGLE_BLOCK,  # Faster for simple layouts
+        language_model_ngram_on=False,  # Disable for speed
+        tessedit_enable_dict_correction=False,  # Disable for speed
+    ),
+)
 
-# Optimized for accuracy
-accurate_config = ExtractionConfig(ocr_backend="tesseract", ocr_config=TesseractConfig(psm=1))  # Auto page segmentation
+# Optimized for accuracy (default)
+accurate_config = ExtractionConfig(ocr_backend="tesseract", ocr_config=TesseractConfig())  # Uses optimized defaults
 
-# For simple documents (no OCR)
-text_only_config = ExtractionConfig(force_ocr=False, ocr_backend=None)
+# For documents with text layers (no OCR needed)
+text_only_config = ExtractionConfig(ocr_backend=None, force_ocr=False)  # Disable OCR backend entirely
 ```
+
+### Performance Optimization Tips
+
+Based on comprehensive benchmarking with 138+ documents:
+
+1. **Disable OCR for text documents**: Setting `ocr_backend=None` provides significant speedup for documents with text layers
+1. **Use PSM `AUTO_ONLY` (default)**: Optimized for modern documents without orientation detection overhead
+1. **Language model trade-offs**: Disabling `language_model_ngram_on` can provide 30x+ speedup with minimal quality impact on clean documents
+1. **Dictionary correction**: Disabling `tessedit_enable_dict_correction` speeds up processing for technical documents
 
 ### Batch Processing Best Practices
 
