@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import re
 from typing import TYPE_CHECKING, Any, cast
 
@@ -40,9 +39,6 @@ class KeybertExtractor:
         return cast("list[tuple[str, float]]", self.model.extract_keywords(text, top_n=keyword_count))
 
 
-logger = logging.getLogger(__name__)
-
-
 def extract_entities(
     text: str,
     entity_types: Sequence[str] = ("PERSON", "ORGANIZATION", "LOCATION", "DATE", "EMAIL", "PHONE"),
@@ -79,8 +75,8 @@ def extract_entities(
                 )
                 for ent in results
             )
-        except (ImportError, RuntimeError) as e:
-            logger.warning("NER model failed: %s. Falling back to regex extraction only.", e)
+        except (ImportError, RuntimeError):
+            pass
     return entities
 
 
@@ -103,6 +99,5 @@ def extract_keywords(
         keybert_extractor = KeybertExtractor()
         keywords = keybert_extractor.extract(text, keyword_count)
         return [(kw, float(score)) for kw, score in keywords]
-    except (ImportError, RuntimeError) as e:
-        logger.debug("Keyword extraction failed: %s, returning empty list.", e)
+    except (ImportError, RuntimeError):
         return []

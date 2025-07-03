@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Final, cast
 
@@ -23,7 +22,6 @@ if TYPE_CHECKING:
 
 
 DEFAULT_CONFIG: Final[ExtractionConfig] = ExtractionConfig()
-logger = logging.getLogger(__name__)
 
 
 def _validate_and_post_process_helper(result: ExtractionResult, config: ExtractionConfig) -> ExtractionResult:
@@ -40,8 +38,7 @@ def _validate_and_post_process_helper(result: ExtractionResult, config: Extracti
                 result.content,
                 custom_patterns=config.custom_entity_patterns,
             )
-        except RuntimeError as e:
-            logger.warning("Entity extraction failed: %s", e)
+        except RuntimeError:
             result.entities = None
 
     if config.extract_keywords:
@@ -50,8 +47,7 @@ def _validate_and_post_process_helper(result: ExtractionResult, config: Extracti
                 result.content,
                 keyword_count=config.keyword_count,
             )
-        except RuntimeError as e:
-            logger.warning("Keyword extraction failed: %s", e)
+        except RuntimeError:
             result.keywords = None
     return result
 
