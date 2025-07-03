@@ -304,6 +304,8 @@ async def test_process_image_cache_processing_coordination(
         "kreuzberg._ocr._tesseract.run_process", return_value=Mock(returncode=0, stdout=b"tesseract 5.0.0", stderr=b"")
     )
 
+    import anyio
+
     cache = get_ocr_cache()
 
     import hashlib
@@ -313,11 +315,8 @@ async def test_process_image_cache_processing_coordination(
 
     cache.mark_processing(image_hash=image_hash, config="test_config")
 
-    import threading
-    import time
-
-    def complete_processing() -> None:
-        time.sleep(0.1)
+    async def complete_processing(event: anyio.Event) -> None:
+        await anyio.sleep(0.1)
         cache.mark_complete(image_hash=image_hash, config="test_config")
 
         cache.set(
@@ -325,19 +324,21 @@ async def test_process_image_cache_processing_coordination(
             image_hash=image_hash,
             config="test_config",
         )
+        event.set()
 
-    thread = threading.Thread(target=complete_processing)
-    thread.start()
+    async with anyio.create_task_group() as nursery:
+        completion_event = anyio.Event()
+        nursery.start_soon(complete_processing, completion_event)
 
-    mock_hash_obj = Mock()
-    mock_hash_obj.hexdigest.return_value = image_hash + "0" * 48
-    mocker.patch("kreuzberg._ocr._tesseract.hashlib.sha256", return_value=mock_hash_obj)
+        mock_hash_obj = Mock()
+        mock_hash_obj.hexdigest.return_value = image_hash + "0" * 48
+        mocker.patch("kreuzberg._ocr._tesseract.hashlib.sha256", return_value=mock_hash_obj)
 
-    result = await backend.process_image(test_image, language="eng")
+        result = await backend.process_image(test_image, language="eng")
 
-    assert result.content == "cached text"
+        assert result.content == "cached text"
 
-    thread.join()
+        await completion_event.wait()
 
 
 @pytest.mark.anyio
@@ -354,6 +355,8 @@ async def test_process_file_cache_processing_coordination(
     mocker.patch(
         "kreuzberg._ocr._tesseract.run_process", return_value=Mock(returncode=0, stdout=b"tesseract 5.0.0", stderr=b"")
     )
+
+    import anyio
 
     cache = get_ocr_cache()
 
@@ -372,27 +375,26 @@ async def test_process_file_cache_processing_coordination(
 
     cache.mark_processing(**cache_kwargs)
 
-    import threading
-    import time
-
-    def complete_processing() -> None:
-        time.sleep(0.1)
+    async def complete_processing(event: anyio.Event) -> None:
+        await anyio.sleep(0.1)
         cache.mark_complete(**cache_kwargs)
         cache.set(
             ExtractionResult(content="cached file text", mime_type="text/plain", metadata={}, chunks=[], tables=[]),
             **cache_kwargs,
         )
+        event.set()
 
-    thread = threading.Thread(target=complete_processing)
-    thread.start()
+    async with anyio.create_task_group() as nursery:
+        completion_event = anyio.Event()
+        nursery.start_soon(complete_processing, completion_event)
 
-    # This should trigger cache coordination  # ~keep
-    result = await backend.process_file(test_file, language="eng")
+        # This should trigger cache coordination  # ~keep
+        result = await backend.process_file(test_file, language="eng")
 
-    # Should get cached result  # ~keep
-    assert result.content == "cached file text"
+        # Should get cached result  # ~keep
+        assert result.content == "cached file text"
 
-    thread.join()
+        await completion_event.wait()
 
 
 def test_validate_language_code_error() -> None:
