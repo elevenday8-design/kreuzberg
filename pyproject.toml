@@ -5,7 +5,7 @@ requires = [ "hatchling" ]
 
 [project]
 name = "kreuzberg"
-version = "3.4.1"
+version = "3.4.2"
 description = "A text extraction library supporting PDFs, images, office documents and more"
 readme = "README.md"
 keywords = [
@@ -22,14 +22,13 @@ keywords = [
 ]
 license = { text = "MIT" }
 authors = [ { name = "Na'aman Hirschfeld", email = "nhirschfed@gmail.com" } ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -105,7 +104,7 @@ packages = [ "kreuzberg" ]
 kreuzberg = [ "py.typed" ]
 
 [tool.ruff]
-target-version = "py39"
+target-version = "py310"
 line-length = 120
 src = [ "kreuzberg", "tests" ]
 format.docstring-code-line-length = 120
@@ -189,7 +188,7 @@ fail_under = 95
 
 [tool.mypy]
 packages = [ "kreuzberg", "tests", "benchmarks.src.kreuzberg_benchmarks" ]
-python_version = "3.9"
+python_version = "3.10"
 disable_error_code = 'import-untyped'
 implicit_reexport = false
 show_error_codes = true

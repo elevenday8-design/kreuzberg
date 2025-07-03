@@ -103,7 +103,7 @@ CMD ["python", "custom_config.py"]
 
 ### Base Image
 
-- Based on `python:3.13-bookworm`
+- Based on `python:3.13-bookworm` (requires Python 3.10+)
 - Includes system dependencies: `pandoc`, `tesseract-ocr`
 - Runs as non-root user `appuser`
 - Exposes port 8000
