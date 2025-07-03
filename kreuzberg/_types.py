@@ -135,7 +135,7 @@ class ExtractionConfig:
 
     force_ocr: bool = False
     """Whether to force OCR."""
-    chunk_content: bool = True
+    chunk_content: bool = False
     """Whether to chunk the content into smaller chunks."""
     extract_tables: bool = False
     """Whether to extract tables from the content. This requires the 'gmft' dependency."""
