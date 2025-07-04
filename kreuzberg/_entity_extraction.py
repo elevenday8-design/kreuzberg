@@ -41,7 +41,7 @@ def extract_entities(
             from gliner import GLiNER
 
             ner_model = GLiNER.from_pretrained("urchade/gliner_medium-v2.1")
-        except (ImportError, RuntimeError):
+        except (ImportError, RuntimeError, OSError, ValueError):
             pass
 
     if ner_model and entity_types:
@@ -56,7 +56,7 @@ def extract_entities(
                 )
                 for ent in results
             )
-        except RuntimeError:
+        except (ImportError, RuntimeError, OSError, ValueError):
             pass
     return entities
 
@@ -82,10 +82,10 @@ def extract_keywords(
             from keybert import KeyBERT
 
             kw_model = KeyBERT()
-        except (ImportError, RuntimeError):
+        except (ImportError, RuntimeError, OSError, ValueError):
             return []
     try:
         keywords = kw_model.extract_keywords(text, top_n=keyword_count)
         return [(kw, float(score)) for kw, score in keywords]
-    except RuntimeError:
+    except (ImportError, RuntimeError, OSError, ValueError):
         return []
