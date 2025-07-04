@@ -15,6 +15,7 @@ jobs:
       packages: write
 
     strategy:
+      max-parallel: 2
       matrix:
         include:
           - name: core
@@ -34,6 +35,16 @@ jobs:
             tag_suffix: "-all"
 
     steps:
+      - name: Free up disk space
+        run: |
+          # Remove large unnecessary packages to free up space
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker system prune -af
+          df -h
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -81,12 +92,14 @@ jobs:
         with:
           context: .
           file: ./.docker/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ matrix.name == 'all' && 'linux/amd64' || 'linux/amd64,linux/arm64' }}
           push: true
           build-args: |
             EXTRAS=${{ matrix.extras }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Update Docker Hub README
         uses: peter-evans/dockerhub-description@v4
