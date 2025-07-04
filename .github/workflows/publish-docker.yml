@@ -42,10 +42,16 @@ jobs:
       - name: Get release version
         id: get_version
         run: |
-          # Get the latest tag by listing all tags
-          git fetch --tags
-          VERSION=$(git tag --sort=-version:refname | head -n1)
+          if [ "${{ github.event_name }}" = "release" ]; then
+            # For release events, use the release tag
+            VERSION="${{ github.event.release.tag_name }}"
+          else
+            # For workflow_dispatch, get the latest tag
+            git fetch --tags
+            VERSION=$(git tag --sort=-version:refname | head -n1)
+          fi
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Using version: $VERSION"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3

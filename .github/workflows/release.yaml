@@ -10,7 +10,6 @@ jobs:
     environment: pypi
     permissions:
       id-token: write
-      actions: write
       contents: read
     steps:
       - name: Checkout
@@ -32,15 +31,7 @@ jobs:
       - name: Publish
         uses: pypa/gh-action-pypi-publish@release/v1
 
-      - name: Trigger Docker Build
-        uses: actions/github-script@v7
-        continue-on-error: true
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'publish-docker.yml',
-              ref: 'main'
-            });
+      - name: Docker Build Info
+        run: |
+          echo "Docker images will be built automatically by the publish-docker.yml workflow"
+          echo "triggered by this release event. No manual triggering needed."
