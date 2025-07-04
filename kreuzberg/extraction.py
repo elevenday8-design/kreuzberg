@@ -8,6 +8,7 @@ import anyio
 from kreuzberg import ExtractionResult
 from kreuzberg._chunker import get_chunker
 from kreuzberg._entity_extraction import extract_entities, extract_keywords
+from kreuzberg._language_detection import detect_languages
 from kreuzberg._mime_types import (
     validate_mime_type,
 )
@@ -50,6 +51,13 @@ def _validate_and_post_process_helper(result: ExtractionResult, config: Extracti
             )
         except RuntimeError:
             result.keywords = None
+
+    if config.auto_detect_language:
+        result.detected_languages = detect_languages(
+            result.content,
+            config=config.language_detection_config,
+        )
+
     return result
 
 
