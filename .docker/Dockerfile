@@ -1,8 +1,8 @@
-FROM ghcr.io/astral-sh/uv:python3.13-bookworm as app
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm AS app
 ARG EXTRAS=""
 WORKDIR /app
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 ENV UV_LINK_MODE=copy
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
