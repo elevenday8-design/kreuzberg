@@ -74,7 +74,7 @@ def _handle_chunk_content(
     content: str,
 ) -> list[str]:
     chunker = get_chunker(mime_type=mime_type, max_characters=config.max_chars, overlap_characters=config.max_overlap)
-    return chunker.chunks(content)  # type: ignore[no-any-return]
+    return chunker.chunks(content)
 
 
 async def extract_bytes(content: bytes, mime_type: str, config: ExtractionConfig = DEFAULT_CONFIG) -> ExtractionResult:
