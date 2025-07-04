@@ -17,7 +17,7 @@ app = typer.Typer(help="Kreuzberg Performance Benchmarking Suite")
 console = Console()
 
 
-@app.command()  # type: ignore[misc]
+@app.command()
 def run(
     output_dir: Path = typer.Option(
         Path("results"),
@@ -136,7 +136,7 @@ def run(
         raise typer.Exit(1)
 
 
-@app.command()  # type: ignore[misc]
+@app.command()
 def compare(
     result1: Path = typer.Argument(..., help="First benchmark result file"),
     result2: Path = typer.Argument(..., help="Second benchmark result file"),
@@ -188,7 +188,7 @@ def compare(
         console.print(f"\nComparison saved to: {output}")
 
 
-@app.command()  # type: ignore[misc]
+@app.command()
 def analyze(
     result_file: Path = typer.Argument(..., help="Benchmark result file to analyze"),
 ) -> None:

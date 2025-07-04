@@ -225,6 +225,17 @@ disable_error_code = [ "misc" ]
 module = "kreuzberg.docker.main"
 disable_error_code = [ "misc" ]
 
+[[tool.mypy.overrides]]
+module = [
+  "kreuzberg._gmft",
+  "kreuzberg._multiprocessing.gmft_isolated",
+]
+disable_error_code = [ "unused-ignore" ]
+
+[[tool.mypy.overrides]]
+module = "kreuzberg._api.main"
+disable_error_code = [ "misc" ]
+
 [tool.uv.sources]
 uv-bump = { git = "https://github.com/Goldziher/uv-bump" }
 kreuzberg-benchmarks = { workspace = true }

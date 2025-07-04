@@ -61,7 +61,7 @@ def exception_handler(request: Request[Any, Any, Any], exception: KreuzbergError
     )
 
 
-@post("/extract", operation_id="ExtractFiles")  # type: ignore[misc]
+@post("/extract", operation_id="ExtractFiles")
 async def handle_files_upload(
     data: Annotated[list[UploadFile], Body(media_type=RequestEncodingType.MULTI_PART)],
 ) -> list[ExtractionResult]:
@@ -71,7 +71,7 @@ async def handle_files_upload(
     )
 
 
-@get("/health", operation_id="HealthCheck")  # type: ignore[misc]
+@get("/health", operation_id="HealthCheck")
 async def health_check() -> dict[str, str]:
     """A simple health check endpoint."""
     return {"status": "ok"}
