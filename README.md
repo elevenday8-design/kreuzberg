@@ -76,9 +76,25 @@ kreuzberg-mcp
 
 # Or with uvx (recommended for Claude Desktop)
 uvx kreuzberg-mcp
+
+# With optional features for enhanced functionality
+uvx --with "kreuzberg[chunking,langdetect,entity-extraction]" kreuzberg-mcp
 ```
 
 **Configure in Claude Desktop (`claude_desktop_config.json`):**
+
+```json
+{
+  "mcpServers": {
+    "kreuzberg": {
+      "command": "uvx",
+      "args": ["--with", "kreuzberg[chunking,langdetect]", "kreuzberg-mcp"]
+    }
+  }
+}
+```
+
+**Basic configuration (core features only):**
 
 ```json
 {

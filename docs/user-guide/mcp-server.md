@@ -14,20 +14,30 @@ The Model Context Protocol (MCP) is an open standard developed by Anthropic that
 
 ### Installation
 
-The MCP server is included with the base Kreuzberg installation:
+The MCP server is included with the base Kreuzberg installation, but you may want to install optional features:
 
 ```bash
+# Basic installation (includes MCP server)
 pip install kreuzberg
+
+# With optional features for enhanced functionality
+pip install "kreuzberg[chunking,langdetect,entity-extraction]"
+
+# With all features
+pip install "kreuzberg[all]"
 ```
 
 ### Running the MCP Server
 
 ```bash
-# Direct execution
+# Direct execution (after pip install)
 kreuzberg-mcp
 
 # With uvx (recommended for Claude Desktop)
 uvx kreuzberg-mcp
+
+# With uvx and optional features
+uvx --with "kreuzberg[chunking,langdetect]" kreuzberg-mcp
 ```
 
 ### Claude Desktop Configuration
@@ -37,6 +47,7 @@ Add Kreuzberg to your Claude Desktop configuration file:
 **On macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
 **On Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
 
+#### Basic Configuration
 ```json
 {
   "mcpServers": {
@@ -47,6 +58,140 @@ Add Kreuzberg to your Claude Desktop configuration file:
   }
 }
 ```
+
+#### With Optional Features
+```json
+{
+  "mcpServers": {
+    "kreuzberg": {
+      "command": "uvx",
+      "args": ["--with", "kreuzberg[chunking,langdetect,entity-extraction]", "kreuzberg-mcp"]
+    }
+  }
+}
+```
+
+#### Alternative: Using Pre-installed Kreuzberg
+If you have Kreuzberg installed with pip:
+```json
+{
+  "mcpServers": {
+    "kreuzberg": {
+      "command": "kreuzberg-mcp"
+    }
+  }
+}
+```
+
+## Optional Dependencies
+
+Kreuzberg MCP server supports enhanced functionality through optional dependencies:
+
+### Available Feature Sets
+
+| Feature | Package Extra | Description |
+|---------|---------------|-------------|
+| **Content Chunking** | `chunking` | Split documents into chunks for RAG applications |
+| **Language Detection** | `langdetect` | Automatically detect document languages |
+| **Entity Extraction** | `entity-extraction` | Extract named entities and keywords |
+| **Advanced OCR** | `easyocr`, `paddleocr` | Alternative OCR engines |
+| **Table Extraction** | `gmft` | Extract structured tables from PDFs |
+| **All Features** | `all` | Install all optional dependencies |
+
+### Installation Examples
+
+```bash
+# For RAG applications
+pip install "kreuzberg[chunking,langdetect]"
+
+# For document analysis
+pip install "kreuzberg[entity-extraction,langdetect]"
+
+# For advanced OCR
+pip install "kreuzberg[easyocr,paddleocr]"
+
+# Everything
+pip install "kreuzberg[all]"
+```
+
+### Using with uvx
+
+```bash
+# With specific features
+uvx --with "kreuzberg[chunking,langdetect]" kreuzberg-mcp
+
+# With all features
+uvx --with "kreuzberg[all]" kreuzberg-mcp
+```
+
+### Claude Desktop Configuration Examples
+
+For different use cases:
+
+#### RAG Application Setup
+```json
+{
+  "mcpServers": {
+    "kreuzberg": {
+      "command": "uvx",
+      "args": ["--with", "kreuzberg[chunking,langdetect]", "kreuzberg-mcp"]
+    }
+  }
+}
+```
+
+#### Document Analysis Setup
+```json
+{
+  "mcpServers": {
+    "kreuzberg": {
+      "command": "uvx",
+      "args": ["--with", "kreuzberg[entity-extraction,langdetect,chunking]", "kreuzberg-mcp"]
+    }
+  }
+}
+```
+
+#### Advanced OCR Setup
+```json
+{
+  "mcpServers": {
+    "kreuzberg": {
+      "command": "uvx",
+      "args": ["--with", "kreuzberg[easyocr,paddleocr,gmft]", "kreuzberg-mcp"]
+    }
+  }
+}
+```
+
+#### Multiple MCP Servers
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp@latest"]
+    },
+    "kreuzberg": {
+      "command": "uvx",
+      "args": ["--with", "kreuzberg[all]", "kreuzberg-mcp"]
+    }
+  }
+}
+```
+
+### Feature Availability
+
+Without optional dependencies, certain features will be disabled:
+
+- **Chunking**: `chunk_content=True` will raise an error
+- **Language Detection**: `auto_detect_language=True` will be ignored
+- **Entity Extraction**: `extract_entities=True` will be ignored
+- **Keyword Extraction**: `extract_keywords=True` will be ignored
+- **Advanced OCR**: Only Tesseract will be available
+- **Table Extraction**: `extract_tables=True` will raise an error
+
+The MCP server will inform you when features are unavailable due to missing dependencies.
 
 ## Available Capabilities
 
@@ -321,6 +466,24 @@ Claude: I'll extract all tables from your financial report.
     - Verify file paths are absolute and accessible
     - Check file permissions
     - Ensure the document format is supported
+
+1. **Missing Optional Dependencies**
+
+    - **Chunking Error**: `MissingDependencyError: The package 'semantic-text-splitter' is required`
+      - Solution: `uvx --with "kreuzberg[chunking]" kreuzberg-mcp`
+    - **Language Detection Ignored**: No error, but `auto_detect_language=True` has no effect
+      - Solution: `uvx --with "kreuzberg[langdetect]" kreuzberg-mcp`
+    - **Entity/Keyword Extraction Ignored**: No error, but features return None
+      - Solution: `uvx --with "kreuzberg[entity-extraction]" kreuzberg-mcp`
+    - **Advanced OCR Unavailable**: `easyocr` or `paddleocr` backend not found
+      - Solution: `uvx --with "kreuzberg[easyocr,paddleocr]" kreuzberg-mcp`
+    - **Table Extraction Error**: `MissingDependencyError: The package 'gmft' is required`
+      - Solution: `uvx --with "kreuzberg[gmft]" kreuzberg-mcp`
+
+1. **uvx Command Not Found**
+
+    - Install uvx: `pip install uvx`
+    - Or use pip installation: `pip install "kreuzberg[all]"` then `kreuzberg-mcp`
 
 ### Debug Mode
 
