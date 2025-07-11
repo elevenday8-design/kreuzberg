@@ -162,18 +162,18 @@ class TestMCPTools:
                 result = extract_document(file_path=str(searchable_pdf), ocr_backend=backend)
                 assert isinstance(result, dict)
                 assert "content" in result
-            except Exception:
+            except Exception:  # noqa: PERF203
                 # Backend might not be available, skip
                 continue
 
     def test_extract_document_invalid_file(self) -> None:
         """Test extraction with invalid file path."""
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017, PT011
             extract_document(file_path="/nonexistent/file.pdf")
 
     def test_extract_bytes_invalid_base64(self) -> None:
         """Test extraction with invalid base64 content."""
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017, PT011
             extract_bytes(content_base64="invalid_base64", mime_type="application/pdf")
 
 
@@ -250,12 +250,12 @@ class TestMCPPrompts:
 
     def test_extract_and_summarize_with_invalid_file(self) -> None:
         """Test extract and summarize prompt with invalid file."""
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017, PT011
             extract_and_summarize(file_path="/nonexistent/file.pdf")
 
     def test_extract_structured_with_invalid_file(self) -> None:
         """Test extract structured prompt with invalid file."""
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017, PT011
             extract_structured(file_path="/nonexistent/file.pdf")
 
     def test_invalid_prompt(self) -> None:
@@ -339,11 +339,11 @@ class TestMCPServerIntegration:
     def test_error_handling(self) -> None:
         """Test error handling across different components."""
         # Test invalid file path
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017, PT011
             extract_simple(file_path="/nonexistent/file.pdf")
 
         # Test invalid base64
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017, PT011
             extract_bytes(content_base64="invalid", mime_type="application/pdf")
 
         # Test invalid resource calls don't apply since we call functions directly

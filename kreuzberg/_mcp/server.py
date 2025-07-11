@@ -16,7 +16,7 @@ mcp = FastMCP("Kreuzberg Text Extraction")
 
 
 @mcp.tool()
-def extract_document(
+def extract_document(  # noqa: PLR0913
     file_path: str,
     mime_type: str | None = None,
     force_ocr: bool = False,
@@ -67,7 +67,7 @@ def extract_document(
 
 
 @mcp.tool()
-def extract_bytes(
+def extract_bytes(  # noqa: PLR0913
     content_base64: str,
     mime_type: str,
     force_ocr: bool = False,
