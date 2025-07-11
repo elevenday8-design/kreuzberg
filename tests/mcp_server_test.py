@@ -83,7 +83,7 @@ def test_extract_document_basic(searchable_pdf: Path) -> None:
 
 def test_extract_document_with_chunking(searchable_pdf: Path) -> None:
     """Test document extraction with chunking enabled."""
-    result = extract_document(file_path=str(searchable_pdf), chunk_content=True, max_chars=100, max_overlap=20)
+    result = extract_document(file_path=str(searchable_pdf), chunk_content=True, max_chars=500, max_overlap=50)
 
     assert isinstance(result, dict)
     assert "chunks" in result
@@ -148,7 +148,8 @@ def test_extract_bytes_with_options(searchable_pdf: Path) -> None:
         chunk_content=True,
         extract_entities=True,
         extract_keywords=True,
-        max_chars=150,
+        max_chars=1000,
+        max_overlap=50,
         keyword_count=3,
     )
 
@@ -284,7 +285,12 @@ def test_full_workflow_pdf(searchable_pdf: Path) -> None:
 
     # Test full extraction
     full_result = extract_document(
-        file_path=str(searchable_pdf), chunk_content=True, extract_entities=True, extract_keywords=True
+        file_path=str(searchable_pdf),
+        chunk_content=True,
+        extract_entities=True,
+        extract_keywords=True,
+        max_chars=1000,
+        max_overlap=100,
     )
     assert isinstance(full_result, dict)
     assert "content" in full_result
