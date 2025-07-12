@@ -340,7 +340,7 @@ class SpreadSheetExtractor(Extractor):
                         if not row:  # Skip empty rows
                             continue
 
-                        total_cells += len([cell for cell in row if cell is not None and str(cell).strip()])
+                        total_cells += sum(1 for cell in row if cell is not None and str(cell).strip())
 
                         # Check for formulas (simple heuristic)
                         if any(isinstance(cell, str) and cell.startswith("=") for cell in row):

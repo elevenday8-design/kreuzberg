@@ -30,6 +30,9 @@ if TYPE_CHECKING:  # pragma: no cover
 
     from kreuzberg._types import Metadata
 
+# Pre-compiled regex patterns for performance
+_NON_WORD_PATTERN = re.compile(r"\W")
+
 
 class PresentationExtractor(Extractor):
     """Extractor for PowerPoint (.pptx) files.
@@ -141,7 +144,7 @@ class PresentationExtractor(Extractor):
                     with suppress(AttributeError):
                         alt_text = shape._element._nvXxPr.cNvPr.attrib.get("descr", "")  # noqa: SLF001
 
-                    filename = re.sub(r"\W", "", shape.name) + ".jpg"
+                    filename = _NON_WORD_PATTERN.sub("", shape.name) + ".jpg"
                     md_content += f"\n![{alt_text if alt_text else shape.name}]({filename})\n"
 
                 elif shape.shape_type == MSO_SHAPE_TYPE.TABLE:

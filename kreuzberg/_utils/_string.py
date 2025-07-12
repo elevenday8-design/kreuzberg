@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import re
 from contextlib import suppress
+from functools import lru_cache
 
 import chardetng_py
 
@@ -18,6 +20,15 @@ _MOJIBAKE_PATTERNS = {
     # Isolated combining marks (likely encoding issues)
     "isolated_combining": re.compile(r"[\u0300-\u036F](?![^\u0300-\u036F])"),
 }
+
+# Simple cache for encoding detection (in-memory, session-scoped)
+_encoding_cache: dict[str, str] = {}
+
+
+@lru_cache(maxsize=128)
+def _get_encoding_cache_key(data_hash: str, size: int) -> str:
+    """Generate cache key for encoding detection."""
+    return f"{data_hash}:{size}"
 
 
 def safe_decode(byte_data: bytes, encoding: str | None = None) -> str:
@@ -39,11 +50,24 @@ def safe_decode(byte_data: bytes, encoding: str | None = None) -> str:
             decoded = byte_data.decode(encoding)
             return _fix_mojibake(decoded)
 
+    # Check cache for similar content (performance optimization)
+    data_hash = hashlib.sha256(byte_data[:1024]).hexdigest()[:16]  # Hash first 1KB
+    cache_key = _get_encoding_cache_key(data_hash, len(byte_data))
+
+    if cache_key in _encoding_cache:
+        cached_encoding = _encoding_cache[cache_key]
+        with suppress(UnicodeDecodeError, LookupError):
+            decoded = byte_data.decode(cached_encoding)
+            return _fix_mojibake(decoded)
+
     # Use chardetng for better performance than charset-normalizer
     detected_encoding = chardetng_py.detect(byte_data)
     if detected_encoding:
         with suppress(UnicodeDecodeError, LookupError):
             decoded = byte_data.decode(detected_encoding)
+            # Cache successful encoding detection
+            if len(_encoding_cache) < 1000:  # Prevent unlimited growth
+                _encoding_cache[cache_key] = detected_encoding
             return _fix_mojibake(decoded)
 
     # Try multiple encodings with confidence scoring

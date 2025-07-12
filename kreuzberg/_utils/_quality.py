@@ -26,6 +26,12 @@ _COMBINED_OCR_PATTERN = re.compile(
     r"(?P<broken>[a-z]\s+[A-Z][a-z])"
 )
 
+# Pre-compiled patterns for text normalization
+_WHITESPACE_NORMALIZE = re.compile(r"\s+")
+_NEWLINE_NORMALIZE = re.compile(r"\n\s*\n\s*\n+")
+_SENTENCE_DETECT = re.compile(r"[.!?]\s+[A-Z]")
+_PUNCTUATION_DETECT = re.compile(r"[.!?]")
+
 _SCRIPT_PATTERNS = {
     # JavaScript and CSS content
     "js_functions": re.compile(r"function\s+\w+\s*\([^)]*\)\s*\{[^}]*\}", re.IGNORECASE),
@@ -108,9 +114,9 @@ def clean_extracted_text(text: str) -> str:
     # Clean navigation elements
     text = _clean_navigation_elements(text)
 
-    # Normalize whitespace
-    text = re.sub(r"\s+", " ", text)
-    text = re.sub(r"\n\s*\n\s*\n+", "\n\n", text)
+    # Normalize whitespace using pre-compiled patterns
+    text = _WHITESPACE_NORMALIZE.sub(" ", text)
+    text = _NEWLINE_NORMALIZE.sub("\n\n", text)
 
     return text.strip()
 
@@ -157,7 +163,7 @@ def _calculate_structure_bonus(text: str) -> float:
         return 0.0
 
     # Count sentences (rough heuristic)
-    sentence_count = len(re.findall(r"[.!?]\s+[A-Z]", text))
+    sentence_count = len(_SENTENCE_DETECT.findall(text))
 
     # Count paragraphs
     paragraph_count = len(text.split("\n\n"))
@@ -186,7 +192,7 @@ def _calculate_structure_bonus(text: str) -> float:
         structure_score += 0.2
 
     # Bonus for having punctuation
-    if re.search(r"[.!?]", text):
+    if _PUNCTUATION_DETECT.search(text):
         structure_score += 0.2
 
     return min(1.0, structure_score)
