@@ -9,7 +9,7 @@ from unittest.mock import patch
 import pytest
 from PIL import Image
 
-from kreuzberg._multiprocessing.tesseract_pool import (
+from kreuzberg._ocr._pool import (
     TesseractProcessPool,
     _process_image_bytes_with_tesseract,
     _process_image_with_tesseract,
@@ -127,7 +127,7 @@ def test_process_image_bytes_with_tesseract(tesseract_config: dict[str, Any]) ->
     img.save(img_bytes, format="PNG")
     image_bytes = img_bytes.getvalue()
 
-    with patch("kreuzberg._multiprocessing.tesseract_pool._process_image_with_tesseract") as mock_process:
+    with patch("kreuzberg._ocr._pool._process_image_with_tesseract") as mock_process:
         mock_process.return_value = {
             "success": True,
             "text": "Bytes OCR output",
