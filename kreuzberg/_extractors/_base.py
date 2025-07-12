@@ -128,4 +128,5 @@ class Extractor(ABC):
             metadata=normalize_metadata(enhanced_metadata),
             chunks=result.chunks,
             detected_languages=result.detected_languages,
+            tables=result.tables,
         )

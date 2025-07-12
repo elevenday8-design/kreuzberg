@@ -44,7 +44,7 @@ _NAVIGATION_PATTERNS = {
     "nav_words": re.compile(r"\b(?:Skip to main content|Back to top|Main navigation|Site navigation)\b", re.IGNORECASE),
     "breadcrumbs": re.compile(r"(?:Home\s*[>»]\s*|[>»]\s*){2,}"),
     "pagination": re.compile(
-        r"\b(?:Page \d+ of \d+|First page|Last page|Previous page|Next page|\d+ of \d+)\b", re.IGNORECASE
+        r"\b(?:Page \d+ of \d+|First page|Last page|Previous page|Next page|^\d+ of \d+$)\b", re.IGNORECASE
     ),
 }
 
