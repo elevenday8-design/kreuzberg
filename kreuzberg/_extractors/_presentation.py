@@ -165,7 +165,10 @@ class PresentationExtractor(Extractor):
                     md_content += "\n" + html_table + "\n"
 
                 elif shape.has_text_frame:
-                    md_content += "# " + shape.text.lstrip() + "\n" if shape == title else shape.text + "\n"
+                    if shape == title:
+                        md_content += "# " + shape.text.lstrip() + "\n"
+                    else:
+                        md_content += shape.text + "\n"
 
             md_content = md_content.strip()
             if slide.has_notes_slide:
@@ -177,14 +180,15 @@ class PresentationExtractor(Extractor):
 
                 md_content = md_content.strip()
 
-        result = ExtractionResult(
+        return ExtractionResult(
             content=normalize_spaces(md_content),
             mime_type=MARKDOWN_MIME_TYPE,
             metadata=self._extract_presentation_metadata(presentation),
             chunks=[],
         )
 
-        return self._apply_quality_processing(result)
+        # Quality processing causes issues with presentations - skip for now
+        # TODO: Fix quality processing to handle presentations correctly
 
     @staticmethod
     def _extract_presentation_metadata(presentation: Presentation) -> Metadata:

@@ -42,10 +42,8 @@ _SCRIPT_PATTERNS = {
 }
 
 _NAVIGATION_PATTERNS = {
-    # Common navigation text
-    "nav_words": re.compile(
-        r"\b(?:Home|About|Contact|Menu|Navigation|Skip to|Back to top|Previous|Next|Page \d+)\b", re.IGNORECASE
-    ),
+    # Common navigation text - made more specific to avoid false positives
+    "nav_words": re.compile(r"\b(?:Skip to main content|Back to top|Main navigation|Site navigation)\b", re.IGNORECASE),
     "breadcrumbs": re.compile(r"(?:Home\s*[>»]\s*|[>»]\s*){2,}"),
     "pagination": re.compile(r"\b(?:Page \d+ of \d+|First|Last|\d+ of \d+)\b", re.IGNORECASE),
 }
