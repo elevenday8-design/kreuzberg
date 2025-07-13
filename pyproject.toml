@@ -6,23 +6,28 @@ requires = [ "hatchling" ]
 [project]
 name = "kreuzberg"
 version = "3.8.1"
-description = "Advanced document intelligence framework for extracting structured content from PDFs, images, and office documents"
+description = "Document intelligence framework for Python - Extract text, metadata, and structured data from diverse file formats"
 readme = "README.md"
 keywords = [
-  "automation",
-  "content-extraction",
-  "data-processing",
+  "async",
   "document-analysis",
   "document-intelligence",
   "document-processing",
-  "entity-extraction",
-  "image-to-text",
+  "extensible",
   "information-extraction",
+  "mcp",
+  "metadata-extraction",
+  "model-context-protocol",
   "ocr",
+  "pandoc",
   "pdf-extraction",
+  "pdfium",
+  "plugin-architecture",
   "rag",
+  "retrieval-augmented-generation",
   "structured-data",
   "table-extraction",
+  "tesseract",
   "text-extraction",
 ]
 license = { text = "MIT" }
