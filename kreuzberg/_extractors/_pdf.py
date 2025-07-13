@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import contextlib
+import os
+import tempfile
 from multiprocessing import cpu_count
 from pathlib import Path
 from re import Pattern
@@ -10,15 +12,21 @@ from typing import TYPE_CHECKING, ClassVar, cast
 import anyio
 import pypdfium2
 from anyio import Path as AsyncPath
+from playa import parse
 
 from kreuzberg._extractors._base import Extractor
 from kreuzberg._mime_types import PDF_MIME_TYPE, PLAIN_TEXT_MIME_TYPE
 from kreuzberg._ocr import get_ocr_backend
-from kreuzberg._playa import extract_pdf_metadata
+from kreuzberg._ocr._easyocr import EasyOCRConfig
+from kreuzberg._ocr._paddleocr import PaddleOCRConfig
+from kreuzberg._ocr._tesseract import TesseractConfig
+from kreuzberg._playa import extract_pdf_metadata, extract_pdf_metadata_sync
 from kreuzberg._types import ExtractionResult, OcrBackendType
+from kreuzberg._utils._errors import create_error_context, should_retry
 from kreuzberg._utils._pdf_lock import pypdfium_file_lock
 from kreuzberg._utils._string import normalize_spaces
 from kreuzberg._utils._sync import run_sync, run_taskgroup_batched
+from kreuzberg._utils._table import generate_table_summary
 from kreuzberg._utils._tmp import create_temp_file
 from kreuzberg.exceptions import ParsingError
 
@@ -63,25 +71,36 @@ class PDFExtractor(Extractor):
         result.metadata = await extract_pdf_metadata(content_bytes)
 
         if self.config.extract_tables:
-            from kreuzberg._gmft import extract_tables
+            # GMFT is optional dependency
+            try:
+                from kreuzberg._gmft import extract_tables
 
-            result.tables = await extract_tables(path, self.config.gmft_config)
+                result.tables = await extract_tables(path, self.config.gmft_config)
+            except ImportError:
+                result.tables = []
 
-        return result
+            # Enhance metadata with table information
+            if result.tables:
+                table_summary = generate_table_summary(result.tables)
+                result.metadata.update(
+                    {
+                        "table_count": table_summary["table_count"],
+                        "tables_summary": f"Document contains {table_summary['table_count']} tables "
+                        f"across {table_summary['pages_with_tables']} pages with "
+                        f"{table_summary['total_rows']} total rows",
+                    }
+                )
+
+        return self._apply_quality_processing(result)
 
     def extract_bytes_sync(self, content: bytes) -> ExtractionResult:
         """Pure sync implementation of PDF extraction from bytes."""
-        import os
-        import tempfile
-
         fd, temp_path = tempfile.mkstemp(suffix=".pdf")
         try:
             with os.fdopen(fd, "wb") as f:
                 f.write(content)
 
             result = self.extract_path_sync(Path(temp_path))
-
-            from kreuzberg._playa import extract_pdf_metadata_sync
 
             metadata = extract_pdf_metadata_sync(content)
             result.metadata = metadata
@@ -100,22 +119,42 @@ class PDFExtractor(Extractor):
 
         tables = []
         if self.config.extract_tables:
+            # GMFT is optional dependency
             try:
                 from kreuzberg._gmft import extract_tables_sync
 
                 tables = extract_tables_sync(path)
             except ImportError:
-                pass
+                tables = []
+
+        # Use playa for better text structure preservation when not using OCR
+        if not self.config.force_ocr and self._validate_extracted_text(text):
+            text = self._extract_with_playa_sync(path, fallback_text=text)
 
         text = normalize_spaces(text)
 
-        return ExtractionResult(
+        result = ExtractionResult(
             content=text,
             mime_type=PLAIN_TEXT_MIME_TYPE,
             metadata={},
             tables=tables,
             chunks=[],
         )
+
+        # Enhance metadata with table information
+        if tables:
+            table_summary = generate_table_summary(tables)
+            result.metadata.update(
+                {
+                    "table_count": table_summary["table_count"],
+                    "tables_summary": f"Document contains {table_summary['table_count']} tables "
+                    f"across {table_summary['pages_with_tables']} pages with "
+                    f"{table_summary['total_rows']} total rows",
+                }
+            )
+
+        # Apply quality processing
+        return self._apply_quality_processing(result)
 
     def _validate_extracted_text(self, text: str, corruption_threshold: float = 0.05) -> bool:
         """Check if text extracted from PDF is valid or corrupted.
@@ -155,8 +194,6 @@ class PDFExtractor(Extractor):
         Returns:
             A list of Pillow Images.
         """
-        from kreuzberg._utils._errors import create_error_context, should_retry
-
         document: pypdfium2.PdfDocument | None = None
         last_error = None
 
@@ -228,8 +265,6 @@ class PDFExtractor(Extractor):
         Returns:
             The extracted text.
         """
-        from kreuzberg._utils._errors import create_error_context
-
         document: pypdfium2.PdfDocument | None = None
         try:
             with pypdfium_file_lock(input_file):
@@ -283,7 +318,7 @@ class PDFExtractor(Extractor):
                 text_parts = []
                 for page in pdf:
                     text_page = page.get_textpage()
-                    text = text_page.get_text_range()
+                    text = text_page.get_text_bounded()
                     text_parts.append(text)
                     text_page.close()
                     page.close()
@@ -308,9 +343,6 @@ class PDFExtractor(Extractor):
                     images.append(pil_image)
                     bitmap.close()
                     page.close()
-
-            import os
-            import tempfile
 
             image_paths = []
             temp_files = []
@@ -339,43 +371,44 @@ class PDFExtractor(Extractor):
 
     def _process_pdf_images_with_ocr(self, image_paths: list[str]) -> str:
         """Process PDF images with the configured OCR backend."""
-        if self.config.ocr_backend == "tesseract":
-            from kreuzberg._multiprocessing.sync_tesseract import process_batch_images_sync_pure
-            from kreuzberg._ocr._tesseract import TesseractConfig
+        backend = get_ocr_backend(self.config.ocr_backend)
+        paths = [Path(p) for p in image_paths]
 
-            tesseract_config = (
+        if self.config.ocr_backend == "tesseract":
+            config = (
                 self.config.ocr_config if isinstance(self.config.ocr_config, TesseractConfig) else TesseractConfig()
             )
-            results = process_batch_images_sync_pure([str(p) for p in image_paths], tesseract_config)
-            text_parts = [r.content for r in results]
-            return "\n\n".join(text_parts)
-
-        if self.config.ocr_backend == "paddleocr":
-            from kreuzberg._multiprocessing.sync_paddleocr import process_image_sync_pure as paddle_process
-            from kreuzberg._ocr._paddleocr import PaddleOCRConfig
-
+            results = backend.process_batch_sync(paths, **config.__dict__)
+        elif self.config.ocr_backend == "paddleocr":
             paddle_config = (
                 self.config.ocr_config if isinstance(self.config.ocr_config, PaddleOCRConfig) else PaddleOCRConfig()
             )
-
-            text_parts = []
-            for image_path in image_paths:
-                result = paddle_process(Path(image_path), paddle_config)
-                text_parts.append(result.content)
-            return "\n\n".join(text_parts)
-
-        if self.config.ocr_backend == "easyocr":
-            from kreuzberg._multiprocessing.sync_easyocr import process_image_sync_pure as easy_process
-            from kreuzberg._ocr._easyocr import EasyOCRConfig
-
+            results = backend.process_batch_sync(paths, **paddle_config.__dict__)
+        elif self.config.ocr_backend == "easyocr":
             easy_config = (
                 self.config.ocr_config if isinstance(self.config.ocr_config, EasyOCRConfig) else EasyOCRConfig()
             )
+            results = backend.process_batch_sync(paths, **easy_config.__dict__)
+        else:
+            raise NotImplementedError(f"Sync OCR not implemented for {self.config.ocr_backend}")
+
+        text_parts = [r.content for r in results]
+        return "\n\n".join(text_parts)
+
+    def _extract_with_playa_sync(self, path: Path, fallback_text: str) -> str:
+        """Extract text using playa for better structure preservation."""
+        with contextlib.suppress(Exception):
+            content = path.read_bytes()
+            document = parse(content, max_workers=1)
 
             text_parts = []
-            for image_path in image_paths:
-                result = easy_process(Path(image_path), easy_config)
-                text_parts.append(result.content)
-            return "\n\n".join(text_parts)
+            for page in document.pages:
+                # Extract text while preserving structure
+                page_text = page.extract_text()
+                if page_text and page_text.strip():
+                    text_parts.append(page_text)
 
-        raise NotImplementedError(f"Sync OCR not implemented for {self.config.ocr_backend}")
+            if text_parts:
+                return "\n\n".join(text_parts)
+
+        return fallback_text
