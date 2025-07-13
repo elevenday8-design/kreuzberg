@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from functools import reduce
 from typing import Any
 
 # Pre-compiled patterns for performance
@@ -103,8 +104,6 @@ def clean_extracted_text(text: str) -> str:
         return text
 
     # Remove script and style content using functools.reduce for single pass
-    from functools import reduce
-
     text = reduce(lambda t, pattern: pattern.sub(" ", t), _SCRIPT_PATTERNS.values(), text)
 
     # Clean OCR artifacts

@@ -82,6 +82,101 @@ docker run -p 8000:8000 goldziher/kreuzberg:latest-paddle
 docker run -p 8000:8000 goldziher/kreuzberg:latest-all
 ```
 
+## Configuration
+
+### Using Configuration Files
+
+You can provide configuration files to customize Kreuzberg's behavior:
+
+```bash
+# Create a configuration file
+cat > kreuzberg.toml << EOF
+force_ocr = false
+chunk_content = true
+extract_tables = true
+ocr_backend = "tesseract"
+auto_detect_language = true
+
+[tesseract]
+language = "eng"
+psm = 6
+
+[gmft]
+detector_base_threshold = 0.9
+remove_null_rows = true
+EOF
+
+# Mount the configuration file
+docker run -p 8000:8000 \
+  -v "$(pwd)/kreuzberg.toml:/app/kreuzberg.toml" \
+  goldziher/kreuzberg:latest
+```
+
+#### Docker Compose with Configuration
+
+```yaml
+services:
+  kreuzberg:
+    image: goldziher/kreuzberg:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      - "./kreuzberg.toml:/app/kreuzberg.toml"
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+```
+
+#### Configuration Examples
+
+**For OCR-heavy workloads:**
+
+```toml
+force_ocr = true
+ocr_backend = "tesseract"
+
+[tesseract]
+language = "eng+deu+fra"  # Multiple languages
+psm = 6                   # Uniform block of text
+```
+
+**For table extraction:**
+
+```toml
+extract_tables = true
+chunk_content = true
+max_chars = 2000
+
+[gmft]
+detector_base_threshold = 0.85
+remove_null_rows = true
+enable_multi_header = true
+```
+
+**For multilingual documents:**
+
+```toml
+auto_detect_language = true
+extract_entities = true
+extract_keywords = true
+
+[language_detection]
+multilingual = true
+top_k = 5
+
+[spacy_entity_extraction]
+language_models = { en = "en_core_web_sm", de = "de_core_news_sm" }
+```
+
+### Checking Configuration
+
+You can verify what configuration is loaded:
+
+```bash
+# Check configuration via API
+curl http://localhost:8000/config
+```
+
 ## Building Custom Images
 
 If you need a custom configuration, you can build your own image:
@@ -92,11 +187,11 @@ FROM goldziher/kreuzberg:latest
 # Add custom dependencies
 RUN pip install your-custom-package
 
-# Add custom configuration
-COPY custom_config.py /app/
+# Add custom configuration file
+COPY kreuzberg.toml /app/kreuzberg.toml
 
-# Use custom startup command
-CMD ["python", "custom_config.py"]
+# Or copy a pyproject.toml with [tool.kreuzberg] section
+COPY pyproject.toml /app/pyproject.toml
 ```
 
 ## Image Details

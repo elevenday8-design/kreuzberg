@@ -127,8 +127,8 @@ def extract_entities(
     """
     entities: list[Entity] = []
     if custom_patterns:
-        custom_patterns_dict = dict(custom_patterns)
-        for ent_type, pattern in custom_patterns_dict.items():
+        # Direct iteration over frozenset - no need to convert to dict
+        for ent_type, pattern in custom_patterns:
             entities.extend(
                 Entity(type=ent_type, text=match.group(), start=match.start(), end=match.end())
                 for match in re.finditer(pattern, text)

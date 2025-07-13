@@ -1,6 +1,7 @@
 """Baseline performance benchmark before implementing multi-layer caching."""
 
 import asyncio
+import json
 import time
 from pathlib import Path
 
@@ -109,8 +110,6 @@ async def run_baseline_benchmark() -> dict[str, object] | None:
 
 if __name__ == "__main__":
     baseline_results = asyncio.run(run_baseline_benchmark())
-
-    import json
 
     baseline_file = Path("baseline_results.json")
     with baseline_file.open("w") as f:

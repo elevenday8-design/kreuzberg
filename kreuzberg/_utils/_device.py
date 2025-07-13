@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass
+from itertools import chain
 from typing import Literal
 
 from kreuzberg.exceptions import ValidationError
@@ -34,8 +35,6 @@ def detect_available_devices() -> list[DeviceInfo]:
     Returns:
         List of available devices, with the most preferred device first.
     """
-    from itertools import chain
-
     # Build device lists efficiently using generators
     cpu_device = DeviceInfo(device_type="cpu", name="CPU")
 

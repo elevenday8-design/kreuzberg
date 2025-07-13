@@ -117,8 +117,8 @@ def build_extraction_config_from_dict(config_dict: dict[str, Any]) -> Extraction
     """
     extraction_config: dict[str, Any] = {}
 
-    # Copy basic configuration fields
-    for field in [
+    # Copy basic configuration fields using dictionary comprehension
+    basic_fields = {
         "force_ocr",
         "chunk_content",
         "extract_tables",
@@ -129,9 +129,8 @@ def build_extraction_config_from_dict(config_dict: dict[str, Any]) -> Extraction
         "extract_keywords",
         "auto_detect_language",
         "enable_quality_processing",
-    ]:
-        if field in config_dict:
-            extraction_config[field] = config_dict[field]
+    }
+    extraction_config.update({field: config_dict[field] for field in basic_fields if field in config_dict})
 
     # Handle OCR backend configuration
     ocr_backend = extraction_config.get("ocr_backend")

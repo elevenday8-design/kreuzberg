@@ -179,7 +179,7 @@ def normalize_spaces(text: str) -> str:
         # Clean up multiple newlines within paragraph (keep single newlines)
         cleaned = _NEWLINES_PATTERN.sub("\n", cleaned)
 
-        # Process lines efficiently
+        # Process lines efficiently - manual loop avoids double strip() calls
         lines = []
         for line in cleaned.split("\n"):
             stripped_line = line.strip()

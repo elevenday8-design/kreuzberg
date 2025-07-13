@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, Literal, TypedDict
 import msgspec
 
 from kreuzberg._constants import DEFAULT_MAX_CHARACTERS, DEFAULT_MAX_OVERLAP
+from kreuzberg._utils._table import export_table_to_csv, export_table_to_tsv, extract_table_structure_info
 from kreuzberg.exceptions import ValidationError
 
 if sys.version_info < (3, 11):  # pragma: no cover
@@ -261,8 +262,6 @@ class ExtractionResult:
         if not self.tables:
             return []
 
-        from kreuzberg._utils._table import export_table_to_csv
-
         return [export_table_to_csv(table) for table in self.tables]
 
     def export_tables_to_tsv(self) -> list[str]:
@@ -274,8 +273,6 @@ class ExtractionResult:
         if not self.tables:
             return []
 
-        from kreuzberg._utils._table import export_table_to_tsv
-
         return [export_table_to_tsv(table) for table in self.tables]
 
     def get_table_summaries(self) -> list[dict[str, Any]]:
@@ -286,8 +283,6 @@ class ExtractionResult:
         """
         if not self.tables:
             return []
-
-        from kreuzberg._utils._table import extract_table_structure_info
 
         return [extract_table_structure_info(table) for table in self.tables]
 

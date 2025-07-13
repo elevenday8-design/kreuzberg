@@ -3,7 +3,10 @@ from __future__ import annotations
 from json import dumps
 from typing import TYPE_CHECKING, Annotated, Any
 
+import msgspec
+
 from kreuzberg import (
+    ExtractionConfig,
     ExtractionResult,
     KreuzbergError,
     MissingDependencyError,
@@ -11,6 +14,7 @@ from kreuzberg import (
     ValidationError,
     batch_extract_bytes,
 )
+from kreuzberg._config import try_discover_config
 
 if TYPE_CHECKING:
     from litestar.datastructures import UploadFile
@@ -66,8 +70,12 @@ async def handle_files_upload(
     data: Annotated[list[UploadFile], Body(media_type=RequestEncodingType.MULTI_PART)],
 ) -> list[ExtractionResult]:
     """Extracts text content from an uploaded file."""
+    # Try to discover configuration from files
+    config = try_discover_config()
+
     return await batch_extract_bytes(
         [(await file.read(), file.content_type) for file in data],
+        config=config or ExtractionConfig(),
     )
 
 
@@ -77,8 +85,21 @@ async def health_check() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@get("/config", operation_id="GetConfiguration")
+async def get_configuration() -> dict[str, Any]:
+    """Get the current configuration."""
+    config = try_discover_config()
+    if config is None:
+        return {"message": "No configuration file found", "config": None}
+
+    return {
+        "message": "Configuration loaded successfully",
+        "config": msgspec.to_builtins(config, order="deterministic"),
+    }
+
+
 app = Litestar(
-    route_handlers=[handle_files_upload, health_check],
+    route_handlers=[handle_files_upload, health_check, get_configuration],
     plugins=[OpenTelemetryPlugin(OpenTelemetryConfig())],
     logging_config=StructLoggingConfig(),
     exception_handlers={
