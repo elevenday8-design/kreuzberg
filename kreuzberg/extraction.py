@@ -9,11 +9,13 @@ import anyio
 
 from kreuzberg import ExtractionResult
 from kreuzberg._chunker import get_chunker
+from kreuzberg._document_classification import classify_document_from_layout
 from kreuzberg._entity_extraction import extract_entities, extract_keywords
 from kreuzberg._language_detection import detect_languages
 from kreuzberg._mime_types import (
     validate_mime_type,
 )
+from kreuzberg._ocr import get_ocr_backend
 from kreuzberg._registry import ExtractorRegistry
 from kreuzberg._types import ExtractionConfig
 from kreuzberg._utils._document_cache import get_document_cache
@@ -66,9 +68,6 @@ def _validate_and_post_process_helper(
 
     if config.auto_detect_document_type:
         if config.document_classification_mode == "vision" and file_path:
-            from kreuzberg._document_classification import classify_document_from_layout
-            from kreuzberg._ocr import get_ocr_backend
-
             layout_result = get_ocr_backend("tesseract").process_file_sync(file_path, **config.get_config_dict())
             result.document_type, result.document_type_confidence = classify_document_from_layout(layout_result, config)
         else:
