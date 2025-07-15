@@ -52,15 +52,15 @@ def test_vision_based_classification() -> None:
 
     # Create a mock layout DataFrame
     layout_data = {
-        "text": ["AGREEMENT", "Party A", "Signature"],
-        "top": [10, 200, 800],
-        "height": [10, 10, 10],
+        "text": ["AGREEMENT", "Party A", "Signature", "Party B"],
+        "top": [10, 200, 800, 810],
+        "height": [10, 10, 10, 10],
     }
     layout_df = pd.DataFrame(layout_data)
 
     # Create a mock ExtractionResult
     result = ExtractionResult(
-        content="AGREEMENT Party A Signature",
+        content="AGREEMENT Party A Signature Party B Signature",
         mime_type="text/plain",
         metadata={},
         layout=layout_df,
