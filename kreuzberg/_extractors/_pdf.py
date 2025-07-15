@@ -248,9 +248,10 @@ class PDFExtractor(Extractor):
             *[backend.process_image(image, **self.config.get_config_dict()) for image in images],
             batch_size=cpu_count(),
         )
-        return ExtractionResult(
-            content="\n".join([v.content for v in ocr_results]), mime_type=PLAIN_TEXT_MIME_TYPE, metadata={}, chunks=[]
-        )
+        # Use list comprehension and join for efficient string building
+        content = "\n".join(result.content for result in ocr_results)
+
+        return ExtractionResult(content=content, mime_type=PLAIN_TEXT_MIME_TYPE, metadata={}, chunks=[])
 
     @staticmethod
     async def _extract_pdf_searchable_text(input_file: Path) -> str:
@@ -269,22 +270,24 @@ class PDFExtractor(Extractor):
         try:
             with pypdfium_file_lock(input_file):
                 document = await run_sync(pypdfium2.PdfDocument, str(input_file))
-                text_parts = []
+                pages_content = []
                 page_errors = []
 
                 for i, page in enumerate(cast("pypdfium2.PdfDocument", document)):
                     try:
                         text_page = page.get_textpage()
-                        text_parts.append(text_page.get_text_bounded())
+                        page_content = text_page.get_text_bounded()
+                        pages_content.append(page_content)
                     except Exception as e:  # noqa: PERF203, BLE001
                         page_errors.append({"page": i + 1, "error": str(e)})
-                        text_parts.append(f"[Error extracting page {i + 1}]")
+                        pages_content.append(f"[Error extracting page {i + 1}]")
 
-                text = "\n".join(text_parts)
+                text = "\n".join(pages_content)
+                has_content = bool(text.strip())
 
-                if page_errors and text_parts:
+                if page_errors and has_content:
                     return normalize_spaces(text)
-                if not text_parts:
+                if not has_content:
                     raise ParsingError(
                         "Could not extract any text from PDF",
                         context=create_error_context(
@@ -315,14 +318,14 @@ class PDFExtractor(Extractor):
         try:
             with pypdfium_file_lock(path):
                 pdf = pypdfium2.PdfDocument(str(path))
-                text_parts = []
+                pages_text = []
                 for page in pdf:
                     text_page = page.get_textpage()
                     text = text_page.get_text_bounded()
-                    text_parts.append(text)
+                    pages_text.append(text)
                     text_page.close()
                     page.close()
-                return "".join(text_parts)
+                return "\n".join(pages_text)
         except Exception as e:
             raise ParsingError(f"Failed to extract PDF text: {e}") from e
         finally:
@@ -392,8 +395,8 @@ class PDFExtractor(Extractor):
         else:
             raise NotImplementedError(f"Sync OCR not implemented for {self.config.ocr_backend}")
 
-        text_parts = [r.content for r in results]
-        return "\n\n".join(text_parts)
+        # Use list comprehension and join for efficient string building
+        return "\n\n".join(result.content for result in results)
 
     def _extract_with_playa_sync(self, path: Path, fallback_text: str) -> str:
         """Extract text using playa for better structure preservation."""
@@ -401,14 +404,14 @@ class PDFExtractor(Extractor):
             content = path.read_bytes()
             document = parse(content, max_workers=1)
 
-            text_parts = []
+            # Extract text while preserving structure
+            pages_text = []
             for page in document.pages:
-                # Extract text while preserving structure
                 page_text = page.extract_text()
                 if page_text and page_text.strip():
-                    text_parts.append(page_text)
+                    pages_text.append(page_text)
 
-            if text_parts:
-                return "\n\n".join(text_parts)
+            if pages_text:
+                return "\n\n".join(pages_text)
 
         return fallback_text

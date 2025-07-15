@@ -18,7 +18,7 @@ except ImportError as e:
     ) from e
 
 from kreuzberg import __version__, extract_bytes_sync, extract_file_sync
-from kreuzberg._cli_config import build_extraction_config, find_default_config, load_config_from_file
+from kreuzberg._config import build_extraction_config, find_config_file, load_config_from_file
 from kreuzberg.exceptions import KreuzbergError, MissingDependencyError
 
 DEFAULT_MAX_CHARACTERS = 4000
@@ -92,7 +92,7 @@ def _load_config(config: Path | None, verbose: bool) -> dict[str, Any]:
     if config:
         file_config = load_config_from_file(config)
     else:
-        default_config = find_default_config()
+        default_config = find_config_file()
         if default_config:
             try:
                 file_config = load_config_from_file(default_config)
@@ -314,7 +314,7 @@ def extract(  # noqa: PLR0913
 def config(config: Path | None) -> None:
     """Show current configuration."""
     try:
-        config_path = config or find_default_config()
+        config_path = config or find_config_file()
 
         if config_path:
             file_config = load_config_from_file(config_path)

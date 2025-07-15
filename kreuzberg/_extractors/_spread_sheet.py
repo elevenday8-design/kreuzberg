@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import contextlib
 import csv
+import os
 import sys
+import tempfile
 from datetime import date, datetime, time, timedelta
 from io import StringIO
 from pathlib import Path
@@ -68,9 +70,6 @@ class SpreadSheetExtractor(Extractor):
 
     def extract_bytes_sync(self, content: bytes) -> ExtractionResult:
         """Pure sync implementation of extract_bytes."""
-        import os
-        import tempfile
-
         fd, temp_path = tempfile.mkstemp(suffix=".xlsx")
 
         try:

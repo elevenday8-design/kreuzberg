@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import os
 import re
 import subprocess
@@ -192,7 +193,7 @@ class PSMMode(Enum):
     """Treat the image as a single character."""
 
 
-@dataclass(unsafe_hash=True, frozen=True)
+@dataclass(unsafe_hash=True, frozen=True, slots=True)
 class TesseractConfig:
     """Configuration options for Tesseract OCR engine."""
 
@@ -235,8 +236,6 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
         image: Image,
         **kwargs: Unpack[TesseractConfig],
     ) -> ExtractionResult:
-        import io
-
         from kreuzberg._utils._cache import get_ocr_cache
 
         image_buffer = io.BytesIO()
@@ -424,8 +423,6 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
         Returns:
             The extraction result object
         """
-        import io
-
         from kreuzberg._utils._cache import get_ocr_cache
 
         image_buffer = io.BytesIO()
@@ -774,8 +771,6 @@ def _process_image_bytes_with_tesseract(
         OCR result as dictionary.
     """
     try:
-        import io
-
         from PIL import Image
 
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_image:

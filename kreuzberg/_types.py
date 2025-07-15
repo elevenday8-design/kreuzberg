@@ -5,7 +5,10 @@ from collections.abc import Awaitable, Callable
 from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
+import msgspec
+
 from kreuzberg._constants import DEFAULT_MAX_CHARACTERS, DEFAULT_MAX_OVERLAP
+from kreuzberg._utils._table import export_table_to_csv, export_table_to_tsv, extract_table_structure_info
 from kreuzberg.exceptions import ValidationError
 
 if sys.version_info < (3, 11):  # pragma: no cover
@@ -191,7 +194,7 @@ def normalize_metadata(data: dict[str, Any] | None) -> Metadata:
     return normalized
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Entity:
     """Represents an extracted entity with type, text, and position."""
 
@@ -205,7 +208,7 @@ class Entity:
     """End character offset in the content"""
 
 
-@dataclass
+@dataclass(slots=True)
 class ExtractionResult:
     """The result of a file extraction."""
 
@@ -232,9 +235,29 @@ class ExtractionResult:
     layout: DataFrame | None = field(default=None, repr=False, hash=False)
     """Internal layout data from OCR, not for public use."""
 
-    def to_dict(self) -> dict[str, Any]:
-        """Converts the ExtractionResult to a dictionary."""
-        return asdict(self)
+    def to_dict(self, include_none: bool = False) -> dict[str, Any]:
+        """Converts the ExtractionResult to a dictionary.
+
+        Args:
+            include_none: If True, include fields with None values.
+                         If False (default), exclude None values.
+
+        Returns:
+            Dictionary representation of the ExtractionResult.
+        """
+        # Use msgspec.to_builtins for efficient conversion
+        # The builtin_types parameter allows DataFrames to pass through
+        result = msgspec.to_builtins(
+            self,
+            builtin_types=(type(None),),  # Allow None to pass through
+            order="deterministic",  # Ensure consistent output
+        )
+
+        if include_none:
+            return result  # type: ignore[no-any-return]
+
+        # Remove None values to match expected behavior
+        return {k: v for k, v in result.items() if v is not None}
 
     def export_tables_to_csv(self) -> list[str]:
         """Export all tables to CSV format.
@@ -244,8 +267,6 @@ class ExtractionResult:
         """
         if not self.tables:
             return []
-
-        from kreuzberg._utils._table import export_table_to_csv
 
         return [export_table_to_csv(table) for table in self.tables]
 
@@ -258,8 +279,6 @@ class ExtractionResult:
         if not self.tables:
             return []
 
-        from kreuzberg._utils._table import export_table_to_tsv
-
         return [export_table_to_tsv(table) for table in self.tables]
 
     def get_table_summaries(self) -> list[dict[str, Any]]:
@@ -271,8 +290,6 @@ class ExtractionResult:
         if not self.tables:
             return []
 
-        from kreuzberg._utils._table import extract_table_structure_info
-
         return [extract_table_structure_info(table) for table in self.tables]
 
 
@@ -280,7 +297,7 @@ PostProcessingHook = Callable[[ExtractionResult], ExtractionResult | Awaitable[E
 ValidationHook = Callable[[ExtractionResult], None | Awaitable[None]]
 
 
-@dataclass(unsafe_hash=True)
+@dataclass(unsafe_hash=True, slots=True)
 class ExtractionConfig:
     """Represents configuration settings for an extraction process.
 
@@ -367,18 +384,23 @@ class ExtractionConfig:
         Returns:
             A dict of the OCR configuration or an empty dict if no backend is provided.
         """
-        if self.ocr_backend is not None:
-            if self.ocr_config is not None:
-                return asdict(self.ocr_config)
-            if self.ocr_backend == "tesseract":
-                from kreuzberg._ocr._tesseract import TesseractConfig
+        if self.ocr_backend is None:
+            return {}
 
-                return asdict(TesseractConfig())
-            if self.ocr_backend == "easyocr":
-                from kreuzberg._ocr._easyocr import EasyOCRConfig
+        if self.ocr_config is not None:
+            # Use asdict for OCR configs to preserve enum objects correctly
+            return asdict(self.ocr_config)
 
-                return asdict(EasyOCRConfig())
-            from kreuzberg._ocr._paddleocr import PaddleOCRConfig
+        # Lazy load and cache default configs instead of creating new instances
+        if self.ocr_backend == "tesseract":
+            from kreuzberg._ocr._tesseract import TesseractConfig
 
-            return asdict(PaddleOCRConfig())
-        return {}
+            return asdict(TesseractConfig())
+        if self.ocr_backend == "easyocr":
+            from kreuzberg._ocr._easyocr import EasyOCRConfig
+
+            return asdict(EasyOCRConfig())
+        # paddleocr
+        from kreuzberg._ocr._paddleocr import PaddleOCRConfig
+
+        return asdict(PaddleOCRConfig())

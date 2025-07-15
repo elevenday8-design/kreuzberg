@@ -28,6 +28,7 @@ _encoding_cache: dict[str, str] = {}
 @lru_cache(maxsize=128)
 def _get_encoding_cache_key(data_hash: str, size: int) -> str:
     """Generate cache key for encoding detection."""
+    # Use string interpolation which is faster than format strings for simple cases
     return f"{data_hash}:{size}"
 
 
@@ -104,25 +105,29 @@ def _calculate_text_confidence(text: str) -> float:
     if not text:
         return 0.0
 
-    # Check for common encoding problems
-    replacement_count = len(_MOJIBAKE_PATTERNS["replacement_chars"].findall(text))
-    control_count = len(_MOJIBAKE_PATTERNS["control_chars"].findall(text))
     total_chars = len(text)
-
     if total_chars == 0:
         return 0.0
+
+    # Check for common encoding problems - compile patterns once
+    replacement_count = len(_MOJIBAKE_PATTERNS["replacement_chars"].findall(text))
+    control_count = len(_MOJIBAKE_PATTERNS["control_chars"].findall(text))
 
     # Penalize replacement and control characters
     penalty = (replacement_count + control_count * 2) / total_chars
 
-    # Bonus for readable character ranges
+    # Bonus for readable character ranges - more efficient counting
+    # Use generator expression with early termination
     readable_chars = sum(1 for c in text if c.isprintable() or c.isspace())
     readability_score = readable_chars / total_chars
 
     # Check for suspicious Cyrillic that might be misencoded Hebrew
     cyrillic_matches = _MOJIBAKE_PATTERNS["hebrew_as_cyrillic"].findall(text)
-    if cyrillic_matches and len("".join(cyrillic_matches)) > total_chars * 0.1:
-        penalty += 0.3  # Heavy penalty for likely mojibake
+    if cyrillic_matches:
+        # Calculate total length more efficiently
+        cyrillic_length = sum(len(match) for match in cyrillic_matches)
+        if cyrillic_length > total_chars * 0.1:
+            penalty += 0.3  # Heavy penalty for likely mojibake
 
     return max(0.0, min(1.0, readability_score - penalty))
 
@@ -164,7 +169,8 @@ def normalize_spaces(text: str) -> str:
 
     # Split by double newlines to preserve paragraph breaks
     paragraphs = text.split("\n\n")
-    normalized_paragraphs = []
+
+    result_paragraphs = []
 
     for paragraph in paragraphs:
         # Use pre-compiled patterns for better performance
@@ -173,10 +179,14 @@ def normalize_spaces(text: str) -> str:
         # Clean up multiple newlines within paragraph (keep single newlines)
         cleaned = _NEWLINES_PATTERN.sub("\n", cleaned)
 
-        # Strip and filter empty lines efficiently
-        lines = [line.strip() for line in cleaned.split("\n") if line.strip()]
+        # Process lines efficiently - manual loop avoids double strip() calls
+        lines = []
+        for line in cleaned.split("\n"):
+            stripped_line = line.strip()
+            if stripped_line:
+                lines.append(stripped_line)
 
         if lines:
-            normalized_paragraphs.append("\n".join(lines))
+            result_paragraphs.append("\n".join(lines))
 
-    return "\n\n".join(normalized_paragraphs)
+    return "\n\n".join(result_paragraphs)

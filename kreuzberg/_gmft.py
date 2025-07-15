@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import multiprocessing as mp
 import os
 import queue
@@ -8,6 +9,8 @@ import traceback
 from dataclasses import dataclass, field
 from io import StringIO
 from typing import TYPE_CHECKING, Any, Literal
+
+import msgspec
 
 from kreuzberg._types import TableData
 from kreuzberg._utils._sync import run_sync
@@ -20,7 +23,7 @@ if TYPE_CHECKING:
     from pandas import DataFrame
 
 
-@dataclass(unsafe_hash=True)
+@dataclass(unsafe_hash=True, slots=True)
 class GMFTConfig:
     """Configuration options for GMFT.
 
@@ -178,7 +181,7 @@ async def extract_tables(  # noqa: PLR0915
     cache_kwargs = {
         "file_info": str(sorted(file_info.items())),
         "extractor": "gmft",
-        "config": str(sorted(config.__dict__.items())),
+        "config": str(sorted(msgspec.to_builtins(config).items())),
     }
 
     table_cache = get_table_cache()
@@ -308,7 +311,7 @@ def extract_tables_sync(
     cache_kwargs = {
         "file_info": str(sorted(file_info.items())),
         "extractor": "gmft",
-        "config": str(sorted(config.__dict__.items())),
+        "config": str(sorted(msgspec.to_builtins(config).items())),
     }
 
     table_cache = get_table_cache()
@@ -435,8 +438,6 @@ def _extract_tables_in_process(
 
             results = []
             for data_frame, cropped_table in zip(dataframes, cropped_tables, strict=False):
-                import io
-
                 img_bytes = io.BytesIO()
                 cropped_image = cropped_table.image()
                 cropped_image.save(img_bytes, format="PNG")
@@ -480,7 +481,7 @@ def _extract_tables_isolated(
         RuntimeError: If extraction fails or times out
     """
     config = config or GMFTConfig()
-    config_dict = config.__dict__.copy()
+    config_dict = msgspec.to_builtins(config)
 
     ctx = mp.get_context("spawn")
     result_queue = ctx.Queue()
@@ -528,8 +529,6 @@ def _extract_tables_isolated(
         if success:
             tables = []
             for table_dict in result:
-                import io
-
                 from PIL import Image
 
                 img = Image.open(io.BytesIO(table_dict["cropped_image_bytes"]))
@@ -596,7 +595,7 @@ async def _extract_tables_isolated_async(
     import anyio
 
     config = config or GMFTConfig()
-    config_dict = config.__dict__.copy()
+    config_dict = msgspec.to_builtins(config)
 
     ctx = mp.get_context("spawn")
     result_queue = ctx.Queue()
@@ -640,8 +639,6 @@ async def _extract_tables_isolated_async(
         if success:
             tables = []
             for table_dict in result:
-                import io
-
                 from PIL import Image
 
                 img = Image.open(io.BytesIO(table_dict["cropped_image_bytes"]))

@@ -3,16 +3,57 @@
 from __future__ import annotations
 
 import base64
+import json
 from typing import Any
 
+import msgspec
 from mcp.server import FastMCP
 from mcp.types import TextContent
 
+from kreuzberg._config import try_discover_config
 from kreuzberg._types import ExtractionConfig, OcrBackendType
 from kreuzberg.extraction import extract_bytes_sync, extract_file_sync
 
 # Create the MCP server
 mcp = FastMCP("Kreuzberg Text Extraction")
+
+
+def _create_config_with_overrides(**kwargs: Any) -> ExtractionConfig:
+    """Create ExtractionConfig with discovered config as base and tool parameters as overrides.
+
+    Args:
+        **kwargs: Tool parameters to override defaults/discovered config.
+
+    Returns:
+        ExtractionConfig instance.
+    """
+    # Try to discover configuration from files
+    base_config = try_discover_config()
+
+    if base_config is None:
+        # No config file found, use defaults
+        return ExtractionConfig(**kwargs)
+
+    # Merge discovered config with tool parameters (tool params take precedence)
+    config_dict: dict[str, Any] = {
+        "force_ocr": base_config.force_ocr,
+        "chunk_content": base_config.chunk_content,
+        "extract_tables": base_config.extract_tables,
+        "extract_entities": base_config.extract_entities,
+        "extract_keywords": base_config.extract_keywords,
+        "ocr_backend": base_config.ocr_backend,
+        "max_chars": base_config.max_chars,
+        "max_overlap": base_config.max_overlap,
+        "keyword_count": base_config.keyword_count,
+        "auto_detect_language": base_config.auto_detect_language,
+        "ocr_config": base_config.ocr_config,
+        "gmft_config": base_config.gmft_config,
+    }
+
+    # Override with provided parameters
+    config_dict.update(kwargs)
+
+    return ExtractionConfig(**config_dict)
 
 
 @mcp.tool()
@@ -49,7 +90,7 @@ def extract_document(  # noqa: PLR0913
     Returns:
         Extracted content with metadata, tables, chunks, entities, and keywords
     """
-    config = ExtractionConfig(
+    config = _create_config_with_overrides(
         force_ocr=force_ocr,
         chunk_content=chunk_content,
         extract_tables=extract_tables,
@@ -63,7 +104,7 @@ def extract_document(  # noqa: PLR0913
     )
 
     result = extract_file_sync(file_path, mime_type, config)
-    return result.to_dict()
+    return result.to_dict(include_none=True)
 
 
 @mcp.tool()
@@ -102,7 +143,7 @@ def extract_bytes(  # noqa: PLR0913
     """
     content_bytes = base64.b64decode(content_base64)
 
-    config = ExtractionConfig(
+    config = _create_config_with_overrides(
         force_ocr=force_ocr,
         chunk_content=chunk_content,
         extract_tables=extract_tables,
@@ -116,7 +157,7 @@ def extract_bytes(  # noqa: PLR0913
     )
 
     result = extract_bytes_sync(content_bytes, mime_type, config)
-    return result.to_dict()
+    return result.to_dict(include_none=True)
 
 
 @mcp.tool()
@@ -133,7 +174,7 @@ def extract_simple(
     Returns:
         Extracted text content as a string
     """
-    config = ExtractionConfig()
+    config = _create_config_with_overrides()
     result = extract_file_sync(file_path, mime_type, config)
     return result.content
 
@@ -142,7 +183,16 @@ def extract_simple(
 def get_default_config() -> str:
     """Get the default extraction configuration."""
     config = ExtractionConfig()
-    return str(config.__dict__)
+    return json.dumps(msgspec.to_builtins(config, order="deterministic"), indent=2)
+
+
+@mcp.resource("config://discovered")
+def get_discovered_config() -> str:
+    """Get the discovered configuration from config files."""
+    config = try_discover_config()
+    if config is None:
+        return "No configuration file found"
+    return json.dumps(msgspec.to_builtins(config, order="deterministic"), indent=2)
 
 
 @mcp.resource("config://available-backends")
@@ -175,7 +225,7 @@ def extract_and_summarize(file_path: str) -> list[TextContent]:
     Returns:
         Extracted content with summarization prompt
     """
-    result = extract_file_sync(file_path, None, ExtractionConfig())
+    result = extract_file_sync(file_path, None, _create_config_with_overrides())
 
     return [
         TextContent(
@@ -195,7 +245,7 @@ def extract_structured(file_path: str) -> list[TextContent]:
     Returns:
         Extracted content with structured analysis prompt
     """
-    config = ExtractionConfig(
+    config = _create_config_with_overrides(
         extract_entities=True,
         extract_keywords=True,
         extract_tables=True,

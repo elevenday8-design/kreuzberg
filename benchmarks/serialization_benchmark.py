@@ -1,7 +1,8 @@
 """Direct serialization performance comparison: JSON vs msgpack."""
 
-import time
+import json
 import statistics
+import time
 from pathlib import Path
 
 from kreuzberg._types import ExtractionResult
@@ -150,8 +151,6 @@ def benchmark_serialization() -> dict[str, object]:
 if __name__ == "__main__":
     try:
         results = benchmark_serialization()
-
-        import json
 
         results_file = Path("serialization_benchmark_results.json")
         with results_file.open("w") as f:

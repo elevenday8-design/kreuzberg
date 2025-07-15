@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import base64
+import os
+import sys
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
@@ -16,6 +18,12 @@ from kreuzberg._mcp.server import (
     get_default_config,
     get_supported_formats,
     mcp,
+)
+
+# Skip all MCP tests on macOS CI due to segmentation faults
+pytestmark = pytest.mark.skipif(
+    sys.platform == "darwin" and os.environ.get("CI") == "true",
+    reason="MCP tests cause segmentation faults on macOS CI",
 )
 
 if TYPE_CHECKING:

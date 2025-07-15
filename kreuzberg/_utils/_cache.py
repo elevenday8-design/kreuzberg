@@ -64,11 +64,10 @@ class KreuzbergCache(Generic[T]):
         Returns:
             Unique cache key string
         """
-        # Use more efficient string building for cache key
         if not kwargs:
             return "empty"
 
-        # Build key string efficiently
+        # Build cache key using list + join (faster than StringIO)
         parts = []
         for key in sorted(kwargs):
             value = kwargs[key]
@@ -81,6 +80,7 @@ class KreuzbergCache(Generic[T]):
                 parts.append(f"{key}={type(value).__name__}:{value!s}")
 
         cache_str = "&".join(parts)
+        # SHA256 is secure and fast enough for cache keys
         return hashlib.sha256(cache_str.encode()).hexdigest()[:16]
 
     def _get_cache_path(self, cache_key: str) -> Path:
@@ -107,15 +107,14 @@ class KreuzbergCache(Generic[T]):
             serialized_data = []
             for item in result:
                 if isinstance(item, dict) and "df" in item:
-                    # Create a copy and serialize the DataFrame as CSV
-                    item_copy = item.copy()
+                    # Build new dict without unnecessary copy
+                    serialized_item = {k: v for k, v in item.items() if k != "df"}
                     if hasattr(item["df"], "to_csv"):
-                        item_copy["df_csv"] = item["df"].to_csv(index=False)
+                        serialized_item["df_csv"] = item["df"].to_csv(index=False)
                     else:
                         # Fallback for non-DataFrame objects
-                        item_copy["df_csv"] = str(item["df"])
-                    del item_copy["df"]
-                    serialized_data.append(item_copy)
+                        serialized_item["df_csv"] = str(item["df"])
+                    serialized_data.append(serialized_item)
                 else:
                     serialized_data.append(item)
             return {"type": "TableDataList", "data": serialized_data, "cached_at": time.time()}
@@ -127,18 +126,17 @@ class KreuzbergCache(Generic[T]):
         data = cached_data["data"]
 
         if cached_data.get("type") == "TableDataList" and isinstance(data, list):
+            from io import StringIO
+
+            import pandas as pd
+
             deserialized_data = []
             for item in data:
                 if isinstance(item, dict) and "df_csv" in item:
-                    # Restore the DataFrame from CSV
-                    item_copy = item.copy()
-                    from io import StringIO
-
-                    import pandas as pd
-
-                    item_copy["df"] = pd.read_csv(StringIO(item["df_csv"]))
-                    del item_copy["df_csv"]
-                    deserialized_data.append(item_copy)
+                    # Build new dict without unnecessary copy
+                    deserialized_item = {k: v for k, v in item.items() if k != "df_csv"}
+                    deserialized_item["df"] = pd.read_csv(StringIO(item["df_csv"]))
+                    deserialized_data.append(deserialized_item)
                 else:
                     deserialized_data.append(item)
             return deserialized_data  # type: ignore[return-value]

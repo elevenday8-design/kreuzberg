@@ -5,24 +5,29 @@ requires = [ "hatchling" ]
 
 [project]
 name = "kreuzberg"
-version = "3.8.1"
-description = "Advanced document intelligence framework for extracting structured content from PDFs, images, and office documents"
+version = "3.8.2"
+description = "Document intelligence framework for Python - Extract text, metadata, and structured data from diverse file formats"
 readme = "README.md"
 keywords = [
-  "automation",
-  "content-extraction",
-  "data-processing",
+  "async",
   "document-analysis",
   "document-intelligence",
   "document-processing",
-  "entity-extraction",
-  "image-to-text",
+  "extensible",
   "information-extraction",
+  "mcp",
+  "metadata-extraction",
+  "model-context-protocol",
   "ocr",
+  "pandoc",
   "pdf-extraction",
+  "pdfium",
+  "plugin-architecture",
   "rag",
+  "retrieval-augmented-generation",
   "structured-data",
   "table-extraction",
+  "tesseract",
   "text-extraction",
 ]
 license = { text = "MIT" }
@@ -91,8 +96,9 @@ optional-dependencies.paddleocr = [
   "paddlepaddle>=3.1.0",
   "setuptools>=80.9.0",
 ]
-urls.homepage = "https://github.com/Goldziher/kreuzberg"
+urls.documentation = "https://kreuzberg.dev"
 
+urls.homepage = "https://github.com/Goldziher/kreuzberg"
 scripts.kreuzberg = "kreuzberg.cli:cli"
 scripts.kreuzberg-mcp = "kreuzberg._mcp.server:main"
 

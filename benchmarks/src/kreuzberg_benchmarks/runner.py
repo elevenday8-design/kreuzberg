@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import time
 import traceback
 from typing import TYPE_CHECKING, Any, Callable
@@ -392,7 +393,6 @@ class BenchmarkRunner:
 
     def save_results(self, suite: BenchmarkSuite, output_path: Path) -> None:
         """Save benchmark results to JSON file."""
-        import json
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
 

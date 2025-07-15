@@ -10,7 +10,7 @@ from unittest.mock import Mock
 import pytest
 from click.testing import CliRunner
 
-from kreuzberg._cli_config import (
+from kreuzberg._config import (
     build_extraction_config,
     load_config_from_file,
     merge_configs,

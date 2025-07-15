@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass
+from itertools import chain
 from typing import Literal
 
 from kreuzberg.exceptions import ValidationError
@@ -12,7 +13,7 @@ from kreuzberg.exceptions import ValidationError
 DeviceType = Literal["cpu", "cuda", "mps", "auto"]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class DeviceInfo:
     """Information about a compute device."""
 
@@ -34,28 +35,17 @@ def detect_available_devices() -> list[DeviceInfo]:
     Returns:
         List of available devices, with the most preferred device first.
     """
-    devices: list[DeviceInfo] = []
+    # Build device lists efficiently using generators
+    cpu_device = DeviceInfo(device_type="cpu", name="CPU")
 
-    devices.append(
-        DeviceInfo(
-            device_type="cpu",
-            name="CPU",
-        )
-    )
+    cuda_devices = _get_cuda_devices() if _is_cuda_available() else []
 
-    if _is_cuda_available():
-        cuda_devices = _get_cuda_devices()
-        devices.extend(cuda_devices)
+    mps_device = _get_mps_device() if _is_mps_available() else None
+    mps_devices = [mps_device] if mps_device else []
 
-    if _is_mps_available():
-        mps_device = _get_mps_device()
-        if mps_device:
-            devices.append(mps_device)
-
-    gpu_devices = [d for d in devices if d.device_type != "cpu"]
-    cpu_devices = [d for d in devices if d.device_type == "cpu"]
-
-    return gpu_devices + cpu_devices
+    # Return GPU devices first, then CPU using itertools.chain
+    gpu_devices = list(chain(cuda_devices, mps_devices))
+    return [*gpu_devices, cpu_device]
 
 
 def get_optimal_device() -> DeviceInfo:

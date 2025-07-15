@@ -1,8 +1,151 @@
 # Extraction Configuration
 
-Kreuzberg provides extensive configuration options for the extraction process through the `ExtractionConfig` class. This guide covers common configuration scenarios and examples.
+Kreuzberg provides extensive configuration options for the extraction process through the `ExtractionConfig` class. You can configure Kreuzberg either programmatically through code or via configuration files that are automatically discovered. This guide covers both approaches and common configuration scenarios.
 
-## Basic Configuration
+## Configuration Files (Recommended)
+
+Kreuzberg automatically discovers and loads configuration from files in your project directory. This is the recommended approach for consistent configuration across your project.
+
+### Supported Configuration Files
+
+Kreuzberg searches for configuration files in the following order:
+
+1. `kreuzberg.toml` - Dedicated configuration file (recommended)
+1. `pyproject.toml` with `[tool.kreuzberg]` section
+
+The search starts from the current working directory and walks up the directory tree until a configuration file is found.
+
+### kreuzberg.toml Example
+
+Create a `kreuzberg.toml` file in your project root:
+
+```toml
+# Basic extraction settings
+force_ocr = false
+chunk_content = true
+extract_tables = true
+extract_entities = false
+extract_keywords = true
+keyword_count = 15
+max_chars = 2000
+max_overlap = 100
+ocr_backend = "tesseract"
+auto_detect_language = true
+
+# Tesseract OCR configuration
+[tesseract]
+language = "eng+deu"  # English and German
+psm = 6               # Uniform block of text
+
+# EasyOCR configuration (if using easyocr backend)
+[easyocr]
+language_list = ["en", "de"]
+gpu = false
+
+# PaddleOCR configuration (if using paddleocr backend)
+[paddleocr]
+language = "en"
+use_gpu = false
+
+# Table extraction configuration (GMFT)
+[gmft]
+verbosity = 1
+detector_base_threshold = 0.9
+remove_null_rows = true
+enable_multi_header = true
+
+# Language detection configuration
+[language_detection]
+multilingual = true
+top_k = 3
+low_memory = false
+
+# Entity extraction configuration (spaCy)
+[spacy_entity_extraction]
+language_models = { en = "en_core_web_sm", de = "de_core_news_sm" }
+fallback_to_multilingual = true
+```
+
+### pyproject.toml Example
+
+Alternatively, add configuration to your existing `pyproject.toml`:
+
+```toml
+[tool.kreuzberg]
+force_ocr = false
+chunk_content = true
+extract_tables = true
+auto_detect_language = true
+
+[tool.kreuzberg.tesseract]
+language = "eng"
+psm = 6
+
+[tool.kreuzberg.gmft]
+detector_base_threshold = 0.85
+remove_null_rows = true
+```
+
+### Using Configuration Files
+
+Once you have a configuration file, all Kreuzberg functions will automatically use it:
+
+```python
+from kreuzberg import extract_file
+
+# Automatically uses configuration from kreuzberg.toml or pyproject.toml
+result = await extract_file("document.pdf")
+
+# Configuration is also used by CLI commands
+# $ python -m kreuzberg.cli extract document.pdf
+
+# And by the API server
+# $ uvicorn kreuzberg._api.main:app
+```
+
+### Viewing Current Configuration
+
+You can check what configuration is being used:
+
+```python
+from kreuzberg._config import try_discover_config
+
+config = try_discover_config()
+if config:
+    print(f"Using configuration with OCR backend: {config.ocr_backend}")
+    print(f"Table extraction enabled: {config.extract_tables}")
+else:
+    print("No configuration file found, using defaults")
+```
+
+Or using the CLI:
+
+```bash
+python -m kreuzberg.cli config
+```
+
+### Configuration Priority
+
+When configuration files are present, you can still override specific settings programmatically:
+
+```python
+from kreuzberg import extract_file, ExtractionConfig
+
+# Override just the OCR setting while keeping other file-based config
+result = await extract_file("document.pdf", config=ExtractionConfig(force_ocr=True))  # Overrides file config
+```
+
+The priority order is:
+
+1. Programmatic configuration (highest priority)
+1. Configuration file settings
+1. Default values (lowest priority)
+
+## Programmatic Configuration
+
+You can also configure Kreuzberg entirely through code using the `ExtractionConfig` class. This approach gives you full control and is useful for dynamic configuration.
+
+### Basic Configuration
 
 All extraction functions accept an optional `config` parameter of type `ExtractionConfig`. This object allows you to:
 

@@ -1,6 +1,7 @@
 """Statistical benchmark comparing JSON vs msgpack with proper error analysis."""
 
 import asyncio
+import json
 import statistics
 import time
 from pathlib import Path
@@ -193,8 +194,6 @@ if __name__ == "__main__":
 
     try:
         results = asyncio.run(run_statistical_benchmark())
-
-        import json
 
         results_file = Path("statistical_benchmark_results.json")
         with results_file.open("w") as f:

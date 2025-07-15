@@ -1,8 +1,10 @@
 """End-to-end reproducible benchmark with proper statistics."""
 
 import asyncio
+import json
 import statistics
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -200,9 +202,6 @@ if __name__ == "__main__":
 
     try:
         results = asyncio.run(run_end_to_end_benchmark(trials=30))
-
-        import json
-        from datetime import datetime
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         results_file = Path(f"benchmark_msgpack_{timestamp}.json")
