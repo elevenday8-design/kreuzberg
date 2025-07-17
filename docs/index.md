@@ -49,6 +49,7 @@ Kreuzberg addresses the complete document intelligence pipeline through a modula
 - **OCR Engines**: Tesseract (default), EasyOCR, PaddleOCR with automatic fallback strategies
 - **Data Extraction**: Text content, document metadata, table structures, and embedded resources
 - **Processing Capabilities**: Content chunking for RAG pipelines, language detection, format preservation
+- **Document Classification**: Automatic document type detection (contracts, forms, invoices, receipts, reports)
 - **Extensibility**: Plugin architecture for custom extractors and hooks
 
 ## Architecture Philosophy

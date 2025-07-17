@@ -131,3 +131,31 @@ async def show_metadata():
 
 asyncio.run(show_metadata())
 ```
+
+## Document Classification
+
+Kreuzberg can automatically classify documents into categories (contracts, forms, invoices, receipts, reports):
+
+```python
+import asyncio
+from kreuzberg import extract_file, ExtractionConfig
+
+async def classify_document():
+    config = ExtractionConfig(
+        auto_detect_document_type=True,
+        document_classification_mode="text",  # or "vision" for better accuracy
+        type_confidence_threshold=0.5,
+    )
+
+    result = await extract_file("invoice.pdf", config=config)
+
+    # Access classification results
+    if result.document_type:
+        print(f"Document type: {result.document_type}")
+        print(f"Confidence: {result.type_confidence:.2%}")
+
+    # The extracted content is still available
+    print(f"Content: {result.content[:200]}...")
+
+asyncio.run(classify_document())
+```

@@ -31,6 +31,9 @@ max_chars = 2000
 max_overlap = 100
 ocr_backend = "tesseract"
 auto_detect_language = true
+auto_detect_document_type = true
+document_classification_mode = "text"  # or "vision"
+type_confidence_threshold = 0.5
 
 # Tesseract OCR configuration
 [tesseract]
@@ -76,6 +79,9 @@ force_ocr = false
 chunk_content = true
 extract_tables = true
 auto_detect_language = true
+auto_detect_document_type = true
+document_classification_mode = "text"
+type_confidence_threshold = 0.5
 
 [tool.kreuzberg.tesseract]
 language = "eng"

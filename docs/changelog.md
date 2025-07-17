@@ -5,7 +5,30 @@ All notable changes to Kreuzberg will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.9.0] - 2025-01-17
+
+### Added
+
+- Automatic Document Type Detection (#88) - A new feature for classifying documents into categories (contract, form, invoice, receipt, report)
+    - Integration with Google Translate for multi-language support
+    - New optional dependency group `auto-classify-document-type` with `deep-translator` and `pandas`
+    - Comprehensive tests and documentation
+- DeepSource integration for code quality analysis
+
+### Fixed
+
+- PDF extraction handling when no OCR backend is available
+- Entity extraction test updated to use frozenset of tuples
+- Config handling for dataclasses with `slots=True` - replaced `config.__dict__` with `asdict(config)`
+- Coverage configuration and cleanup issues
+
+### Changed
+
+- CI/CD: Added retry logic for flaky steps across all platforms
+- Improved coverage gathering and cleanup in test runs
+- Updated dependencies in `uv.lock`
+
+## [3.8.2] - Previous Release
 
 ### Added
 
@@ -21,12 +44,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated extraction functions to use config object instead of kwargs
 - Improved error messages and reporting
 
-## [0.1.0] - 2023-11-15
+## Previous Versions
 
-### Added
-
-- Initial release
-- Support for PDF, image, and Office document extraction
-- OCR capabilities with Tesseract
-- Basic error handling and reporting
-- Async and sync APIs
+For a complete history of changes, please refer to the [GitHub releases page](https://github.com/strickvl/kreuzberg/releases).
