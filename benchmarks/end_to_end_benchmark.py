@@ -43,7 +43,7 @@ async def run_end_to_end_benchmark(trials: int = 20) -> dict[str, Any]:
     print(f"Tables: {len(cold_result.tables)}")
     print(f"Chunks: {len(cold_result.chunks)}")
 
-    from kreuzberg._utils._cache import (
+    from kreuzberg._utils._cache import (  # noqa: PLC0415
         get_ocr_cache,
         get_table_cache,
         get_mime_cache,

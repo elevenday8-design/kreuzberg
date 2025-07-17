@@ -1,7 +1,21 @@
 from __future__ import annotations
 
 import json
+import sys
 from typing import TYPE_CHECKING, Any, ClassVar
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    try:
+        import tomli as tomllib  # type: ignore[import-not-found]
+    except ImportError:
+        tomllib = None
+
+try:
+    import yaml
+except ImportError:
+    yaml = None
 
 from anyio import Path as AsyncPath
 
@@ -44,31 +58,23 @@ class StructuredDataExtractor(Extractor):
             if self.mime_type in {JSON_MIME_TYPE, "text/json"}:
                 data = json.loads(text_content)
             elif self.mime_type in {TOML_MIME_TYPE, "text/toml"}:
-                try:
-                    import tomllib  # type: ignore[import-not-found]
-                except ImportError:
-                    try:
-                        import tomli as tomllib  # type: ignore[import-not-found]
-                    except ImportError:
-                        return ExtractionResult(
-                            content=normalize_spaces(text_content),
-                            mime_type=PLAIN_TEXT_MIME_TYPE,
-                            metadata={"warning": "tomllib/tomli not available, returning raw text"},
-                            chunks=[],
-                        )
+                if tomllib is None:
+                    return ExtractionResult(
+                        content=normalize_spaces(text_content),
+                        mime_type=PLAIN_TEXT_MIME_TYPE,
+                        metadata={"warning": "tomllib/tomli not available, returning raw text"},
+                        chunks=[],
+                    )
                 data = tomllib.loads(text_content)
             else:
-                try:
-                    import yaml
-
-                    data = yaml.safe_load(text_content)
-                except ImportError:
+                if yaml is None:
                     return ExtractionResult(
                         content=normalize_spaces(text_content),
                         mime_type=PLAIN_TEXT_MIME_TYPE,
                         metadata={"warning": "PyYAML not available, returning raw text"},
                         chunks=[],
                     )
+                data = yaml.safe_load(text_content)
 
             text_parts: list[str] = []
             metadata: dict[str, Any] = {}
@@ -90,7 +96,7 @@ class StructuredDataExtractor(Extractor):
                 chunks=[],
             )
 
-        except (ValueError, TypeError, KeyError, AttributeError, UnicodeDecodeError) as e:
+        except (json.JSONDecodeError, ValueError, TypeError) as e:
             return ExtractionResult(
                 content=normalize_spaces(text_content),
                 mime_type=PLAIN_TEXT_MIME_TYPE,

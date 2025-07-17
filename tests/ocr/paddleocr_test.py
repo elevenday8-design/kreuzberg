@@ -673,9 +673,6 @@ def test_validate_language_code_invalid(invalid_language_code: str) -> None:
 @pytest.mark.anyio
 async def test_process_image_grayscale_conversion() -> None:
     """Test grayscale to RGB conversion - covers lines 130-133."""
-    from unittest.mock import Mock, patch
-
-    from PIL import Image
 
     backend = PaddleBackend()
 
@@ -700,8 +697,6 @@ async def test_process_image_grayscale_conversion() -> None:
 @pytest.mark.anyio
 async def test_process_paddle_result_current_line_handling() -> None:
     """Test current line handling in result processing - covers lines 198-201."""
-    from PIL import Image
-
     test_image = Image.new("RGB", (200, 100), color="white")
 
     mock_results = [

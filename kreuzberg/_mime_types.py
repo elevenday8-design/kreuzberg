@@ -191,7 +191,7 @@ def validate_mime_type(
         return _validate_explicit_mime_type(mime_type)
 
     if file_path:
-        from kreuzberg._utils._cache import get_mime_cache
+        from kreuzberg._utils._cache import get_mime_cache  # noqa: PLC0415
 
         path = Path(file_path)
 

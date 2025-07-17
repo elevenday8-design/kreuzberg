@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from anyio import Path as AsyncPath
+from PIL import Image
 from python_calamine import CalamineWorkbook
 
 from kreuzberg._extractors._base import Extractor
@@ -197,9 +198,9 @@ class SpreadSheetExtractor(Extractor):
         """Enhanced sheet processing with better table structure preservation."""
         try:
             # pandas is optional dependency
-            import pandas as pd
+            import pandas as pd  # noqa: PLC0415
 
-            from kreuzberg._utils._table import enhance_table_markdown
+            from kreuzberg._utils._table import enhance_table_markdown  # noqa: PLC0415
 
             sheet = workbook.get_sheet_by_name(sheet_name)
             data = sheet.to_python()
@@ -217,9 +218,7 @@ class SpreadSheetExtractor(Extractor):
                 return f"## {sheet_name}\n\n*No data*"
 
             # Create a mock TableData for enhanced formatting
-            from PIL import Image
-
-            from kreuzberg._types import TableData
+            from kreuzberg._types import TableData  # noqa: PLC0415
 
             # Create a 1x1 transparent image as placeholder
             placeholder_image = Image.new("RGBA", (1, 1), (0, 0, 0, 0))

@@ -7,6 +7,7 @@ import os
 import threading
 import time
 from contextlib import suppress
+from io import StringIO
 from pathlib import Path
 from typing import Any, Generic, TypeVar
 
@@ -126,9 +127,7 @@ class KreuzbergCache(Generic[T]):
         data = cached_data["data"]
 
         if cached_data.get("type") == "TableDataList" and isinstance(data, list):
-            from io import StringIO
-
-            import pandas as pd
+            import pandas as pd  # noqa: PLC0415
 
             deserialized_data = []
             for item in data:

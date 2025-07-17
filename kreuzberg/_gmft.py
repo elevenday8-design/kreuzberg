@@ -5,12 +5,16 @@ import multiprocessing as mp
 import os
 import queue
 import signal
+import time
 import traceback
 from dataclasses import dataclass, field
 from io import StringIO
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
+import anyio
 import msgspec
+from PIL import Image
 
 from kreuzberg._types import TableData
 from kreuzberg._utils._sync import run_sync
@@ -134,7 +138,7 @@ class GMFTConfig:
     """
 
 
-async def extract_tables(  # noqa: PLR0915
+async def extract_tables(
     file_path: str | PathLike[str], config: GMFTConfig | None = None, use_isolated_process: bool | None = None
 ) -> list[TableData]:
     """Extracts tables from a PDF file.
@@ -154,9 +158,7 @@ async def extract_tables(  # noqa: PLR0915
     Returns:
         A list of table data dictionaries.
     """
-    from pathlib import Path
-
-    from kreuzberg._utils._cache import get_table_cache
+    from kreuzberg._utils._cache import get_table_cache  # noqa: PLC0415
 
     # Determine if we should use isolated process  # ~keep
     if use_isolated_process is None:
@@ -190,8 +192,6 @@ async def extract_tables(  # noqa: PLR0915
         return cached_result  # type: ignore[no-any-return]
 
     if table_cache.is_processing(**cache_kwargs):
-        import anyio
-
         event = table_cache.mark_processing(**cache_kwargs)
         await anyio.to_thread.run_sync(event.wait)
 
@@ -211,10 +211,13 @@ async def extract_tables(  # noqa: PLR0915
             return result
 
         try:
-            from gmft.auto import AutoTableDetector, AutoTableFormatter  # type: ignore[attr-defined]
-            from gmft.detectors.tatr import TATRDetectorConfig  # type: ignore[attr-defined]
-            from gmft.formatters.tatr import TATRFormatConfig
-            from gmft.pdf_bindings.pdfium import PyPDFium2Document
+            from gmft.auto import (  # type: ignore[attr-defined]  # noqa: PLC0415  # noqa: PLC0415
+                AutoTableDetector,
+                AutoTableFormatter,
+            )
+            from gmft.detectors.tatr import TATRDetectorConfig  # type: ignore[attr-defined]  # noqa: PLC0415
+            from gmft.formatters.tatr import TATRFormatConfig  # noqa: PLC0415  # noqa: PLC0415
+            from gmft.pdf_bindings.pdfium import PyPDFium2Document  # noqa: PLC0415  # noqa: PLC0415
 
             formatter: Any = AutoTableFormatter(  # type: ignore[no-untyped-call]  # type: ignore[no-untyped-call]
                 config=TATRFormatConfig(
@@ -284,9 +287,7 @@ def extract_tables_sync(
     Returns:
         A list of table data dictionaries.
     """
-    from pathlib import Path
-
-    from kreuzberg._utils._cache import get_table_cache
+    from kreuzberg._utils._cache import get_table_cache  # noqa: PLC0415
 
     # Determine if we should use isolated process  # ~keep
     if use_isolated_process is None:
@@ -327,10 +328,10 @@ def extract_tables_sync(
         return result
 
     try:
-        from gmft.auto import AutoTableDetector, AutoTableFormatter  # type: ignore[attr-defined]
-        from gmft.detectors.tatr import TATRDetectorConfig  # type: ignore[attr-defined]
-        from gmft.formatters.tatr import TATRFormatConfig
-        from gmft.pdf_bindings.pdfium import PyPDFium2Document
+        from gmft.auto import AutoTableDetector, AutoTableFormatter  # type: ignore[attr-defined]  # noqa: PLC0415
+        from gmft.detectors.tatr import TATRDetectorConfig  # type: ignore[attr-defined]  # noqa: PLC0415
+        from gmft.formatters.tatr import TATRFormatConfig  # noqa: PLC0415
+        from gmft.pdf_bindings.pdfium import PyPDFium2Document  # noqa: PLC0415
 
         formatter: Any = AutoTableFormatter(  # type: ignore[no-untyped-call]
             config=TATRFormatConfig(
@@ -399,10 +400,10 @@ def _extract_tables_in_process(
     signal.signal(signal.SIGINT, signal.SIG_IGN)
 
     try:
-        from gmft.auto import AutoTableDetector, AutoTableFormatter  # type: ignore[attr-defined]
-        from gmft.detectors.tatr import TATRDetectorConfig  # type: ignore[attr-defined]
-        from gmft.formatters.tatr import TATRFormatConfig
-        from gmft.pdf_bindings.pdfium import PyPDFium2Document
+        from gmft.auto import AutoTableDetector, AutoTableFormatter  # type: ignore[attr-defined]  # noqa: PLC0415
+        from gmft.detectors.tatr import TATRDetectorConfig  # type: ignore[attr-defined]  # noqa: PLC0415
+        from gmft.formatters.tatr import TATRFormatConfig  # noqa: PLC0415
+        from gmft.pdf_bindings.pdfium import PyPDFium2Document  # noqa: PLC0415
 
         config = GMFTConfig(**config_dict)
 
@@ -495,7 +496,6 @@ def _extract_tables_isolated(
 
     try:
         # Wait for result with timeout, checking for process death  # ~keep
-        import time
 
         start_time = time.time()
         while True:
@@ -529,10 +529,8 @@ def _extract_tables_isolated(
         if success:
             tables = []
             for table_dict in result:
-                from PIL import Image
-
                 img = Image.open(io.BytesIO(table_dict["cropped_image_bytes"]))
-                import pandas as pd
+                import pandas as pd  # noqa: PLC0415
 
                 df = pd.read_csv(StringIO(table_dict["df_csv"]))
 
@@ -577,7 +575,7 @@ def _extract_tables_isolated(
 async def _extract_tables_isolated_async(
     file_path: str | PathLike[str],
     config: GMFTConfig | None = None,
-    timeout: float = 300.0,
+    timeout: float = 300.0,  # noqa: ASYNC109
 ) -> list[TableData]:
     """Async version of extract_tables_isolated using asyncio.
 
@@ -592,8 +590,6 @@ async def _extract_tables_isolated_async(
     Raises:
         RuntimeError: If extraction fails or times out
     """
-    import anyio
-
     config = config or GMFTConfig()
     config_dict = msgspec.to_builtins(config)
 
@@ -639,10 +635,8 @@ async def _extract_tables_isolated_async(
         if success:
             tables = []
             for table_dict in result:
-                from PIL import Image
-
                 img = Image.open(io.BytesIO(table_dict["cropped_image_bytes"]))
-                import pandas as pd
+                import pandas as pd  # noqa: PLC0415
 
                 df = pd.read_csv(StringIO(table_dict["df_csv"]))
 

@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Any, Final, cast
 
 import anyio
 
-from kreuzberg import ExtractionResult
 from kreuzberg._chunker import get_chunker
 from kreuzberg._document_classification import auto_detect_document_type
 from kreuzberg._entity_extraction import extract_entities, extract_keywords
@@ -16,7 +15,7 @@ from kreuzberg._mime_types import (
     validate_mime_type,
 )
 from kreuzberg._registry import ExtractorRegistry
-from kreuzberg._types import ExtractionConfig
+from kreuzberg._types import ExtractionConfig, ExtractionResult
 from kreuzberg._utils._document_cache import get_document_cache
 from kreuzberg._utils._errors import create_error_context
 from kreuzberg._utils._string import safe_decode

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import io
 import multiprocessing as mp
 import os
 import queue
@@ -262,9 +263,6 @@ def test_extract_tables_isolated_success(sample_pdf: Path) -> None:
 
         df = pd.DataFrame({"col1": [1, 2], "col2": [3, 4]})
         # Create a real PNG image
-        import io
-
-        from PIL import Image
 
         img = Image.new("RGB", (100, 100), color="white")
         img_buffer = io.BytesIO()
@@ -336,9 +334,6 @@ async def test_extract_tables_isolated_async_success(sample_pdf: Path) -> None:
 
         df = pd.DataFrame({"col1": [1, 2], "col2": [3, 4]})
         # Create a real PNG image
-        import io
-
-        from PIL import Image
 
         img = Image.new("RGB", (100, 100), color="white")
         img_buffer = io.BytesIO()

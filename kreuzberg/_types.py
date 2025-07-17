@@ -8,7 +8,11 @@ from typing import TYPE_CHECKING, Any, Literal, TypedDict
 import msgspec
 
 from kreuzberg._constants import DEFAULT_MAX_CHARACTERS, DEFAULT_MAX_OVERLAP
-from kreuzberg._utils._table import export_table_to_csv, export_table_to_tsv, extract_table_structure_info
+from kreuzberg._utils._table import (
+    export_table_to_csv,
+    export_table_to_tsv,
+    extract_table_structure_info,
+)
 from kreuzberg.exceptions import ValidationError
 
 if sys.version_info < (3, 11):  # pragma: no cover
@@ -361,9 +365,9 @@ class ExtractionConfig:
             object.__setattr__(self, "post_processing_hooks", tuple(self.post_processing_hooks))
         if self.validators is not None and isinstance(self.validators, list):
             object.__setattr__(self, "validators", tuple(self.validators))
-        from kreuzberg._ocr._easyocr import EasyOCRConfig
-        from kreuzberg._ocr._paddleocr import PaddleOCRConfig
-        from kreuzberg._ocr._tesseract import TesseractConfig
+        from kreuzberg._ocr._easyocr import EasyOCRConfig  # noqa: PLC0415
+        from kreuzberg._ocr._paddleocr import PaddleOCRConfig  # noqa: PLC0415
+        from kreuzberg._ocr._tesseract import TesseractConfig  # noqa: PLC0415
 
         if self.ocr_backend is None and self.ocr_config is not None:
             raise ValidationError("'ocr_backend' is None but 'ocr_config' is provided")
@@ -393,14 +397,14 @@ class ExtractionConfig:
 
         # Lazy load and cache default configs instead of creating new instances
         if self.ocr_backend == "tesseract":
-            from kreuzberg._ocr._tesseract import TesseractConfig
+            from kreuzberg._ocr._tesseract import TesseractConfig  # noqa: PLC0415
 
             return asdict(TesseractConfig())
         if self.ocr_backend == "easyocr":
-            from kreuzberg._ocr._easyocr import EasyOCRConfig
+            from kreuzberg._ocr._easyocr import EasyOCRConfig  # noqa: PLC0415
 
             return asdict(EasyOCRConfig())
         # paddleocr
-        from kreuzberg._ocr._paddleocr import PaddleOCRConfig
+        from kreuzberg._ocr._paddleocr import PaddleOCRConfig  # noqa: PLC0415
 
         return asdict(PaddleOCRConfig())

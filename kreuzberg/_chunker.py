@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from kreuzberg import MissingDependencyError
 from kreuzberg._constants import DEFAULT_MAX_CHARACTERS, DEFAULT_MAX_OVERLAP
 from kreuzberg._mime_types import MARKDOWN_MIME_TYPE
+from kreuzberg.exceptions import MissingDependencyError
 
 if TYPE_CHECKING:
     from semantic_text_splitter import MarkdownSplitter, TextSplitter
@@ -36,11 +36,11 @@ def get_chunker(
     if key not in _chunkers:
         try:
             if mime_type == MARKDOWN_MIME_TYPE:
-                from semantic_text_splitter import MarkdownSplitter
+                from semantic_text_splitter import MarkdownSplitter  # noqa: PLC0415
 
                 _chunkers[key] = MarkdownSplitter(max_characters, overlap_characters)
             else:
-                from semantic_text_splitter import TextSplitter
+                from semantic_text_splitter import TextSplitter  # noqa: PLC0415
 
                 _chunkers[key] = TextSplitter(max_characters, overlap_characters)
         except ImportError as e:

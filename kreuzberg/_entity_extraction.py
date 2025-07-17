@@ -138,7 +138,7 @@ def extract_entities(
         spacy_config = SpacyEntityExtractionConfig()
 
     try:
-        import spacy  # noqa: F401
+        import spacy  # noqa: F401, PLC0415
     except ImportError as e:
         raise MissingDependencyError.create_for_package(
             package_name="spacy",
@@ -179,7 +179,7 @@ def extract_entities(
 def _load_spacy_model(model_name: str, spacy_config: SpacyEntityExtractionConfig) -> Any:
     """Load a spaCy model with caching."""
     try:
-        import spacy
+        import spacy  # noqa: PLC0415
 
         if spacy_config.model_cache_dir:
             os.environ["SPACY_DATA"] = str(spacy_config.model_cache_dir)
@@ -223,7 +223,7 @@ def extract_keywords(
         MissingDependencyError: If `keybert` is not installed.
     """
     try:
-        from keybert import KeyBERT
+        from keybert import KeyBERT  # noqa: PLC0415
 
         kw_model = KeyBERT()
         keywords = kw_model.extract_keywords(text, top_n=keyword_count)

@@ -160,7 +160,7 @@ def _perform_extraction(file: Path | None, extraction_config: ExtractionConfig, 
             progress.add_task("Extracting text...", total=None)
 
             try:
-                import magic  # type: ignore[import-not-found]
+                import magic  # type: ignore[import-not-found]  # noqa: PLC0415
 
                 mime_type = magic.from_buffer(input_bytes, mime=True)
             except ImportError:
@@ -260,7 +260,7 @@ def cli(ctx: click.Context) -> None:
 @click.option("--paddleocr-languages", help="PaddleOCR language codes (comma-separated, e.g., 'en,german')")
 @click.pass_context
 def extract(  # noqa: PLR0913
-    ctx: click.Context,  # noqa: ARG001
+    _: click.Context,
     file: Path | None,
     output: Path | None,
     force_ocr: bool,

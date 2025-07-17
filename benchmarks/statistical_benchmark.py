@@ -130,7 +130,7 @@ async def run_statistical_benchmark() -> dict[str, Any]:
         f"  Cache consistency: {'✅ STABLE' if warm_clean_stdev / warm_clean_mean < 0.1 else '⚠️ VARIABLE'}"
     )
 
-    from kreuzberg._utils._cache import (
+    from kreuzberg._utils._cache import (  # noqa: PLC0415
         get_ocr_cache,
         get_table_cache,
         get_mime_cache,

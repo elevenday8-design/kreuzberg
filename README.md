@@ -5,7 +5,7 @@
 [![Documentation](https://img.shields.io/badge/docs-kreuzberg.dev-blue)](https://kreuzberg.dev/)
 [![Benchmarks](https://img.shields.io/badge/benchmarks-fastest%20CPU-orange)](https://benchmarks.kreuzberg.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Test Coverage](https://img.shields.io/badge/coverage-95%25-green)](https://github.com/Goldziher/kreuzberg)
+[![DeepSource](https://app.deepsource.com/gh/Goldziher/kreuzberg.svg/?label=code+coverage&show_trend=true&token=U8AW1VWWSLwVhrbtL8LmLBDN)](https://app.deepsource.com/gh/Goldziher/kreuzberg/)
 
 **A document intelligence framework for Python.** Extract text, metadata, and structured information from diverse document formats through a unified, extensible API. Built on established open source foundations including Pandoc, PDFium, and Tesseract.
 

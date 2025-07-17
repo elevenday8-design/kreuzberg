@@ -141,7 +141,7 @@ def get_device_memory_info(device: DeviceInfo) -> tuple[float | None, float | No
 def _is_cuda_available() -> bool:
     """Check if CUDA is available."""
     try:
-        import torch  # type: ignore[import-not-found,unused-ignore]
+        import torch  # type: ignore[import-not-found,unused-ignore]  # noqa: PLC0415
 
         return bool(torch.cuda.is_available())
     except ImportError:
@@ -151,7 +151,7 @@ def _is_cuda_available() -> bool:
 def _is_mps_available() -> bool:
     """Check if MPS (Apple Silicon) is available."""
     try:
-        import torch  # type: ignore[import-not-found,unused-ignore]
+        import torch  # type: ignore[import-not-found,unused-ignore]  # noqa: PLC0415
 
         return bool(torch.backends.mps.is_available())
     except ImportError:
@@ -163,7 +163,7 @@ def _get_cuda_devices() -> list[DeviceInfo]:
     devices: list[DeviceInfo] = []
 
     try:
-        import torch
+        import torch  # noqa: PLC0415
 
         if not torch.cuda.is_available():
             return devices
@@ -199,7 +199,7 @@ def _get_cuda_devices() -> list[DeviceInfo]:
 def _get_mps_device() -> DeviceInfo | None:
     """Get information about the MPS device."""
     try:
-        import torch
+        import torch  # noqa: PLC0415
 
         if not torch.backends.mps.is_available():
             return None
@@ -216,7 +216,7 @@ def _get_mps_device() -> DeviceInfo | None:
 def _get_cuda_memory_info(device_id: int) -> tuple[float | None, float | None]:
     """Get CUDA memory information for a specific device."""
     try:
-        import torch
+        import torch  # noqa: PLC0415
 
         if not torch.cuda.is_available():
             return None, None
@@ -329,7 +329,7 @@ def cleanup_device_memory(device: DeviceInfo) -> None:
     """
     if device.device_type == "cuda":
         try:
-            import torch
+            import torch  # noqa: PLC0415
 
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
@@ -338,7 +338,7 @@ def cleanup_device_memory(device: DeviceInfo) -> None:
 
     elif device.device_type == "mps":
         try:
-            import torch
+            import torch  # noqa: PLC0415
 
             if torch.backends.mps.is_available():
                 torch.mps.empty_cache()

@@ -95,7 +95,7 @@ def parse_ocr_backend_config(
         # Convert psm integer to PSMMode enum if needed
         processed_config = backend_config.copy()
         if "psm" in processed_config and isinstance(processed_config["psm"], int):
-            from kreuzberg._ocr._tesseract import PSMMode
+            from kreuzberg._ocr._tesseract import PSMMode  # noqa: PLC0415
 
             processed_config["psm"] = PSMMode(processed_config["psm"])
         return TesseractConfig(**processed_config)

@@ -73,7 +73,7 @@ class PDFExtractor(Extractor):
         if self.config.extract_tables:
             # GMFT is optional dependency
             try:
-                from kreuzberg._gmft import extract_tables
+                from kreuzberg._gmft import extract_tables  # noqa: PLC0415
 
                 result.tables = await extract_tables(path, self.config.gmft_config)
             except ImportError:
@@ -121,7 +121,7 @@ class PDFExtractor(Extractor):
         if self.config.extract_tables:
             # GMFT is optional dependency
             try:
-                from kreuzberg._gmft import extract_tables_sync
+                from kreuzberg._gmft import extract_tables_sync  # noqa: PLC0415
 
                 tables = extract_tables_sync(path)
             except ImportError:

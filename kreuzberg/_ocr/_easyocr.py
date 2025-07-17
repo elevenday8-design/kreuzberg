@@ -180,7 +180,7 @@ class EasyOCRBackend(OCRBackend[EasyOCRConfig]):
         Raises:
             OCRError: If OCR processing fails.
         """
-        import numpy as np
+        import numpy as np  # noqa: PLC0415
 
         await self._init_easyocr(**kwargs)
 
@@ -318,7 +318,7 @@ class EasyOCRBackend(OCRBackend[EasyOCRConfig]):
             bool: True if GPU support is available.
         """
         try:
-            import torch
+            import torch  # noqa: PLC0415
 
             return bool(torch.cuda.is_available())
         except ImportError:
@@ -339,7 +339,7 @@ class EasyOCRBackend(OCRBackend[EasyOCRConfig]):
             return
 
         try:
-            import easyocr
+            import easyocr  # noqa: PLC0415
         except ImportError as e:
             raise MissingDependencyError.create_for_package(
                 dependency_group="easyocr", functionality="EasyOCR as an OCR backend", package_name="easyocr"
@@ -507,7 +507,7 @@ class EasyOCRBackend(OCRBackend[EasyOCRConfig]):
             return
 
         try:
-            import easyocr
+            import easyocr  # noqa: PLC0415
         except ImportError as e:
             raise MissingDependencyError.create_for_package(
                 dependency_group="easyocr", functionality="EasyOCR as an OCR backend", package_name="easyocr"

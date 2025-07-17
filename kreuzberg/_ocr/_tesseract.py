@@ -12,8 +12,10 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Final
 
+import anyio
 from anyio import Path as AsyncPath
 from anyio import run_process
+from PIL import Image
 from typing_extensions import Self
 
 from kreuzberg._mime_types import PLAIN_TEXT_MIME_TYPE
@@ -25,7 +27,7 @@ from kreuzberg._utils._tmp import create_temp_file
 from kreuzberg.exceptions import MissingDependencyError, OCRError, ValidationError
 
 if TYPE_CHECKING:
-    from PIL.Image import Image
+    from PIL.Image import Image as PILImage
 
 try:  # pragma: no cover
     from typing import Unpack  # type: ignore[attr-defined]
@@ -233,10 +235,10 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
 
     async def process_image(
         self,
-        image: Image,
+        image: PILImage,
         **kwargs: Unpack[TesseractConfig],
     ) -> ExtractionResult:
-        from kreuzberg._utils._cache import get_ocr_cache
+        from kreuzberg._utils._cache import get_ocr_cache  # noqa: PLC0415
 
         image_buffer = io.BytesIO()
         await run_sync(image.save, image_buffer, format="PNG")
@@ -254,8 +256,6 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
             return cached_result
 
         if ocr_cache.is_processing(**cache_kwargs):
-            import anyio
-
             event = ocr_cache.mark_processing(**cache_kwargs)
             await anyio.to_thread.run_sync(event.wait)
 
@@ -286,7 +286,7 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
         path: Path,
         **kwargs: Unpack[TesseractConfig],
     ) -> ExtractionResult:
-        from kreuzberg._utils._cache import get_ocr_cache
+        from kreuzberg._utils._cache import get_ocr_cache  # noqa: PLC0415
 
         try:
             stat = path.stat()
@@ -314,8 +314,6 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
             return cached_result
 
         if ocr_cache.is_processing(**cache_kwargs):
-            import anyio
-
             event = ocr_cache.mark_processing(**cache_kwargs)
             await anyio.to_thread.run_sync(event.wait)
 
@@ -411,7 +409,7 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
 
     def process_image_sync(
         self,
-        image: Image,
+        image: PILImage,
         **kwargs: Unpack[TesseractConfig],
     ) -> ExtractionResult:
         """Synchronously process an image and extract its text and metadata.
@@ -423,7 +421,7 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
         Returns:
             The extraction result object
         """
-        from kreuzberg._utils._cache import get_ocr_cache
+        from kreuzberg._utils._cache import get_ocr_cache  # noqa: PLC0415
 
         image_buffer = io.BytesIO()
         image.save(image_buffer, format="PNG")
@@ -482,7 +480,7 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
         Returns:
             The extraction result object
         """
-        from kreuzberg._utils._cache import get_ocr_cache
+        from kreuzberg._utils._cache import get_ocr_cache  # noqa: PLC0415
 
         file_info = self._get_file_info(path)
 
@@ -771,8 +769,6 @@ def _process_image_bytes_with_tesseract(
         OCR result as dictionary.
     """
     try:
-        from PIL import Image
-
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_image:
             with Image.open(io.BytesIO(image_bytes)) as image:
                 image.save(tmp_image.name, format="PNG")
@@ -810,7 +806,7 @@ class TesseractProcessPool:
             max_processes: Maximum number of processes.
             memory_limit_gb: Memory limit in GB.
         """
-        from kreuzberg._utils._process_pool import ProcessPoolManager
+        from kreuzberg._utils._process_pool import ProcessPoolManager  # noqa: PLC0415
 
         self.config = config or TesseractConfig()
         self.process_manager = ProcessPoolManager(

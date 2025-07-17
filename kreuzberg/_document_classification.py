@@ -53,7 +53,7 @@ def _get_translated_text(result: ExtractionResult) -> str:
         MissingDependencyError: If the deep-translator package is not installed
     """
     try:
-        from deep_translator import GoogleTranslator  # type: ignore[import-not-found]
+        from deep_translator import GoogleTranslator  # noqa: PLC0415
     except ImportError as e:
         raise MissingDependencyError(
             "The 'deep-translator' library is not installed. Please install it with: pip install 'kreuzberg[auto-classify-document-type]'"

@@ -359,7 +359,6 @@ async def test_extract_tables_cache_hit(tiny_pdf_with_tables: Path) -> None:
 
     cache = get_table_cache()
     import pandas as pd
-    from PIL import Image
 
     cached_tables = [
         {

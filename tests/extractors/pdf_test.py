@@ -384,8 +384,6 @@ async def test_extract_pdf_searchable_text_page_errors(
         def close(self) -> None:
             pass
 
-    tmp_path / "test.pdf"
-
     def mock_pdf_document(*args: object, **kwargs: object) -> MockDocument:
         return MockDocument()
 

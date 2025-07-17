@@ -124,7 +124,7 @@ class PaddleBackend(OCRBackend[PaddleOCRConfig]):
         Raises:
             OCRError: If OCR processing fails.
         """
-        import numpy as np
+        import numpy as np  # noqa: PLC0415
 
         await self._init_paddle_ocr(**kwargs)
 
@@ -260,7 +260,7 @@ class PaddleBackend(OCRBackend[PaddleOCRConfig]):
             return
 
         try:
-            from paddleocr import PaddleOCR
+            from paddleocr import PaddleOCR  # noqa: PLC0415
         except ImportError as e:
             raise MissingDependencyError.create_for_package(
                 dependency_group="paddleocr", functionality="PaddleOCR as an OCR backend", package_name="paddleocr"
@@ -427,7 +427,7 @@ class PaddleBackend(OCRBackend[PaddleOCRConfig]):
             return
 
         try:
-            from paddleocr import PaddleOCR
+            from paddleocr import PaddleOCR  # noqa: PLC0415
         except ImportError as e:
             raise MissingDependencyError.create_for_package(
                 dependency_group="paddleocr", functionality="PaddleOCR as an OCR backend", package_name="paddleocr"
