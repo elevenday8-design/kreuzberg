@@ -223,6 +223,7 @@ filterwarnings = [
 ]
 
 [tool.coverage.run]
+branch = true
 omit = [ "tests/*", "scripts/*" ]
 plugins = [ "covdefaults" ]
 source = [ "kreuzberg" ]
