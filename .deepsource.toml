@@ -1,0 +1,54 @@
+version = 1
+
+test_patterns = ["tests/**"]
+
+exclude_patterns = [
+    # Virtual environments
+    ".venv/**",
+    "venv/**",
+
+    # Build and distribution artifacts
+    "dist/**",
+    "build/**",
+    "*.egg-info/**",
+
+    # Documentation
+    "docs/**",
+    "site/**",
+
+    # Cache directories
+    "**/__pycache__/**",
+    ".pytest_cache/**",
+    ".mypy_cache/**",
+    ".ruff_cache/**",
+    ".coverage",
+    "htmlcov/**",
+
+    # Benchmarks and performance tests
+    "benchmarks/**",
+
+    # IDE and editor files
+    ".idea/**",
+    ".vscode/**",
+
+    # Version control
+    ".git/**",
+
+    # Temporary and generated files
+    "*.pyc",
+    ".DS_Store",
+    "*.swp",
+    "*.swo",
+]
+
+[[analyzers]]
+name = "test-coverage"
+
+[[analyzers]]
+name = "python"
+
+[analyzers.meta]
+runtime_version = "3.x.x"
+
+[[transformers]]
+name = "ruff"

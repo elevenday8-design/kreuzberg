@@ -1,5 +1,6 @@
 *$py.class
 *.Cache
+.clause/
 *.cscfg
 *.egg-info/
 *.log
