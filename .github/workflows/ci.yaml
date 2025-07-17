@@ -122,7 +122,6 @@ jobs:
 
       - name: Run Tests with Coverage
         run: |
-          rm -f .coverage .coverage.* coverage.lcov
           uv run pytest -s -vvv --cov=kreuzberg --cov-report=lcov:coverage.lcov --cov-report=term
 
       - name: Upload Coverage Artifacts

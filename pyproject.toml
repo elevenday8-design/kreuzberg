@@ -214,6 +214,8 @@ max_supported_python = "3.13"
 
 [tool.pytest.ini_options]
 timeout = 300
+testpaths = [ "tests" ]
+norecursedirs = [ "benchmarks", "python-text-extraction-libs-benchmarks", "dist", "build", "*.egg" ]
 filterwarnings = [
   "ignore:Exception ignored in:pytest.PytestUnraisableExceptionWarning",
   "ignore:pkg_resources is deprecated as an API:DeprecationWarning",
@@ -224,7 +226,12 @@ filterwarnings = [
 
 [tool.coverage.run]
 branch = true
-omit = [ "tests/*", "scripts/*" ]
+omit = [
+  "tests/*",
+  "scripts/*",
+  "benchmarks/*",
+  "python-text-extraction-libs-benchmarks/*",
+]
 plugins = [ "covdefaults" ]
 source = [ "kreuzberg" ]
 
