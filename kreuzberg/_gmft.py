@@ -265,7 +265,7 @@ async def extract_tables(
             finally:
                 await run_sync(doc.close)
 
-        except ImportError as e:
+        except ImportError as e:  # pragma: no cover
             raise MissingDependencyError.create_for_package(
                 dependency_group="gmft", functionality="table extraction", package_name="gmft"
             ) from e
@@ -379,7 +379,7 @@ def extract_tables_sync(
         finally:
             doc.close()  # type: ignore[no-untyped-call]
 
-    except ImportError as e:
+    except ImportError as e:  # pragma: no cover
         raise MissingDependencyError.create_for_package(
             dependency_group="gmft", functionality="table extraction", package_name="gmft"
         ) from e

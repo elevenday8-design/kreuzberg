@@ -30,7 +30,7 @@ try:
         HTTP_422_UNPROCESSABLE_ENTITY,
         HTTP_500_INTERNAL_SERVER_ERROR,
     )
-except ImportError as e:
+except ImportError as e:  # pragma: no cover
     raise MissingDependencyError.create_for_package(
         dependency_group="litestar",
         functionality="Litestar API and docker container",

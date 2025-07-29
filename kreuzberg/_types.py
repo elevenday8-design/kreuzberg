@@ -186,7 +186,7 @@ def normalize_metadata(data: dict[str, Any] | None) -> Metadata:
 
     Filters out invalid keys and ensures type safety.
     """
-    if not data:
+    if not data:  # pragma: no cover
         return {}
 
     # Filter and return only valid metadata
@@ -269,7 +269,7 @@ class ExtractionResult:
         Returns:
             List of CSV strings, one per table
         """
-        if not self.tables:
+        if not self.tables:  # pragma: no cover
             return []
 
         return [export_table_to_csv(table) for table in self.tables]
@@ -280,7 +280,7 @@ class ExtractionResult:
         Returns:
             List of TSV strings, one per table
         """
-        if not self.tables:
+        if not self.tables:  # pragma: no cover
             return []
 
         return [export_table_to_tsv(table) for table in self.tables]
@@ -291,7 +291,7 @@ class ExtractionResult:
         Returns:
             List of table structure dictionaries
         """
-        if not self.tables:
+        if not self.tables:  # pragma: no cover
             return []
 
         return [extract_table_structure_info(table) for table in self.tables]

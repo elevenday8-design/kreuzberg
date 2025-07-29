@@ -282,6 +282,10 @@ module = [
   "paddleocr.*",
   "gmft.*",
   "semantic_text_splitter.*",
+  "spacy.*",
+  "keybert.*",
+  "mailparse.*",
+  "deep_translator.*",
 ]
 ignore_missing_imports = true
 

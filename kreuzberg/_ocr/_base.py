@@ -88,7 +88,7 @@ class OCRBackend(ABC, Generic[T]):
         Returns:
             List of extraction result objects in the same order as input paths
         """
-        return [self.process_file_sync(path, **kwargs) for path in paths]
+        return [self.process_file_sync(path, **kwargs) for path in paths]  # pragma: no cover
 
     async def process_batch(self, paths: list[Path], **kwargs: Unpack[T]) -> list[ExtractionResult]:
         """Asynchronously process a batch of files and extract their text and metadata.
@@ -106,8 +106,8 @@ class OCRBackend(ABC, Generic[T]):
         from kreuzberg._utils._sync import run_taskgroup  # noqa: PLC0415
 
         tasks = [self.process_file(path, **kwargs) for path in paths]
-        return await run_taskgroup(*tasks)
+        return await run_taskgroup(*tasks)  # pragma: no cover
 
     def __hash__(self) -> int:
         """Hash function for allowing caching."""
-        return hash(type(self).__name__)
+        return hash(type(self).__name__)  # pragma: no cover

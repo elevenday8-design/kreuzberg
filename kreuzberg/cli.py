@@ -12,7 +12,7 @@ try:
     import click
     from rich.console import Console
     from rich.progress import Progress, SpinnerColumn, TextColumn
-except ImportError as e:
+except ImportError as e:  # pragma: no cover
     raise ImportError(
         "CLI dependencies are not installed. Please install kreuzberg with the 'cli' extra: pip install kreuzberg[cli]"
     ) from e
@@ -163,7 +163,7 @@ def _perform_extraction(file: Path | None, extraction_config: ExtractionConfig, 
                 import magic  # type: ignore[import-not-found]  # noqa: PLC0415
 
                 mime_type = magic.from_buffer(input_bytes, mime=True)
-            except ImportError:
+            except ImportError:  # pragma: no cover
                 content_str = input_bytes.decode("utf-8", errors="ignore").lower()
                 mime_type = "text/html" if "<html" in content_str or "<body" in content_str else "text/plain"
 

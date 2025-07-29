@@ -19,12 +19,12 @@ if TYPE_CHECKING:
 # Import optional dependencies at module level with proper error handling
 try:
     import mailparse
-except ImportError:
+except ImportError:  # pragma: no cover
     mailparse = None
 
 try:
     import html2text  # type: ignore[import-not-found]
-except ImportError:
+except ImportError:  # pragma: no cover
     html2text = None
 
 # Compile regex pattern once at module level

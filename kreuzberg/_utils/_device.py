@@ -144,7 +144,7 @@ def _is_cuda_available() -> bool:
         import torch  # type: ignore[import-not-found,unused-ignore]  # noqa: PLC0415
 
         return bool(torch.cuda.is_available())
-    except ImportError:
+    except ImportError:  # pragma: no cover
         return False
 
 
@@ -154,7 +154,7 @@ def _is_mps_available() -> bool:
         import torch  # type: ignore[import-not-found,unused-ignore]  # noqa: PLC0415
 
         return bool(torch.backends.mps.is_available())
-    except ImportError:
+    except ImportError:  # pragma: no cover
         return False
 
 
@@ -190,7 +190,7 @@ def _get_cuda_devices() -> list[DeviceInfo]:
                 )
             )
 
-    except ImportError:
+    except ImportError:  # pragma: no cover
         pass
 
     return devices
@@ -209,7 +209,7 @@ def _get_mps_device() -> DeviceInfo | None:
             name="Apple Silicon GPU (MPS)",
         )
 
-    except ImportError:
+    except ImportError:  # pragma: no cover
         return None
 
 
@@ -232,7 +232,7 @@ def _get_cuda_memory_info(device_id: int) -> tuple[float | None, float | None]:
 
         return total_memory, available_memory
 
-    except ImportError:
+    except ImportError:  # pragma: no cover
         return None, None
 
 
@@ -333,7 +333,7 @@ def cleanup_device_memory(device: DeviceInfo) -> None:
 
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-        except ImportError:
+        except ImportError:  # pragma: no cover  # pragma: no cover
             pass
 
     elif device.device_type == "mps":

@@ -139,7 +139,7 @@ def extract_entities(
 
     try:
         import spacy  # noqa: F401, PLC0415
-    except ImportError as e:
+    except ImportError as e:  # pragma: no cover
         raise MissingDependencyError.create_for_package(
             package_name="spacy",
             dependency_group="entity-extraction",
@@ -230,7 +230,7 @@ def extract_keywords(
         return [(kw, float(score)) for kw, score in keywords]
     except (RuntimeError, OSError, ValueError):
         return []
-    except ImportError as e:
+    except ImportError as e:  # pragma: no cover
         raise MissingDependencyError.create_for_package(
             package_name="keybert",
             dependency_group="entity-extraction",

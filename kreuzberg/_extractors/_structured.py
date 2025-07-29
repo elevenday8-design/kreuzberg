@@ -9,12 +9,12 @@ if sys.version_info >= (3, 11):
 else:  # pragma: no cover
     try:
         import tomli as tomllib  # type: ignore[import-not-found]
-    except ImportError:
+    except ImportError:  # pragma: no cover
         tomllib = None
 
 try:
     import yaml
-except ImportError:
+except ImportError:  # pragma: no cover
     yaml = None
 
 from anyio import Path as AsyncPath

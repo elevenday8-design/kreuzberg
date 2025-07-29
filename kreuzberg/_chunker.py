@@ -43,7 +43,7 @@ def get_chunker(
                 from semantic_text_splitter import TextSplitter  # noqa: PLC0415
 
                 _chunkers[key] = TextSplitter(max_characters, overlap_characters)
-        except ImportError as e:
+        except ImportError as e:  # pragma: no cover
             raise MissingDependencyError.create_for_package(
                 dependency_group="chunking", functionality="chunking", package_name="semantic-text-splitter"
             ) from e

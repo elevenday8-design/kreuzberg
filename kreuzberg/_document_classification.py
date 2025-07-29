@@ -54,7 +54,7 @@ def _get_translated_text(result: ExtractionResult) -> str:
     """
     try:
         from deep_translator import GoogleTranslator  # noqa: PLC0415
-    except ImportError as e:
+    except ImportError as e:  # pragma: no cover
         raise MissingDependencyError(
             "The 'deep-translator' library is not installed. Please install it with: pip install 'kreuzberg[auto-classify-document-type]'"
         ) from e

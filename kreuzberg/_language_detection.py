@@ -14,7 +14,7 @@ try:
     from fast_langdetect import detect, detect_multilingual
 
     HAS_FAST_LANGDETECT = True
-except ImportError:
+except ImportError:  # pragma: no cover
     HAS_FAST_LANGDETECT = False
     detect = None
     detect_multilingual = None

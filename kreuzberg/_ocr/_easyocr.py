@@ -321,7 +321,7 @@ class EasyOCRBackend(OCRBackend[EasyOCRConfig]):
             import torch  # noqa: PLC0415
 
             return bool(torch.cuda.is_available())
-        except ImportError:
+        except ImportError:  # pragma: no cover
             return False
 
     @classmethod
@@ -340,7 +340,7 @@ class EasyOCRBackend(OCRBackend[EasyOCRConfig]):
 
         try:
             import easyocr  # noqa: PLC0415
-        except ImportError as e:
+        except ImportError as e:  # pragma: no cover
             raise MissingDependencyError.create_for_package(
                 dependency_group="easyocr", functionality="EasyOCR as an OCR backend", package_name="easyocr"
             ) from e
@@ -508,7 +508,7 @@ class EasyOCRBackend(OCRBackend[EasyOCRConfig]):
 
         try:
             import easyocr  # noqa: PLC0415
-        except ImportError as e:
+        except ImportError as e:  # pragma: no cover
             raise MissingDependencyError.create_for_package(
                 dependency_group="easyocr", functionality="EasyOCR as an OCR backend", package_name="easyocr"
             ) from e

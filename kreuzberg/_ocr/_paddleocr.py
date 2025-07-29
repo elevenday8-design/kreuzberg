@@ -261,7 +261,7 @@ class PaddleBackend(OCRBackend[PaddleOCRConfig]):
 
         try:
             from paddleocr import PaddleOCR  # noqa: PLC0415
-        except ImportError as e:
+        except ImportError as e:  # pragma: no cover
             raise MissingDependencyError.create_for_package(
                 dependency_group="paddleocr", functionality="PaddleOCR as an OCR backend", package_name="paddleocr"
             ) from e
@@ -428,7 +428,7 @@ class PaddleBackend(OCRBackend[PaddleOCRConfig]):
 
         try:
             from paddleocr import PaddleOCR  # noqa: PLC0415
-        except ImportError as e:
+        except ImportError as e:  # pragma: no cover
             raise MissingDependencyError.create_for_package(
                 dependency_group="paddleocr", functionality="PaddleOCR as an OCR backend", package_name="paddleocr"
             ) from e

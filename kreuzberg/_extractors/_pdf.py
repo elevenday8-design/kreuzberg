@@ -82,7 +82,7 @@ class PDFExtractor(Extractor):
                 from kreuzberg._gmft import extract_tables  # noqa: PLC0415
 
                 result.tables = await extract_tables(path, self.config.gmft_config)
-            except ImportError:
+            except ImportError:  # pragma: no cover
                 result.tables = []
 
             # Enhance metadata with table information
