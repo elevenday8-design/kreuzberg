@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any
 
 if sys.version_info >= (3, 11):
     import tomllib
-else:
+else:  # pragma: no cover
     import tomli as tomllib  # type: ignore[import-not-found]
 
 from kreuzberg._gmft import GMFTConfig

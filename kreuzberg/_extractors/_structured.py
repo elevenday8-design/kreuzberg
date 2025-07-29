@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 if sys.version_info >= (3, 11):
     import tomllib
-else:
+else:  # pragma: no cover
     try:
         import tomli as tomllib  # type: ignore[import-not-found]
     except ImportError:
