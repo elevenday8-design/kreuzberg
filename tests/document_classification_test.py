@@ -17,7 +17,7 @@ from kreuzberg._document_classification import (
 from kreuzberg._types import ExtractionConfig, ExtractionResult
 
 if TYPE_CHECKING:
-    from pathlib import Path
+    from pytest_mock import MockerFixture
 
 
 @pytest.mark.anyio
@@ -581,7 +581,7 @@ def test_classify_document_no_match(mocker: MockerFixture) -> None:
     assert confidence is None
 
 
-def test_classify_document_low_confidence(mocker: MockerFixture) -> None:
+def test_classify_document_comprehensive_low_confidence_detailed(mocker: MockerFixture) -> None:
     """Test document classification with confidence below threshold."""
     mocker.patch(
         "kreuzberg._document_classification._get_translated_text",
@@ -598,7 +598,7 @@ def test_classify_document_low_confidence(mocker: MockerFixture) -> None:
     assert confidence is None
 
 
-def test_classify_document_with_metadata(mocker: MockerFixture) -> None:
+def test_classify_document_comprehensive_with_metadata_detailed(mocker: MockerFixture) -> None:
     """Test document classification including metadata."""
     # The _get_translated_text function should be called with result that includes metadata
     mock_translate = mocker.patch(
@@ -627,7 +627,7 @@ def test_classify_document_from_layout_disabled() -> None:
     assert confidence is None
 
 
-def test_classify_document_from_layout_no_layout() -> None:
+def test_classify_document_from_layout_comprehensive_no_layout_detailed() -> None:
     """Test layout-based classification with no layout data."""
     result = ExtractionResult(content="Test content", mime_type="text/plain", metadata={}, layout=None)
     config = ExtractionConfig(auto_detect_document_type=True)
@@ -638,7 +638,7 @@ def test_classify_document_from_layout_no_layout() -> None:
     assert confidence is None
 
 
-def test_classify_document_from_layout_empty_layout() -> None:
+def test_classify_document_from_layout_comprehensive_empty_layout_detailed() -> None:
     """Test layout-based classification with empty layout data."""
     empty_df = pd.DataFrame()
     result = ExtractionResult(content="Test content", mime_type="text/plain", metadata={}, layout=empty_df)
@@ -650,7 +650,7 @@ def test_classify_document_from_layout_empty_layout() -> None:
     assert confidence is None
 
 
-def test_classify_document_from_layout_missing_columns():
+def test_classify_document_from_layout_comprehensive_missing_columns_detailed() -> None:
     """Test layout-based classification with missing required columns."""
     layout_df = pd.DataFrame({"text": ["some text"], "left": [10]})  # Missing "top" and "height"
     result = ExtractionResult(content="Test content", mime_type="text/plain", metadata={}, layout=layout_df)
@@ -662,7 +662,7 @@ def test_classify_document_from_layout_missing_columns():
     assert confidence is None
 
 
-def test_classify_document_from_layout_invoice(mocker: MockerFixture):
+def test_classify_document_from_layout_invoice(mocker: MockerFixture) -> None:
     """Test layout-based classification for invoice."""
     layout_df = pd.DataFrame(
         {
@@ -687,7 +687,7 @@ def test_classify_document_from_layout_invoice(mocker: MockerFixture):
     assert confidence > 0.3
 
 
-def test_classify_document_from_layout_translation_error(mocker: MockerFixture):
+def test_classify_document_from_layout_translation_error(mocker: MockerFixture) -> None:
     """Test layout-based classification when translation fails."""
     layout_df = pd.DataFrame({"text": ["INVOICE", "Total Amount: $500"], "top": [10, 50], "height": [20, 15]})
 
@@ -704,7 +704,7 @@ def test_classify_document_from_layout_translation_error(mocker: MockerFixture):
     assert confidence > 0.3
 
 
-def test_classify_document_from_layout_header_bonus():
+def test_classify_document_from_layout_header_bonus() -> None:
     """Test layout-based classification with header position bonus."""
     layout_df = pd.DataFrame(
         {
@@ -725,7 +725,7 @@ def test_classify_document_from_layout_header_bonus():
 
 
 # Test _get_translated_text function
-def test_get_translated_text_basic(mocker: MockerFixture):
+def test_get_translated_text_basic(mocker: MockerFixture) -> None:
     """Test basic text translation functionality."""
     from kreuzberg._document_classification import _get_translated_text
 
@@ -741,7 +741,7 @@ def test_get_translated_text_basic(mocker: MockerFixture):
     mock_translator.translate.assert_called_once_with("Original text")
 
 
-def test_get_translated_text_with_metadata(mocker: MockerFixture):
+def test_get_translated_text_with_metadata(mocker: MockerFixture) -> None:
     """Test text translation with metadata included."""
     from kreuzberg._document_classification import _get_translated_text
 
@@ -759,7 +759,7 @@ def test_get_translated_text_with_metadata(mocker: MockerFixture):
     mock_translator.translate.assert_called_once_with(expected_call)
 
 
-def test_get_translated_text_translation_error(mocker: MockerFixture):
+def test_get_translated_text_translation_error(mocker: MockerFixture) -> None:
     """Test text translation fallback when translation fails."""
     from kreuzberg._document_classification import _get_translated_text
 
@@ -775,7 +775,7 @@ def test_get_translated_text_translation_error(mocker: MockerFixture):
 
 
 # Test auto_detect_document_type function
-def test_auto_detect_document_type_text_mode(mocker: MockerFixture):
+def test_auto_detect_document_type_text_mode(mocker: MockerFixture) -> None:
     """Test auto_detect_document_type in text mode."""
     mock_classify = mocker.patch("kreuzberg._document_classification.classify_document", return_value=("invoice", 0.8))
 
@@ -789,7 +789,7 @@ def test_auto_detect_document_type_text_mode(mocker: MockerFixture):
     mock_classify.assert_called_once_with(result, config)
 
 
-def test_auto_detect_document_type_vision_mode_with_file(mocker: MockerFixture):
+def test_auto_detect_document_type_vision_mode_with_file(mocker: MockerFixture) -> None:
     """Test auto_detect_document_type in vision mode with file path."""
     # Mock OCR backend
     mock_ocr_result = ExtractionResult(
@@ -818,7 +818,7 @@ def test_auto_detect_document_type_vision_mode_with_file(mocker: MockerFixture):
     mock_classify_layout.assert_called_once_with(mock_ocr_result, config)
 
 
-def test_auto_detect_document_type_vision_mode_no_file(mocker: MockerFixture):
+def test_auto_detect_document_type_vision_mode_no_file(mocker: MockerFixture) -> None:
     """Test auto_detect_document_type in vision mode without file path."""
     mock_classify = mocker.patch("kreuzberg._document_classification.classify_document", return_value=("report", 0.7))
 
@@ -832,7 +832,7 @@ def test_auto_detect_document_type_vision_mode_no_file(mocker: MockerFixture):
     mock_classify.assert_called_once_with(result, config)
 
 
-def test_auto_detect_document_type_with_existing_layout(mocker: MockerFixture):
+def test_auto_detect_document_type_with_existing_layout(mocker: MockerFixture) -> None:
     """Test auto_detect_document_type with existing layout data."""
     layout_df = pd.DataFrame({"text": ["CONTRACT", "Agreement between parties"], "top": [10, 50], "height": [20, 15]})
 
@@ -851,7 +851,7 @@ def test_auto_detect_document_type_with_existing_layout(mocker: MockerFixture):
     mock_classify_layout.assert_called_once_with(result, config)
 
 
-def test_auto_detect_document_type_mixed_patterns(mocker: MockerFixture):
+def test_auto_detect_document_type_mixed_patterns(mocker: MockerFixture) -> None:
     """Test document classification with mixed patterns from different types."""
     mocker.patch(
         "kreuzberg._document_classification._get_translated_text",
@@ -869,7 +869,7 @@ def test_auto_detect_document_type_mixed_patterns(mocker: MockerFixture):
     assert confidence >= 0.15
 
 
-def test_classify_document_confidence_calculation(mocker: MockerFixture):
+def test_classify_document_confidence_calculation(mocker: MockerFixture) -> None:
     """Test confidence calculation in document classification."""
     # Create a scenario where we can predict the confidence
     mocker.patch(
