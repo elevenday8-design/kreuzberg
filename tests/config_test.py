@@ -389,7 +389,7 @@ def test_build_extraction_config_from_dict_with_all_options() -> None:
         "auto_detect_language": True,
         "ocr_backend": "tesseract",
         "tesseract": {"language": "fra", "psm": 6},
-        "gmft": {"batch_size": 5, "confidence_threshold": 0.9},
+        "gmft": {"verbosity": 2, "formatter_base_threshold": 0.4},
     }
 
     config = build_extraction_config_from_dict(config_dict)
@@ -442,19 +442,20 @@ def test_load_config_from_path_string() -> None:
     with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
         f.write("force_ocr = true\nchunk_content = false\n")
         f.flush()
+        temp_path = f.name
 
-        config = load_config_from_path(f.name)
+    try:
+        config = load_config_from_path(temp_path)
         assert config.force_ocr is True
         assert config.chunk_content is False
+    finally:
+        Path(temp_path).unlink()
 
 
 def test_discover_and_load_config_with_default(tmp_path: Path) -> None:
-    """Test discovery that falls back to defaults."""
-    config = discover_and_load_config(str(tmp_path))
-
-    # Should return default config
-    assert isinstance(config, ExtractionConfig)
-    assert config.force_ocr is False  # Default value
+    """Test discovery that raises error when no config found."""
+    with pytest.raises(ValidationError, match="No configuration file found"):
+        discover_and_load_config(str(tmp_path))
 
 
 def test_try_discover_config_returns_none(tmp_path: Path) -> None:

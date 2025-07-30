@@ -349,9 +349,9 @@ class ExtractionConfig:
     """Configuration for language detection. If None, uses default settings."""
     spacy_entity_extraction_config: SpacyEntityExtractionConfig | None = None
     """Configuration for spaCy entity extraction. If None, uses default settings."""
-    auto_detect_document_type: bool = False
+    auto_detect_document_type: bool = True
     """Whether to automatically detect the document type."""
-    document_type_confidence_threshold: float = 0.7
+    document_type_confidence_threshold: float = 0.5
     """Confidence threshold for document type detection."""
     document_classification_mode: Literal["text", "vision"] = "text"
     """The mode to use for document classification."""
