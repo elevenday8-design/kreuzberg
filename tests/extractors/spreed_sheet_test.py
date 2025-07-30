@@ -370,8 +370,8 @@ def test_extract_spreadsheet_metadata_comprehensive(extractor: SpreadSheetExtrac
     assert result["categories"] == ["Test Category"]
     assert result["organization"] == "Test Company"
     assert result["modified_by"] == "Test Manager"
-    assert result["created_at"] == "2023-01-01T12:00:00"
-    assert result["modified_at"] == "2023-02-01T14:30:00"
+    assert result["created_at"] == "2023-01-01T12:00:00+00:00"
+    assert result["modified_at"] == "2023-02-01T14:30:00+00:00"
     assert result["description"] == "Spreadsheet with 3 sheets: Sheet1, Sheet2, Summary"
     assert "includes formulas" in result["summary"]
 
