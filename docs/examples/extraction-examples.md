@@ -133,10 +133,10 @@ async def extract_tables_from_pdf():
     print(f"Found {len(result.tables)} tables")
     for i, table in enumerate(result.tables):
         print(f"Table {i+1} on page {table['page_number']}:")
-        print(table['text'])  # Markdown formatted table
+        print(table["text"])  # Markdown formatted table
 
         # Work with the pandas DataFrame
-        df = table['df']
+        df = table["df"]
         print(f"Table shape: {df.shape}")
 
         # The cropped table image is also available
