@@ -57,13 +57,13 @@ classifiers = [
 ]
 
 dependencies = [
-  "anyio>=4.9.0",
+  "anyio>=4.10.0",
   "chardetng-py>=0.3.5",
   "exceptiongroup>=1.2.2; python_version<'3.11'",
   "html-to-markdown[lxml]>=1.9.0",
-  "mcp>=1.12.3",
+  "mcp>=1.12.4",
   "msgspec>=0.18.0",
-  "playa-pdf>=0.6.4",                                 # pinned due to breaking changes in 0.5.0
+  "playa-pdf>=0.7.0",                                 # pinned due to breaking changes in 0.5.0
   "psutil>=7.0.0",
   "pypdfium2==4.30.0",                                # pinned due to bug in 4.30.1, until v5 is stable
   "python-calamine>=0.3.2",
@@ -79,7 +79,7 @@ optional-dependencies.all = [
   "kreuzberg[additional-extensions,api,chunking,cli,crypto,document-classification,easyocr,entity-extraction,gmft,langdetect,paddleocr]",
 ]
 optional-dependencies.api = [
-  "litestar[standard,structlog,opentelemetry]>=2.16.0",
+  "litestar[standard,structlog,opentelemetry]>=2.17.0",
 ]
 optional-dependencies.chunking = [ "semantic-text-splitter>=0.27.0" ]
 optional-dependencies.cli = [
@@ -87,7 +87,7 @@ optional-dependencies.cli = [
   "rich>=14.1.0",
   "tomli>=2.0.0; python_version<'3.11'",
 ]
-optional-dependencies.crypto = [ "playa-pdf[crypto]>=0.6.4" ]
+optional-dependencies.crypto = [ "playa-pdf[crypto]>=0.7.0" ]
 optional-dependencies.document-classification = [
   "deep-translator>=1.11.4",
   "pandas>=2.3.1",
@@ -111,13 +111,13 @@ scripts.kreuzberg-mcp = "kreuzberg._mcp.server:main"
 dev = [
   "covdefaults>=2.3.0",
   "mypy>=1.16.1",
-  "pre-commit>=4.2.0",
+  "pre-commit>=4.3.0",
   "pytest>=8.4.1",
   "pytest-cov>=6.2.1",
   "pytest-mock>=3.14.0",
   "pytest-rerunfailures>=15.1",
   "pytest-timeout>=2.4.0",
-  "ruff>=0.12.5",
+  "ruff>=0.12.8",
   "trio>=0.30.0",
   "uv-bump",
 ]
