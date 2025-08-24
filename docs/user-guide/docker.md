@@ -4,7 +4,15 @@ Kreuzberg provides official Docker images for easy deployment and containerized 
 
 ## Image Variants
 
-Docker images are available on [Docker Hub](https://hub.docker.com/r/goldziher/kreuzberg):
+Docker images are available on [Docker Hub](https://hub.docker.com/r/goldziher/kreuzberg).
+
+### Which Image Should I Use?
+
+- **For basic text extraction**: Use `latest` (258MB)
+- **For better OCR with reasonable size**: Use `latest-paddle` (837MB)
+- **For complex documents with tables**: Use `latest-gmft` (8GB)
+- **For multi-language OCR**: Use `latest-easyocr` (8GB)
+- **For testing/evaluation only**: Use `latest-all` (9GB)
 
 ### Image Sizes Overview
 
@@ -16,7 +24,7 @@ Docker images are available on [Docker Hub](https://hub.docker.com/r/goldziher/k
 | `latest-easyocr` | 8.2GB           | ~15GB        | Core + EasyOCR language models  |
 | `latest-all`     | 9.0GB           | ~18GB        | Everything (testing only)       |
 
-> **Note**: Large images (GMFT, EasyOCR) include pre-trained deep learning models which account for most of the size. These models are necessary for their advanced capabilities.
+> **Note**: Large images (GMFT, EasyOCR) include PyTorch (~2-3GB) plus pre-trained deep learning models. Both GMFT and EasyOCR require PyTorch, which is why they're similar in size. The "all" image shares PyTorch between them, so it's only ~1GB larger than individual images, not double.
 
 ### Core Image
 
@@ -72,6 +80,40 @@ Docker images are available on [Docker Hub](https://hub.docker.com/r/goldziher/k
     - Slower container startup time
     - Higher memory footprint (~4GB+ RAM needed)
 
+## Important: OCR Backend Selection
+
+**ALL images include Tesseract OCR** as the base OCR engine. The specialized images (easyocr, paddle, all) ADD additional OCR backends but don't remove Tesseract. This means:
+
+- ✅ You can use Tesseract in ANY image
+- ✅ You can switch between backends at runtime
+- ✅ The paddle image has both Tesseract AND PaddleOCR
+- ✅ The easyocr image has both Tesseract AND EasyOCR
+- ✅ The all image has ALL three backends
+
+### Selecting OCR Backend
+
+Use configuration file or environment variables:
+
+```bash
+# Use Tesseract (default, works in all images)
+docker run -p 8000:8000 goldziher/kreuzberg:latest-paddle
+
+# Use PaddleOCR in the paddle image
+docker run -p 8000:8000 \
+  -e KREUZBERG_OCR_BACKEND=paddleocr \
+  goldziher/kreuzberg:latest-paddle
+
+# Use EasyOCR in the easyocr image
+docker run -p 8000:8000 \
+  -e KREUZBERG_OCR_BACKEND=easyocr \
+  goldziher/kreuzberg:latest-easyocr
+
+# Disable OCR entirely
+docker run -p 8000:8000 \
+  -e KREUZBERG_OCR_BACKEND=none \
+  goldziher/kreuzberg:latest
+```
+
 ## Quick Start
 
 ### Basic Usage
@@ -96,6 +138,64 @@ mkdir -p kreuzberg-cache
 docker run -p 8000:8000 \
   -v "$(pwd)/kreuzberg-cache:/app/.kreuzberg" \
   goldziher/kreuzberg:latest
+```
+
+### Using the All Image
+
+The `all` image is perfect for testing different features without rebuilding:
+
+```bash
+# Test with different OCR backends
+docker run -d --name kreuzberg-all \
+  -p 8000:8000 \
+  -v "$(pwd)/cache:/app/.kreuzberg" \
+  goldziher/kreuzberg:latest-all
+
+# Test Tesseract (default)
+curl -X POST http://localhost:8000/extract \
+  -F "data=@document.pdf" \
+  -F "ocr_backend=tesseract"
+
+# Test PaddleOCR
+curl -X POST http://localhost:8000/extract \
+  -F "data=@document.pdf" \
+  -F "ocr_backend=paddleocr"
+
+# Test EasyOCR
+curl -X POST http://localhost:8000/extract \
+  -F "data=@document.pdf" \
+  -F "ocr_backend=easyocr"
+
+# Test with chunking and language detection
+curl -X POST http://localhost:8000/extract \
+  -F "data=@document.pdf" \
+  -F "chunk_content=true" \
+  -F "auto_detect_language=true"
+
+# Test table extraction
+curl -X POST http://localhost:8000/extract \
+  -F "data=@document.pdf" \
+  -F "extract_tables=true"
+```
+
+### Backend Comparison Example
+
+```bash
+# Create test script to compare backends
+cat > compare_backends.sh << 'EOF'
+#!/bin/bash
+FILE="$1"
+for backend in tesseract paddleocr easyocr; do
+  echo "Testing $backend..."
+  time curl -s -X POST http://localhost:8000/extract \
+    -F "data=@$FILE" \
+    -F "ocr_backend=$backend" \
+    -o "result_$backend.json"
+done
+EOF
+
+chmod +x compare_backends.sh
+./compare_backends.sh sample.pdf
 ```
 
 ## Customizing Docker Images
