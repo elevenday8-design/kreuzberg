@@ -112,7 +112,7 @@ def test_cli_help(image_name: str) -> bool:
         "--help",
     ]
     exit_code, stdout, stderr = run_command(cmd)
-    success = exit_code == 0 and "Extract text from documents" in stdout
+    success = exit_code == 0 and "Text extraction from documents" in stdout
     if not success:
         pass
     return success
@@ -537,13 +537,11 @@ def print_summary(all_results: dict[str, dict[str, bool]]) -> bool:
     success_rate = (total_passed / total_tests * 100) if total_tests > 0 else 0
     print(f"Success rate: {success_rate:.1f}%")
 
-    if success_rate >= 90:
+    # ALL tests must pass - no partial success allowed
+    if success_rate == 100:
         print("✅ Test suite PASSED")
         return True
-    if success_rate >= 70:
-        print("⚠️ Test suite PASSED with warnings")
-        return True
-    print("❌ Test suite FAILED")
+    print("❌ Test suite FAILED - all tests must pass")
     return False
 
 
