@@ -22,7 +22,7 @@ jobs:
       version: ${{ steps.get_version.outputs.VERSION }}
 
     strategy:
-      max-parallel: 2
+      max-parallel: 1  # Build one at a time to save disk space
       matrix:
         include:
           - name: core
@@ -44,12 +44,23 @@ jobs:
     steps:
       - name: Free up disk space
         run: |
+          # Remove unnecessary system packages to free ~14GB
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /usr/local/lib/android
           sudo rm -rf /opt/ghc
           sudo rm -rf /opt/hostedtoolcache/CodeQL
-          sudo docker system prune -af
-          df -h
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf /usr/local/lib/node_modules
+          sudo rm -rf /opt/microsoft
+          # Clean Docker completely
+          sudo docker system prune -af --volumes
+          sudo docker builder prune -af
+          # Clear package caches
+          sudo apt-get clean
+          sudo rm -rf /var/lib/apt/lists/*
+          # Show available space
+          echo "Available disk space:"
+          df -h / | tail -1
 
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -100,8 +111,17 @@ jobs:
             EXTRAS=${{ matrix.extras }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+      - name: Clean up after build
+        if: always()
+        run: |
+          # Clean up Docker images and build cache after each build
+          sudo docker system prune -af --volumes
+          sudo docker builder prune -af
+          echo "Available disk space after cleanup:"
+          df -h / | tail -1
 
       - name: Update Docker Hub README
         uses: peter-evans/dockerhub-description@v4
