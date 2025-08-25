@@ -238,7 +238,7 @@ def test_ocr_extraction(image_name: str, image_variant: str) -> bool:
     # Use different test images based on variant
     test_files = {
         "core": "ocr-image.jpg",  # Tesseract
-        "easyocr": "better-ocr-image.jpg",
+        "easyocr": "ocr-image.jpg",  # Use same text-containing image
         "paddle": "invoice_image.png",
         "gmft": "ocr-image.jpg",  # Also uses Tesseract by default
     }
