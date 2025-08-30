@@ -27,10 +27,8 @@ import time
 from pathlib import Path
 from typing import Any
 
-import pytest
-
-# Skip this file when running pytest
-pytestmark = pytest.mark.skip(reason="This is a standalone E2E script, not a pytest test")
+# This is a standalone E2E script, not a pytest test module
+# When pytest discovers this file, it should be skipped using pytest.ini or similar configuration
 
 DOCKER_IMAGES = {
     "base": "kreuzberg:base",
