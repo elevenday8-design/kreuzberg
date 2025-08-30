@@ -19,9 +19,10 @@ docker run -p 8000:8000 goldziher/kreuzberg:latest
 
 ### Base Image (`latest`, `X.Y.Z`)
 
-- **Includes**: API server, CLI, Tesseract OCR
-- **Use case**: Basic document extraction with REST API
-- **Size**: ~500MB
+- **Includes**: API server, CLI, Tesseract OCR with multilingual support
+- **Languages**: English, Spanish, French, German, Italian, Portuguese, Chinese (Simplified & Traditional), Japanese, Arabic, Russian, Hindi
+- **Use case**: Basic document extraction with REST API, supports most common business languages
+- **Size**: ~550MB
 
 ### Core Image (`X.Y.Z-core`)
 
