@@ -394,7 +394,7 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
 
             command = ["tesseract", "--version"]
             result = await run_process(command)
-            version_match = re.search(r"tesseract\s+v?(\d+)\.\d+\.\d+", result.stdout.decode())
+            version_match = re.search(r"tesseract\s+v?(\d+)\.\d+\.\d+", result.stdout.decode("utf-8"))
             if not version_match or int(version_match.group(1)) < MINIMAL_SUPPORTED_TESSERACT_VERSION:
                 raise MissingDependencyError(
                     "Tesseract version 5 is a required system dependency. Please install it on your system and make sure its available in $PATH."
@@ -588,6 +588,7 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
             capture_output=True,
             text=True,
             timeout=30,
+            encoding="utf-8",
         )
 
         if result.returncode != 0:
@@ -608,7 +609,7 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
                 return
 
             command = ["tesseract", "--version"]
-            result = subprocess.run(command, capture_output=True, text=True, check=False)
+            result = subprocess.run(command, capture_output=True, text=True, check=False, encoding="utf-8")
             version_match = re.search(r"tesseract\s+v?(\d+)\.\d+\.\d+", result.stdout)
             if not version_match or int(version_match.group(1)) < MINIMAL_SUPPORTED_TESSERACT_VERSION:
                 raise MissingDependencyError(
@@ -718,6 +719,7 @@ def _process_image_with_tesseract(
                 capture_output=True,
                 text=True,
                 timeout=30,
+                encoding="utf-8",
             )
 
             if result.returncode != 0:

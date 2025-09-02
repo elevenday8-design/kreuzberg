@@ -255,7 +255,7 @@ class PandocExtractor(Extractor):
 
             command = ["pandoc", "--version"]
             result = await run_process(command)
-            stdout = result.stdout.decode()
+            stdout = result.stdout.decode("utf-8")
 
             version_match = re.search(
                 r"pandoc(?:\.exe)?(?:\s+|\s+v|\s+version\s+)(\d+)\.(\d+)(?:\.(\d+))?", stdout, re.IGNORECASE
@@ -582,7 +582,13 @@ class PandocExtractor(Extractor):
             if self._checked_version:
                 return
 
-            result = subprocess.run(["pandoc", "--version"], capture_output=True, text=True, check=False)  # noqa: S607
+            result = subprocess.run(
+                ["pandoc", "--version"],  # noqa: S607
+                capture_output=True,
+                text=True,
+                check=False,
+                encoding="utf-8",
+            )
 
             if result.returncode != 0:
                 raise MissingDependencyError(
@@ -638,7 +644,7 @@ class PandocExtractor(Extractor):
                 str(metadata_file),
             ]
 
-            result = subprocess.run(command, capture_output=True, text=True, check=False)
+            result = subprocess.run(command, capture_output=True, text=True, check=False, encoding="utf-8")
 
             if result.returncode != 0:
                 raise ParsingError("Failed to extract file data", context={"file": str(path), "error": result.stderr})
@@ -673,7 +679,7 @@ class PandocExtractor(Extractor):
                 str(output_path),
             ]
 
-            result = subprocess.run(command, capture_output=True, text=True, check=False)
+            result = subprocess.run(command, capture_output=True, text=True, check=False, encoding="utf-8")
 
             if result.returncode != 0:
                 raise ParsingError("Failed to extract file data", context={"file": str(path), "error": result.stderr})

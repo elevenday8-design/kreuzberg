@@ -139,7 +139,7 @@ class SpreadSheetExtractor(Extractor):
         csv_buffer.close()
 
         csv_path, unlink = await create_temp_file(".csv")
-        await AsyncPath(csv_path).write_text(csv_data)
+        await AsyncPath(csv_path).write_text(csv_data, encoding="utf-8")
 
         csv_reader = csv.reader(StringIO(csv_data))
         rows = list(csv_reader)

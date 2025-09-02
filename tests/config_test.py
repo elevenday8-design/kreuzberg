@@ -581,72 +581,78 @@ def test_build_extraction_config_complete() -> None:
     assert result.ocr_backend == "tesseract"
 
 
-class TestHighLevelAPI:
-    def test_load_config_from_path(self, tmp_path: Path) -> None:
-        config_file = tmp_path / "kreuzberg.toml"
-        config_file.write_text("""
+def test_high_level_api_load_config_from_path(tmp_path: Path) -> None:
+    config_file = tmp_path / "kreuzberg.toml"
+    config_file.write_text("""
 force_ocr = true
 chunk_content = false
 """)
 
-        result = load_config_from_path(config_file)
-        assert isinstance(result, ExtractionConfig)
-        assert result.force_ocr is True
-        assert result.chunk_content is False
+    result = load_config_from_path(config_file)
+    assert isinstance(result, ExtractionConfig)
+    assert result.force_ocr is True
+    assert result.chunk_content is False
 
-    def test_discover_and_load_config(self, tmp_path: Path) -> None:
-        config_file = tmp_path / "kreuzberg.toml"
-        config_file.write_text("force_ocr = true")
 
-        result = discover_and_load_config(tmp_path)
-        assert isinstance(result, ExtractionConfig)
-        assert result.force_ocr is True
+def test_high_level_api_discover_and_load_config(tmp_path: Path) -> None:
+    config_file = tmp_path / "kreuzberg.toml"
+    config_file.write_text("force_ocr = true")
 
-    def test_discover_and_load_config_not_found(self, tmp_path: Path) -> None:
-        with pytest.raises(ValidationError, match="No configuration file found"):
-            discover_and_load_config(tmp_path)
+    result = discover_and_load_config(tmp_path)
+    assert isinstance(result, ExtractionConfig)
+    assert result.force_ocr is True
 
-    def test_discover_and_load_config_empty(self, tmp_path: Path) -> None:
-        config_file = tmp_path / "pyproject.toml"
-        config_file.write_text("""
+
+def test_high_level_api_discover_and_load_config_not_found(tmp_path: Path) -> None:
+    with pytest.raises(ValidationError, match="No configuration file found"):
+        discover_and_load_config(tmp_path)
+
+
+def test_high_level_api_discover_and_load_config_empty(tmp_path: Path) -> None:
+    config_file = tmp_path / "pyproject.toml"
+    config_file.write_text("""
 [build-system]
 requires = ["hatchling"]
 """)
 
-        with pytest.raises(ValidationError, match="No configuration file found"):
-            discover_and_load_config(tmp_path)
+    with pytest.raises(ValidationError, match="No configuration file found"):
+        discover_and_load_config(tmp_path)
 
-    def test_try_discover_config_success(self, tmp_path: Path) -> None:
-        config_file = tmp_path / "kreuzberg.toml"
-        config_file.write_text("force_ocr = true")
 
-        result = try_discover_config(tmp_path)
+def test_high_level_api_try_discover_config_success(tmp_path: Path) -> None:
+    config_file = tmp_path / "kreuzberg.toml"
+    config_file.write_text("force_ocr = true")
+
+    result = try_discover_config(tmp_path)
+    assert isinstance(result, ExtractionConfig)
+    assert result.force_ocr is True
+
+
+def test_high_level_api_try_discover_config_not_found(tmp_path: Path) -> None:
+    result = try_discover_config(tmp_path)
+    assert result is None
+
+
+def test_high_level_api_try_discover_config_invalid(tmp_path: Path) -> None:
+    config_file = tmp_path / "kreuzberg.toml"
+    config_file.write_text("invalid [ toml")
+
+    with pytest.raises(ValidationError) as exc_info:
+        try_discover_config(tmp_path)
+    assert "Invalid TOML" in str(exc_info.value)
+
+
+def test_high_level_api_load_default_config(tmp_path: Path) -> None:
+    config_file = tmp_path / "kreuzberg.toml"
+    config_file.write_text("force_ocr = true")
+
+    with patch("kreuzberg._config.find_config_file") as mock_find:
+        mock_find.return_value = config_file
+
+        result = load_default_config()
+
         assert isinstance(result, ExtractionConfig)
         assert result.force_ocr is True
-
-    def test_try_discover_config_not_found(self, tmp_path: Path) -> None:
-        result = try_discover_config(tmp_path)
-        assert result is None
-
-    def test_try_discover_config_invalid(self, tmp_path: Path) -> None:
-        config_file = tmp_path / "kreuzberg.toml"
-        config_file.write_text("invalid [ toml")
-
-        with pytest.raises(ValidationError) as exc_info:
-            try_discover_config(tmp_path)
-        assert "Invalid TOML" in str(exc_info.value)
-
-    def test_load_default_config(self, tmp_path: Path) -> None:
-        config_file = tmp_path / "kreuzberg.toml"
-        config_file.write_text("force_ocr = true")
-
-        with patch("kreuzberg._config.find_config_file") as mock_find:
-            mock_find.return_value = config_file
-
-            result = load_default_config()
-
-            assert isinstance(result, ExtractionConfig)
-            assert result.force_ocr is True
 
 
 def test_config_merging_merge_file_config() -> None:
@@ -830,10 +836,9 @@ def test_config_deprecated_find_default_config() -> None:
         mock_find.assert_called_once_with()
 
 
-class TestConfigIntegration:
-    def test_real_world_pyproject_toml(self, tmp_path: Path) -> None:
-        config_file = tmp_path / "pyproject.toml"
-        config_file.write_text("""
+def test_config_integration_real_world_pyproject_toml(tmp_path: Path) -> None:
+    config_file = tmp_path / "pyproject.toml"
+    config_file.write_text("""
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -859,101 +864,104 @@ psm = 6
 verbosity = 1
 """)
 
-        config = load_config_from_path(config_file)
-        assert config.force_ocr is False
-        assert config.chunk_content is True
-        assert config.extract_tables is True
-        assert config.max_chars == 4000
-        assert config.max_overlap == 200
-        assert config.ocr_backend == "tesseract"
-        assert config.auto_detect_language is True
+    config = load_config_from_path(config_file)
+    assert config.force_ocr is False
+    assert config.chunk_content is True
+    assert config.extract_tables is True
+    assert config.max_chars == 4000
+    assert config.max_overlap == 200
+    assert config.ocr_backend == "tesseract"
+    assert config.auto_detect_language is True
 
-        assert isinstance(config.ocr_config, TesseractConfig)
-        assert config.ocr_config.language == "eng+fra"
-        assert config.ocr_config.psm.value == 6
+    assert isinstance(config.ocr_config, TesseractConfig)
+    assert config.ocr_config.language == "eng+fra"
+    assert config.ocr_config.psm.value == 6
 
-    def test_config_discovery_with_cwd(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            tmp_path = Path(tmp_dir)
-            config_file = tmp_path / "kreuzberg.toml"
-            config_file.write_text("force_ocr = true")
 
-            import os
+def test_config_integration_discovery_with_cwd() -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        config_file = tmp_path / "kreuzberg.toml"
+        config_file.write_text("force_ocr = true")
 
-            original_cwd = Path.cwd()
-            try:
-                os.chdir(tmp_dir)
-                result = try_discover_config()
-                assert result is not None
-                assert result.force_ocr is True
-            finally:
-                os.chdir(str(original_cwd))
+        import os
 
-    def test_config_priority_kreuzberg_over_pyproject(self, tmp_path: Path) -> None:
-        kreuzberg_file = tmp_path / "kreuzberg.toml"
-        kreuzberg_file.write_text("force_ocr = true")
+        original_cwd = Path.cwd()
+        try:
+            os.chdir(tmp_dir)
+            result = try_discover_config()
+            assert result is not None
+            assert result.force_ocr is True
+        finally:
+            os.chdir(str(original_cwd))
 
-        pyproject_file = tmp_path / "pyproject.toml"
-        pyproject_file.write_text("""
+
+def test_config_integration_priority_kreuzberg_over_pyproject(tmp_path: Path) -> None:
+    kreuzberg_file = tmp_path / "kreuzberg.toml"
+    kreuzberg_file.write_text("force_ocr = true")
+
+    pyproject_file = tmp_path / "pyproject.toml"
+    pyproject_file.write_text("""
 [tool.kreuzberg]
 force_ocr = false
 """)
 
-        config = discover_and_load_config(tmp_path)
-        assert config.force_ocr is True
-
-    def test_complex_config_merging(self) -> None:
-        file_config = {
-            "force_ocr": False,
-            "chunk_content": True,
-            "max_chars": 1000,
-            "ocr_backend": "tesseract",
-            "tesseract": {"language": "eng", "psm": 3},
-            "gmft": {"verbosity": 1, "detector_base_threshold": 0.5},
-        }
-
-        cli_args = {
-            "force_ocr": True,
-            "extract_tables": True,
-            "tesseract_config": {"language": "eng+fra"},
-            "gmft_config": {"verbosity": 2},
-        }
-
-        result = build_extraction_config(file_config, cli_args)
-
-        assert result.force_ocr is True
-        assert result.extract_tables is True
-
-        assert result.chunk_content is True
-        assert result.max_chars == 1000
-
-        assert isinstance(result.ocr_config, TesseractConfig)
-        assert result.ocr_config.language == "eng+fra"
-        assert result.ocr_config.psm.value == 3
-
-        assert isinstance(result.gmft_config, GMFTConfig)
-        assert result.gmft_config.verbosity == 2
+    config = discover_and_load_config(tmp_path)
+    assert config.force_ocr is True
 
 
-class TestConfigFileLoadingComprehensive:
-    def test_load_arbitrary_toml_file(self, tmp_path: Path) -> None:
-        config_file = tmp_path / "custom.toml"
-        config_file.write_text("""
+def test_config_integration_complex_config_merging() -> None:
+    file_config = {
+        "force_ocr": False,
+        "chunk_content": True,
+        "max_chars": 1000,
+        "ocr_backend": "tesseract",
+        "tesseract": {"language": "eng", "psm": 3},
+        "gmft": {"verbosity": 1, "detector_base_threshold": 0.5},
+    }
+
+    cli_args = {
+        "force_ocr": True,
+        "extract_tables": True,
+        "tesseract_config": {"language": "eng+fra"},
+        "gmft_config": {"verbosity": 2},
+    }
+
+    result = build_extraction_config(file_config, cli_args)
+
+    assert result.force_ocr is True
+    assert result.extract_tables is True
+
+    assert result.chunk_content is True
+    assert result.max_chars == 1000
+
+    assert isinstance(result.ocr_config, TesseractConfig)
+    assert result.ocr_config.language == "eng+fra"
+    assert result.ocr_config.psm.value == 3
+
+    assert isinstance(result.gmft_config, GMFTConfig)
+    assert result.gmft_config.verbosity == 2
+
+
+def test_config_file_loading_comprehensive_arbitrary_toml(tmp_path: Path) -> None:
+    config_file = tmp_path / "custom.toml"
+    config_file.write_text("""
 force_ocr = true
 chunk_content = false
 ocr_backend = "tesseract"
 """)
 
-        result: dict[str, Any] = load_config_from_file(config_file)
-        assert result == {
-            "force_ocr": True,
-            "chunk_content": False,
-            "ocr_backend": "tesseract",
-        }
+    result: dict[str, Any] = load_config_from_file(config_file)
+    assert result == {
+        "force_ocr": True,
+        "chunk_content": False,
+        "ocr_backend": "tesseract",
+    }
 
-    def test_load_pyproject_toml_with_tool_no_kreuzberg(self, tmp_path: Path) -> None:
-        config_file = tmp_path / "pyproject.toml"
-        config_file.write_text("""
+
+def test_config_file_loading_comprehensive_pyproject_tool_no_kreuzberg(tmp_path: Path) -> None:
+    config_file = tmp_path / "pyproject.toml"
+    config_file.write_text("""
 [tool.black]
 line-length = 88
 
@@ -961,19 +969,21 @@ line-length = 88
 strict = true
 """)
 
-        result = load_config_from_file(config_file)
-        assert result == {}
+    result = load_config_from_file(config_file)
+    assert result == {}
 
-    def test_load_empty_config_file(self, tmp_path: Path) -> None:
-        config_file = tmp_path / "kreuzberg.toml"
-        config_file.write_text("")
 
-        result = load_config_from_file(config_file)
-        assert result == {}
+def test_config_file_loading_comprehensive_empty_file(tmp_path: Path) -> None:
+    config_file = tmp_path / "kreuzberg.toml"
+    config_file.write_text("")
 
-    def test_load_config_with_comments(self, tmp_path: Path) -> None:
-        config_file = tmp_path / "kreuzberg.toml"
-        config_file.write_text("""
+    result = load_config_from_file(config_file)
+    assert result == {}
+
+
+def test_config_file_loading_comprehensive_with_comments(tmp_path: Path) -> None:
+    config_file = tmp_path / "kreuzberg.toml"
+    config_file.write_text("""
 # Main configuration
 force_ocr = true  # Force OCR processing
 
@@ -987,516 +997,540 @@ psm = 6
 tessedit_char_whitelist = "0123456789"
 """)
 
-        result = load_config_from_file(config_file)
-        assert result["force_ocr"] is True
-        assert result["ocr_backend"] == "tesseract"
-        assert result["tesseract"]["language"] == "eng+fra"
-        assert result["tesseract"]["tessedit_char_whitelist"] == "0123456789"
+    result = load_config_from_file(config_file)
+    assert result["force_ocr"] is True
+    assert result["ocr_backend"] == "tesseract"
+    assert result["tesseract"]["language"] == "eng+fra"
+    assert result["tesseract"]["tessedit_char_whitelist"] == "0123456789"
 
 
-class TestConfigDiscoveryComprehensive:
-    def test_find_config_handles_permission_error(self, tmp_path: Path) -> None:
-        pyproject_file = tmp_path / "pyproject.toml"
-        pyproject_file.write_text("""
+def test_config_discovery_comprehensive_handles_permission_error(tmp_path: Path) -> None:
+    pyproject_file = tmp_path / "pyproject.toml"
+    pyproject_file.write_text("""
 [tool.kreuzberg]
 force_ocr = true
 """)
 
-        with patch("pathlib.Path.open", side_effect=PermissionError("No access")):
-            with pytest.raises(ValidationError) as exc_info:
-                find_config_file(tmp_path)
-            assert "Failed to read pyproject.toml" in str(exc_info.value)
-            assert "No access" in str(exc_info.value.context["error"])
-
-    def test_find_config_handles_generic_exception(self, tmp_path: Path) -> None:
-        pyproject_file = tmp_path / "pyproject.toml"
-        pyproject_file.write_text("""
-[tool.kreuzberg]
-force_ocr = true
-""")
-
-        with patch("kreuzberg._config.tomllib.load", side_effect=RuntimeError("Unexpected error")):
-            with pytest.raises(RuntimeError, match="Unexpected error"):
-                find_config_file(tmp_path)
-
-    def test_find_config_at_root_directory(self) -> None:
-        with patch("pathlib.Path.parent", new_callable=lambda: property(lambda self: self)):
-            root_path = Path("/")
-            result = find_config_file(root_path)
-            assert result is None
-
-
-class TestConfigParsingComprehensive:
-    def test_parse_tesseract_config_psm_enum_conversion(self) -> None:
-        config_dict = {
-            "tesseract": {
-                "language": "eng",
-                "psm": 0,
-            }
-        }
-
-        result = parse_ocr_backend_config(config_dict, "tesseract")
-        assert isinstance(result, TesseractConfig)
-        assert result.psm == PSMMode.OSD_ONLY
-
-    def test_parse_tesseract_config_all_psm_modes(self) -> None:
-        for psm_value in range(11):
-            config_dict = {"tesseract": {"psm": psm_value}}
-            result = parse_ocr_backend_config(config_dict, "tesseract")
-            assert isinstance(result, TesseractConfig)
-            assert result.psm.value == psm_value
-
-    def test_parse_tesseract_config_with_boolean_fields(self) -> None:
-        config_dict = {
-            "tesseract": {
-                "language": "eng",
-                "tessedit_enable_dict_correction": False,
-                "tessedit_use_primary_params_model": False,
-                "textord_space_size_is_variable": False,
-            }
-        }
-
-        result = parse_ocr_backend_config(config_dict, "tesseract")
-        assert isinstance(result, TesseractConfig)
-        assert result.tessedit_enable_dict_correction is False
-        assert result.tessedit_use_primary_params_model is False
-        assert result.textord_space_size_is_variable is False
-
-    def test_parse_paddleocr_config_all_fields(self) -> None:
-        config_dict = {
-            "paddleocr": {
-                "language": "ch",
-                "use_gpu": True,
-                "use_angle_cls": False,
-                "det_db_box_thresh": 0.6,
-                "det_db_thresh": 0.4,
-                "det_db_unclip_ratio": 2.5,
-                "max_text_length": 100,
-                "use_space_char": False,
-                "drop_score": 0.3,
-                "enable_mkldnn": True,
-                "gpu_mem": 4000,
-                "rec": False,
-                "table": False,
-                "device": "cuda",
-                "gpu_memory_limit": 4.0,
-                "fallback_to_cpu": False,
-            }
-        }
-
-        result = parse_ocr_backend_config(config_dict, "paddleocr")
-        assert isinstance(result, PaddleOCRConfig)
-        assert result.language == "ch"
-        assert result.use_gpu is True
-        assert result.use_angle_cls is False
-        assert result.det_db_box_thresh == 0.6
-        assert result.det_db_thresh == 0.4
-        assert result.det_db_unclip_ratio == 2.5
-        assert result.max_text_length == 100
-        assert result.use_space_char is False
-        assert result.drop_score == 0.3
-        assert result.enable_mkldnn is True
-        assert result.gpu_mem == 4000
-        assert result.rec is False
-        assert result.table is False
-        assert result.device == "cuda"
-        assert result.gpu_memory_limit == 4.0
-        assert result.fallback_to_cpu is False
-
-    def test_parse_easyocr_config_all_fields(self) -> None:
-        config_dict = {
-            "easyocr": {
-                "language": ["en", "fr", "de"],
-                "add_margin": 0.2,
-                "adjust_contrast": 0.7,
-                "beam_width": 10,
-                "canvas_size": 3000,
-                "contrast_ths": 0.2,
-                "decoder": "beamsearch",
-                "height_ths": 0.6,
-                "link_threshold": 0.5,
-                "low_text": 0.5,
-                "mag_ratio": 1.5,
-                "min_size": 20,
-                "rotation_info": [0, 90, 180, 270],
-                "slope_ths": 0.2,
-                "use_gpu": False,
-                "device": "cpu",
-            }
-        }
-
-        result = parse_ocr_backend_config(config_dict, "easyocr")
-        assert isinstance(result, EasyOCRConfig)
-        assert result.language == ["en", "fr", "de"]
-        assert result.add_margin == 0.2
-        assert result.adjust_contrast == 0.7
-        assert result.beam_width == 10
-        assert result.canvas_size == 3000
-        assert result.contrast_ths == 0.2
-        assert result.decoder == "beamsearch"
-        assert result.height_ths == 0.6
-        assert result.link_threshold == 0.5
-        assert result.low_text == 0.5
-        assert result.mag_ratio == 1.5
-        assert result.min_size == 20
-        assert result.rotation_info == [0, 90, 180, 270]
-        assert result.slope_ths == 0.2
-        assert result.use_gpu is False
-        assert result.device == "cpu"
-
-    def test_merge_configs_non_dict_override(self) -> None:
-        base = {"nested": {"key": "value"}}
-        override = {"nested": "string_value"}
-
-        result = merge_configs(base, override)
-        assert result["nested"] == "string_value"
-
-    def test_merge_configs_mixed_types(self) -> None:
-        base = {
-            "string": "base",
-            "number": 100,
-            "bool": False,
-            "list": [1, 2, 3],
-            "dict": {"inner": "base"},
-        }
-        override = {
-            "string": "override",
-            "number": 200,
-            "bool": True,
-            "list": [4, 5],
-            "dict": {"inner": "override", "new": "value"},
-        }
-
-        result = merge_configs(base, override)
-        assert result["string"] == "override"
-        assert result["number"] == 200
-        assert result["bool"] is True
-        assert result["list"] == [4, 5]
-        assert result["dict"] == {"inner": "override", "new": "value"}
-
-
-class TestExtractionConfigBuilderComprehensive:
-    def test_build_config_with_all_basic_fields(self) -> None:
-        config_dict = {
-            "force_ocr": True,
-            "chunk_content": True,
-            "extract_tables": True,
-            "max_chars": 3000,
-            "max_overlap": 300,
-            "ocr_backend": "tesseract",
-            "extract_entities": True,
-            "extract_keywords": True,
-            "auto_detect_language": True,
-            "enable_quality_processing": False,
-            "auto_detect_document_type": False,
-            "document_type_confidence_threshold": 0.9,
-            "document_classification_mode": "vision",
-            "keyword_count": 20,
-        }
-
-        result = build_extraction_config_from_dict(config_dict)
-
-        assert result.force_ocr is True
-        assert result.chunk_content is True
-        assert result.extract_tables is True
-        assert result.max_chars == 3000
-        assert result.max_overlap == 300
-        assert result.ocr_backend == "tesseract"
-        assert result.extract_entities is True
-        assert result.extract_keywords is True
-        assert result.auto_detect_language is True
-        assert result.enable_quality_processing is False
-        assert result.auto_detect_document_type is False
-        assert result.document_type_confidence_threshold == 0.9
-        assert result.document_classification_mode == "vision"
-        assert result.keyword_count == 20
-
-    def test_build_config_without_ocr_backend_config(self) -> None:
-        config_dict = {
-            "ocr_backend": "tesseract",
-        }
-
-        result = build_extraction_config_from_dict(config_dict)
-        assert result.ocr_backend == "tesseract"
-        assert result.ocr_config is None
-
-    def test_build_config_with_gmft_but_no_extract_tables(self) -> None:
-        config_dict = {
-            "extract_tables": False,
-            "gmft": {
-                "verbosity": 2,
-                "detector_base_threshold": 0.8,
-            },
-        }
-
-        result = build_extraction_config_from_dict(config_dict)
-        assert result.extract_tables is False
-        assert result.gmft_config is None
-
-    def test_build_config_with_extract_tables_but_no_gmft(self) -> None:
-        config_dict = {
-            "extract_tables": True,
-        }
-
-        result = build_extraction_config_from_dict(config_dict)
-        assert result.extract_tables is True
-        assert result.gmft_config is None
-
-    def test_build_config_with_invalid_gmft_config(self) -> None:
-        config_dict = {
-            "extract_tables": True,
-            "gmft": "not_a_dict",
-        }
-
-        result = build_extraction_config_from_dict(config_dict)
-        assert result.extract_tables is True
-        assert result.gmft_config is None
-
-    def test_build_config_minimal(self) -> None:
-        config_dict: dict[str, Any] = {}
-
-        result = build_extraction_config_from_dict(config_dict)
-        assert result.force_ocr is False
-        assert result.chunk_content is False
-        assert result.ocr_backend == "tesseract"
-
-    def test_build_config_validation_context(self) -> None:
-        config_dict = {
-            "ocr_backend": "invalid_ocr",
-        }
-
+    with patch("pathlib.Path.open", side_effect=PermissionError("No access")):
         with pytest.raises(ValidationError) as exc_info:
-            build_extraction_config_from_dict(config_dict)
-
-        assert exc_info.value.context["provided"] == "invalid_ocr"
-        assert "easyocr" in exc_info.value.context["valid"]
-        assert "paddleocr" in exc_info.value.context["valid"]
-        assert "tesseract" in exc_info.value.context["valid"]
+            find_config_file(tmp_path)
+        assert "Failed to read pyproject.toml" in str(exc_info.value)
+        assert "No access" in str(exc_info.value.context["error"])
 
 
-class TestHighLevelAPIComprehensive:
-    def test_load_default_config_no_file(self) -> None:
-        with patch("kreuzberg._config.find_config_file", return_value=None):
-            result = load_default_config()
-            assert result is None
+def test_config_discovery_comprehensive_handles_generic_exception(tmp_path: Path) -> None:
+    pyproject_file = tmp_path / "pyproject.toml"
+    pyproject_file.write_text("""
+[tool.kreuzberg]
+force_ocr = true
+""")
 
-    def test_load_default_config_with_error(self, tmp_path: Path) -> None:
-        config_file = tmp_path / "kreuzberg.toml"
-        config_file.write_text("invalid [ toml")
-
-        with patch("kreuzberg._config.find_config_file", return_value=config_file):
-            with pytest.raises(ValidationError) as exc_info:
-                load_default_config()
-            assert "Invalid TOML" in str(exc_info.value)
-
-    def test_load_default_config_empty_dict(self, tmp_path: Path) -> None:
-        config_file = tmp_path / "kreuzberg.toml"
-        config_file.write_text("")
-
-        with patch("kreuzberg._config.find_config_file", return_value=config_file):
-            result = load_default_config()
-            assert result is None
-
-    def test_discover_and_load_config_with_string_path(self, tmp_path: Path) -> None:
-        config_file = tmp_path / "kreuzberg.toml"
-        config_file.write_text("force_ocr = true")
-
-        result = discover_and_load_config(str(tmp_path))
-        assert result.force_ocr is True
-
-    def test_discover_and_load_config_empty_file_error(self, tmp_path: Path) -> None:
-        config_file = tmp_path / "kreuzberg.toml"
-        config_file.write_text("")
-
-        with pytest.raises(ValidationError, match="contains no Kreuzberg configuration"):
-            discover_and_load_config(tmp_path)
-
-    def test_try_discover_config_with_string_path(self, tmp_path: Path) -> None:
-        config_file = tmp_path / "kreuzberg.toml"
-        config_file.write_text("chunk_content = true")
-
-        result = try_discover_config(str(tmp_path))
-        assert result is not None
-        assert result.chunk_content is True
+    with patch("kreuzberg._config.tomllib.load", side_effect=RuntimeError("Unexpected error")):
+        with pytest.raises(RuntimeError, match="Unexpected error"):
+            find_config_file(tmp_path)
 
 
-class TestLegacyFunctionsComprehensive:
-    def test_merge_file_config_with_none_values(self) -> None:
-        config_dict: dict[str, Any] = {}
-        file_config = {
-            "force_ocr": None,
-            "chunk_content": True,
-            "max_chars": 0,
-        }
-
-        _merge_file_config(config_dict, file_config)
-
-        assert config_dict["force_ocr"] is None
-        assert config_dict["chunk_content"] is True
-        assert config_dict["max_chars"] == 0
-
-    def test_merge_cli_args_with_empty_dict(self) -> None:
-        config_dict: dict[str, Any] = {}
-        cli_args = {
-            "force_ocr": False,
-            "chunk_content": None,
-            "extract_tables": True,
-            "unknown_field": "ignored",
-        }
-
-        _merge_cli_args(config_dict, cli_args)
-
-        assert config_dict["force_ocr"] is False
-        assert "chunk_content" not in config_dict
-        assert config_dict["extract_tables"] is True
-        assert "unknown_field" not in config_dict
-
-    def test_build_ocr_config_from_cli_invalid_backend(self) -> None:
-        cli_args = {"tesseract_config": {"language": "eng"}}
-
-        result = _build_ocr_config_from_cli("invalid_backend", cli_args)
+def test_config_discovery_comprehensive_find_at_root_directory() -> None:
+    with patch("pathlib.Path.parent", new_callable=lambda: property(lambda self: self)):
+        root_path = Path("/")
+        result = find_config_file(root_path)
         assert result is None
 
-    def test_configure_ocr_backend_with_none_string(self) -> None:
-        config_dict = {"ocr_backend": "none"}
-        file_config: dict[str, Any] = {}
-        cli_args: dict[str, Any] = {}
 
-        _configure_ocr_backend(config_dict, file_config, cli_args)
-
-        assert "ocr_config" not in config_dict
-
-    def test_configure_ocr_backend_no_config_available(self) -> None:
-        config_dict = {"ocr_backend": "tesseract"}
-        file_config: dict[str, Any] = {}
-        cli_args: dict[str, Any] = {}
-
-        _configure_ocr_backend(config_dict, file_config, cli_args)
-
-        assert "ocr_config" not in config_dict
-
-    def test_configure_gmft_with_none_values(self) -> None:
-        config_dict = {"extract_tables": None}
-        file_config: dict[str, Any] = {"gmft": {"verbosity": 2}}
-        cli_args: dict[str, Any] = {}
-
-        _configure_gmft(config_dict, file_config, cli_args)
-
-        assert "gmft_config" not in config_dict
-
-    def test_build_extraction_config_none_to_null_conversion(self) -> None:
-        file_config = {"ocr_backend": "none"}
-        cli_args: dict[str, Any] = {}
-
-        result = build_extraction_config(file_config, cli_args)
-
-        assert result.ocr_backend is None
-
-    def test_build_extraction_config_complex_override(self) -> None:
-        file_config = {
-            "force_ocr": True,
-            "chunk_content": False,
-            "max_chars": 1000,
-            "ocr_backend": "tesseract",
-            "tesseract": {"language": "eng", "psm": 3},
-            "extract_tables": True,
-            "gmft": {"verbosity": 1, "detector_base_threshold": 0.5},
+def test_config_parsing_comprehensive_tesseract_psm_enum_conversion() -> None:
+    config_dict = {
+        "tesseract": {
+            "language": "eng",
+            "psm": 0,
         }
+    }
 
-        cli_args = {
-            "force_ocr": None,
-            "chunk_content": True,
-            "max_overlap": 100,
-            "tesseract_config": {"psm": 6},
-            "gmft_config": None,
-            "unused_arg": "ignored",
+    result = parse_ocr_backend_config(config_dict, "tesseract")
+    assert isinstance(result, TesseractConfig)
+    assert result.psm == PSMMode.OSD_ONLY
+
+
+def test_config_parsing_comprehensive_tesseract_all_psm_modes() -> None:
+    for psm_value in range(11):
+        config_dict = {"tesseract": {"psm": psm_value}}
+        result = parse_ocr_backend_config(config_dict, "tesseract")
+        assert isinstance(result, TesseractConfig)
+        assert result.psm.value == psm_value
+
+
+def test_config_parsing_comprehensive_tesseract_boolean_fields() -> None:
+    config_dict = {
+        "tesseract": {
+            "language": "eng",
+            "tessedit_enable_dict_correction": False,
+            "tessedit_use_primary_params_model": False,
+            "textord_space_size_is_variable": False,
         }
+    }
 
-        result = build_extraction_config(file_config, cli_args)
-
-        assert result.force_ocr is True
-        assert result.chunk_content is True
-        assert result.max_chars == 1000
-        assert result.max_overlap == 100
-        assert result.ocr_backend == "tesseract"
-        assert isinstance(result.ocr_config, TesseractConfig)
-        assert result.ocr_config.psm == 6  # type: ignore[comparison-overlap]  # CLI override
-        assert result.ocr_config.language == "eng"
+    result = parse_ocr_backend_config(config_dict, "tesseract")
+    assert isinstance(result, TesseractConfig)
+    assert result.tessedit_enable_dict_correction is False
+    assert result.tessedit_use_primary_params_model is False
+    assert result.textord_space_size_is_variable is False
 
 
-class TestEdgeCasesAndErrorHandling:
-    def test_load_config_from_path_with_pathlib_path(self, tmp_path: Path) -> None:
-        config_file = tmp_path / "config.toml"
-        config_file.write_text("extract_entities = true")
+def test_config_parsing_comprehensive_paddleocr_all_fields() -> None:
+    config_dict = {
+        "paddleocr": {
+            "language": "ch",
+            "use_gpu": True,
+            "use_angle_cls": False,
+            "det_db_box_thresh": 0.6,
+            "det_db_thresh": 0.4,
+            "det_db_unclip_ratio": 2.5,
+            "max_text_length": 100,
+            "use_space_char": False,
+            "drop_score": 0.3,
+            "enable_mkldnn": True,
+            "gpu_mem": 4000,
+            "rec": False,
+            "table": False,
+            "device": "cuda",
+            "gpu_memory_limit": 4.0,
+            "fallback_to_cpu": False,
+        }
+    }
 
-        result = load_config_from_path(config_file)
-        assert result.extract_entities is True
+    result = parse_ocr_backend_config(config_dict, "paddleocr")
+    assert isinstance(result, PaddleOCRConfig)
+    assert result.language == "ch"
+    assert result.use_gpu is True
+    assert result.use_angle_cls is False
+    assert result.det_db_box_thresh == 0.6
+    assert result.det_db_thresh == 0.4
+    assert result.det_db_unclip_ratio == 2.5
+    assert result.max_text_length == 100
+    assert result.use_space_char is False
+    assert result.drop_score == 0.3
+    assert result.enable_mkldnn is True
+    assert result.gpu_mem == 4000
+    assert result.rec is False
+    assert result.table is False
+    assert result.device == "cuda"
+    assert result.gpu_memory_limit == 4.0
+    assert result.fallback_to_cpu is False
 
-    def test_discover_config_search_path_context(self, tmp_path: Path) -> None:
+
+def test_config_parsing_comprehensive_easyocr_all_fields() -> None:
+    config_dict = {
+        "easyocr": {
+            "language": ["en", "fr", "de"],
+            "add_margin": 0.2,
+            "adjust_contrast": 0.7,
+            "beam_width": 10,
+            "canvas_size": 3000,
+            "contrast_ths": 0.2,
+            "decoder": "beamsearch",
+            "height_ths": 0.6,
+            "link_threshold": 0.5,
+            "low_text": 0.5,
+            "mag_ratio": 1.5,
+            "min_size": 20,
+            "rotation_info": [0, 90, 180, 270],
+            "slope_ths": 0.2,
+            "use_gpu": False,
+            "device": "cpu",
+        }
+    }
+
+    result = parse_ocr_backend_config(config_dict, "easyocr")
+    assert isinstance(result, EasyOCRConfig)
+    assert result.language == ["en", "fr", "de"]
+    assert result.add_margin == 0.2
+    assert result.adjust_contrast == 0.7
+    assert result.beam_width == 10
+    assert result.canvas_size == 3000
+    assert result.contrast_ths == 0.2
+    assert result.decoder == "beamsearch"
+    assert result.height_ths == 0.6
+    assert result.link_threshold == 0.5
+    assert result.low_text == 0.5
+    assert result.mag_ratio == 1.5
+    assert result.min_size == 20
+    assert result.rotation_info == [0, 90, 180, 270]
+    assert result.slope_ths == 0.2
+    assert result.use_gpu is False
+    assert result.device == "cpu"
+
+
+def test_config_parsing_comprehensive_merge_configs_non_dict_override() -> None:
+    base = {"nested": {"key": "value"}}
+    override = {"nested": "string_value"}
+
+    result = merge_configs(base, override)
+    assert result["nested"] == "string_value"
+
+
+def test_config_parsing_comprehensive_merge_configs_mixed_types() -> None:
+    base = {
+        "string": "base",
+        "number": 100,
+        "bool": False,
+        "list": [1, 2, 3],
+        "dict": {"inner": "base"},
+    }
+    override = {
+        "string": "override",
+        "number": 200,
+        "bool": True,
+        "list": [4, 5],
+        "dict": {"inner": "override", "new": "value"},
+    }
+
+    result = merge_configs(base, override)
+    assert result["string"] == "override"
+    assert result["number"] == 200
+    assert result["bool"] is True
+    assert result["list"] == [4, 5]
+    assert result["dict"] == {"inner": "override", "new": "value"}
+
+
+def test_extraction_config_builder_comprehensive_all_basic_fields() -> None:
+    config_dict = {
+        "force_ocr": True,
+        "chunk_content": True,
+        "extract_tables": True,
+        "max_chars": 3000,
+        "max_overlap": 300,
+        "ocr_backend": "tesseract",
+        "extract_entities": True,
+        "extract_keywords": True,
+        "auto_detect_language": True,
+        "enable_quality_processing": False,
+        "auto_detect_document_type": False,
+        "document_type_confidence_threshold": 0.9,
+        "document_classification_mode": "vision",
+        "keyword_count": 20,
+    }
+
+    result = build_extraction_config_from_dict(config_dict)
+
+    assert result.force_ocr is True
+    assert result.chunk_content is True
+    assert result.extract_tables is True
+    assert result.max_chars == 3000
+    assert result.max_overlap == 300
+    assert result.ocr_backend == "tesseract"
+    assert result.extract_entities is True
+    assert result.extract_keywords is True
+    assert result.auto_detect_language is True
+    assert result.enable_quality_processing is False
+    assert result.auto_detect_document_type is False
+    assert result.document_type_confidence_threshold == 0.9
+    assert result.document_classification_mode == "vision"
+    assert result.keyword_count == 20
+
+
+def test_extraction_config_builder_comprehensive_without_ocr_backend_config() -> None:
+    config_dict = {
+        "ocr_backend": "tesseract",
+    }
+
+    result = build_extraction_config_from_dict(config_dict)
+    assert result.ocr_backend == "tesseract"
+    assert result.ocr_config is None
+
+
+def test_extraction_config_builder_comprehensive_gmft_no_extract_tables() -> None:
+    config_dict = {
+        "extract_tables": False,
+        "gmft": {
+            "verbosity": 2,
+            "detector_base_threshold": 0.8,
+        },
+    }
+
+    result = build_extraction_config_from_dict(config_dict)
+    assert result.extract_tables is False
+    assert result.gmft_config is None
+
+
+def test_extraction_config_builder_comprehensive_extract_tables_no_gmft() -> None:
+    config_dict = {
+        "extract_tables": True,
+    }
+
+    result = build_extraction_config_from_dict(config_dict)
+    assert result.extract_tables is True
+    assert result.gmft_config is None
+
+
+def test_extraction_config_builder_comprehensive_invalid_gmft_config() -> None:
+    config_dict = {
+        "extract_tables": True,
+        "gmft": "not_a_dict",
+    }
+
+    result = build_extraction_config_from_dict(config_dict)
+    assert result.extract_tables is True
+    assert result.gmft_config is None
+
+
+def test_extraction_config_builder_comprehensive_minimal() -> None:
+    config_dict: dict[str, Any] = {}
+
+    result = build_extraction_config_from_dict(config_dict)
+    assert result.force_ocr is False
+    assert result.chunk_content is False
+    assert result.ocr_backend == "tesseract"
+
+
+def test_extraction_config_builder_comprehensive_validation_context() -> None:
+    config_dict = {
+        "ocr_backend": "invalid_ocr",
+    }
+
+    with pytest.raises(ValidationError) as exc_info:
+        build_extraction_config_from_dict(config_dict)
+
+    assert exc_info.value.context["provided"] == "invalid_ocr"
+    assert "easyocr" in exc_info.value.context["valid"]
+    assert "paddleocr" in exc_info.value.context["valid"]
+    assert "tesseract" in exc_info.value.context["valid"]
+
+
+def test_high_level_api_comprehensive_load_default_no_file() -> None:
+    with patch("kreuzberg._config.find_config_file", return_value=None):
+        result = load_default_config()
+        assert result is None
+
+
+def test_high_level_api_comprehensive_load_default_with_error(tmp_path: Path) -> None:
+    config_file = tmp_path / "kreuzberg.toml"
+    config_file.write_text("invalid [ toml")
+
+    with patch("kreuzberg._config.find_config_file", return_value=config_file):
         with pytest.raises(ValidationError) as exc_info:
-            discover_and_load_config(tmp_path)
+            load_default_config()
+        assert "Invalid TOML" in str(exc_info.value)
 
-        assert "search_path" in exc_info.value.context
-        assert str(tmp_path) in exc_info.value.context["search_path"]
 
-    def test_discover_config_file_path_context(self, tmp_path: Path) -> None:
-        config_file = tmp_path / "kreuzberg.toml"
-        config_file.write_text("")
+def test_high_level_api_comprehensive_load_default_empty_dict(tmp_path: Path) -> None:
+    config_file = tmp_path / "kreuzberg.toml"
+    config_file.write_text("")
 
-        with pytest.raises(ValidationError) as exc_info:
-            discover_and_load_config(tmp_path)
+    with patch("kreuzberg._config.find_config_file", return_value=config_file):
+        result = load_default_config()
+        assert result is None
 
-        assert "config_path" in exc_info.value.context
-        assert str(config_file) in exc_info.value.context["config_path"]
 
-    def test_html_to_markdown_config_with_all_parameters(self) -> None:
-        from kreuzberg._types import HTMLToMarkdownConfig
+def test_high_level_api_comprehensive_discover_load_string_path(tmp_path: Path) -> None:
+    config_file = tmp_path / "kreuzberg.toml"
+    config_file.write_text("force_ocr = true")
 
-        config_dict = {
-            "html_to_markdown": {
-                "heading_style": "atx_closed",
-                "strong_em_symbol": "_",
-                "escape_asterisks": False,
-                "escape_underscores": False,
-                "wrap": True,
-                "wrap_width": 80,
-                "bullets": "-",
-                "preprocessing_preset": "minimal",
-                "remove_navigation": False,
-                "remove_forms": False,
-            },
-        }
+    result = discover_and_load_config(str(tmp_path))
+    assert result.force_ocr is True
 
-        result = build_extraction_config_from_dict(config_dict)
-        assert result.html_to_markdown_config is not None
-        assert isinstance(result.html_to_markdown_config, HTMLToMarkdownConfig)
-        assert result.html_to_markdown_config.heading_style == "atx_closed"
-        assert result.html_to_markdown_config.strong_em_symbol == "_"
-        assert result.html_to_markdown_config.escape_asterisks is False
-        assert result.html_to_markdown_config.escape_underscores is False
-        assert result.html_to_markdown_config.wrap is True
-        assert result.html_to_markdown_config.wrap_width == 80
-        assert result.html_to_markdown_config.bullets == "-"
-        assert result.html_to_markdown_config.preprocessing_preset == "minimal"
-        assert result.html_to_markdown_config.remove_navigation is False
-        assert result.html_to_markdown_config.remove_forms is False
 
-    def test_gmft_config_with_all_parameters(self) -> None:
-        config_dict = {
-            "extract_tables": True,
-            "gmft": {
-                "verbosity": 3,
-                "detector_base_threshold": 0.6,
-                "formatter_base_threshold": 0.5,
-                "cell_required_confidence": {0: 0.1, 1: 0.2, 2: 0.3, 3: 0.4, 4: 0.5, 5: 0.6, 6: 0.9},
-                "remove_null_rows": False,
-            },
-        }
+def test_high_level_api_comprehensive_discover_load_empty_error(tmp_path: Path) -> None:
+    config_file = tmp_path / "kreuzberg.toml"
+    config_file.write_text("")
 
-        result = build_extraction_config_from_dict(config_dict)
-        assert result.gmft_config is not None
-        assert result.gmft_config.verbosity == 3
-        assert result.gmft_config.detector_base_threshold == 0.6
-        assert result.gmft_config.formatter_base_threshold == 0.5
-        assert result.gmft_config.cell_required_confidence == {0: 0.1, 1: 0.2, 2: 0.3, 3: 0.4, 4: 0.5, 5: 0.6, 6: 0.9}
-        assert result.gmft_config.remove_null_rows is False
+    with pytest.raises(ValidationError, match="contains no Kreuzberg configuration"):
+        discover_and_load_config(tmp_path)
+
+
+def test_high_level_api_comprehensive_try_discover_string_path(tmp_path: Path) -> None:
+    config_file = tmp_path / "kreuzberg.toml"
+    config_file.write_text("chunk_content = true")
+
+    result = try_discover_config(str(tmp_path))
+    assert result is not None
+    assert result.chunk_content is True
+
+
+def test_legacy_functions_comprehensive_merge_file_config_none_values() -> None:
+    config_dict: dict[str, Any] = {}
+    file_config = {
+        "force_ocr": None,
+        "chunk_content": True,
+        "max_chars": 0,
+    }
+
+    _merge_file_config(config_dict, file_config)
+
+    assert config_dict["force_ocr"] is None
+    assert config_dict["chunk_content"] is True
+    assert config_dict["max_chars"] == 0
+
+
+def test_legacy_functions_comprehensive_merge_cli_args_empty_dict() -> None:
+    config_dict: dict[str, Any] = {}
+    cli_args = {
+        "force_ocr": False,
+        "chunk_content": None,
+        "extract_tables": True,
+        "unknown_field": "ignored",
+    }
+
+    _merge_cli_args(config_dict, cli_args)
+
+    assert config_dict["force_ocr"] is False
+    assert "chunk_content" not in config_dict
+    assert config_dict["extract_tables"] is True
+    assert "unknown_field" not in config_dict
+
+
+def test_legacy_functions_comprehensive_build_ocr_config_invalid_backend() -> None:
+    cli_args = {"tesseract_config": {"language": "eng"}}
+
+    result = _build_ocr_config_from_cli("invalid_backend", cli_args)
+    assert result is None
+
+
+def test_legacy_functions_comprehensive_configure_ocr_backend_none_string() -> None:
+    config_dict = {"ocr_backend": "none"}
+    file_config: dict[str, Any] = {}
+    cli_args: dict[str, Any] = {}
+
+    _configure_ocr_backend(config_dict, file_config, cli_args)
+
+    assert "ocr_config" not in config_dict
+
+
+def test_legacy_functions_comprehensive_configure_ocr_backend_no_config() -> None:
+    config_dict = {"ocr_backend": "tesseract"}
+    file_config: dict[str, Any] = {}
+    cli_args: dict[str, Any] = {}
+
+    _configure_ocr_backend(config_dict, file_config, cli_args)
+
+    assert "ocr_config" not in config_dict
+
+
+def test_legacy_functions_comprehensive_configure_gmft_none_values() -> None:
+    config_dict = {"extract_tables": None}
+    file_config: dict[str, Any] = {"gmft": {"verbosity": 2}}
+    cli_args: dict[str, Any] = {}
+
+    _configure_gmft(config_dict, file_config, cli_args)
+
+    assert "gmft_config" not in config_dict
+
+
+def test_legacy_functions_comprehensive_build_config_none_to_null() -> None:
+    file_config = {"ocr_backend": "none"}
+    cli_args: dict[str, Any] = {}
+
+    result = build_extraction_config(file_config, cli_args)
+
+    assert result.ocr_backend is None
+
+
+def test_legacy_functions_comprehensive_build_config_complex_override() -> None:
+    file_config = {
+        "force_ocr": True,
+        "chunk_content": False,
+        "max_chars": 1000,
+        "ocr_backend": "tesseract",
+        "tesseract": {"language": "eng", "psm": 3},
+        "extract_tables": True,
+        "gmft": {"verbosity": 1, "detector_base_threshold": 0.5},
+    }
+
+    cli_args = {
+        "force_ocr": None,
+        "chunk_content": True,
+        "max_overlap": 100,
+        "tesseract_config": {"psm": 6},
+        "gmft_config": None,
+        "unused_arg": "ignored",
+    }
+
+    result = build_extraction_config(file_config, cli_args)
+
+    assert result.force_ocr is True
+    assert result.chunk_content is True
+    assert result.max_chars == 1000
+    assert result.max_overlap == 100
+    assert result.ocr_backend == "tesseract"
+    assert isinstance(result.ocr_config, TesseractConfig)
+    assert result.ocr_config.psm == 6  # type: ignore[comparison-overlap]  # CLI override
+    assert result.ocr_config.language == "eng"
+
+
+def test_edge_cases_load_config_from_path_pathlib(tmp_path: Path) -> None:
+    config_file = tmp_path / "config.toml"
+    config_file.write_text("extract_entities = true")
+
+    result = load_config_from_path(config_file)
+    assert result.extract_entities is True
+
+
+def test_edge_cases_discover_config_search_path_context(tmp_path: Path) -> None:
+    with pytest.raises(ValidationError) as exc_info:
+        discover_and_load_config(tmp_path)
+
+    assert "search_path" in exc_info.value.context
+    assert str(tmp_path) in exc_info.value.context["search_path"]
+
+
+def test_edge_cases_discover_config_file_path_context(tmp_path: Path) -> None:
+    config_file = tmp_path / "kreuzberg.toml"
+    config_file.write_text("")
+
+    with pytest.raises(ValidationError) as exc_info:
+        discover_and_load_config(tmp_path)
+
+    assert "config_path" in exc_info.value.context
+    assert str(config_file) in exc_info.value.context["config_path"]
+
+
+def test_edge_cases_html_to_markdown_config_all_params() -> None:
+    from kreuzberg._types import HTMLToMarkdownConfig
+
+    config_dict = {
+        "html_to_markdown": {
+            "heading_style": "atx_closed",
+            "strong_em_symbol": "_",
+            "escape_asterisks": False,
+            "escape_underscores": False,
+            "wrap": True,
+            "wrap_width": 80,
+            "bullets": "-",
+            "preprocessing_preset": "minimal",
+            "remove_navigation": False,
+            "remove_forms": False,
+        },
+    }
+
+    result = build_extraction_config_from_dict(config_dict)
+    assert result.html_to_markdown_config is not None
+    assert isinstance(result.html_to_markdown_config, HTMLToMarkdownConfig)
+    assert result.html_to_markdown_config.heading_style == "atx_closed"
+    assert result.html_to_markdown_config.strong_em_symbol == "_"
+    assert result.html_to_markdown_config.escape_asterisks is False
+    assert result.html_to_markdown_config.escape_underscores is False
+    assert result.html_to_markdown_config.wrap is True
+    assert result.html_to_markdown_config.wrap_width == 80
+    assert result.html_to_markdown_config.bullets == "-"
+    assert result.html_to_markdown_config.preprocessing_preset == "minimal"
+    assert result.html_to_markdown_config.remove_navigation is False
+    assert result.html_to_markdown_config.remove_forms is False
+
+
+def test_edge_cases_gmft_config_all_parameters() -> None:
+    config_dict = {
+        "extract_tables": True,
+        "gmft": {
+            "verbosity": 3,
+            "detector_base_threshold": 0.6,
+            "formatter_base_threshold": 0.5,
+            "cell_required_confidence": {0: 0.1, 1: 0.2, 2: 0.3, 3: 0.4, 4: 0.5, 5: 0.6, 6: 0.9},
+            "remove_null_rows": False,
+        },
+    }
+
+    result = build_extraction_config_from_dict(config_dict)
+    assert result.gmft_config is not None
+    assert result.gmft_config.verbosity == 3
+    assert result.gmft_config.detector_base_threshold == 0.6
+    assert result.gmft_config.formatter_base_threshold == 0.5
+    assert result.gmft_config.cell_required_confidence == {0: 0.1, 1: 0.2, 2: 0.3, 3: 0.4, 4: 0.5, 5: 0.6, 6: 0.9}
+    assert result.gmft_config.remove_null_rows is False
