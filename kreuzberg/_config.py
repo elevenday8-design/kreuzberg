@@ -459,7 +459,6 @@ def try_discover_config(start_path: Path | str | None = None) -> ExtractionConfi
     if not config_path:
         return None
 
-    # Config file exists - load it and let any errors bubble up
     config_dict = load_config_from_file(config_path)
     if not config_dict:
         return None
