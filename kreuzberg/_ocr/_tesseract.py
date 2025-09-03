@@ -279,7 +279,21 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
         try:
             await self._validate_tesseract_version()
             image_path, unlink = await create_temp_file(".png")
-            await run_sync(image.save, str(image_path), format="PNG")
+
+            # Convert image to RGB if it's in a mode that can't be saved as PNG
+            save_image = image
+            if image.mode not in ("RGB", "RGBA", "L", "LA", "P", "1"):
+                save_image = image.convert("RGB")
+
+            try:
+                await run_sync(save_image.save, str(image_path), format="PNG")
+            except OSError as e:
+                # Additional fallback for any mode that still can't be saved
+                if "cannot write mode" in str(e):
+                    save_image = image.convert("RGB")
+                    await run_sync(save_image.save, str(image_path), format="PNG")
+                else:
+                    raise
             try:
                 result = await self.process_file(image_path, **kwargs)
 
@@ -575,7 +589,8 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
                 return
 
             command = ["tesseract", "--version"]
-            result = await run_process(command)
+            env = {"OMP_THREAD_LIMIT": "1"} if sys.platform.startswith("linux") else None
+            result = await run_process(command, env=env)
             version_match = re.search(r"tesseract\s+v?(\d+)\.\d+\.\d+", result.stdout.decode("utf-8"))
             if not version_match or int(version_match.group(1)) < MINIMAL_SUPPORTED_TESSERACT_VERSION:
                 raise MissingDependencyError(

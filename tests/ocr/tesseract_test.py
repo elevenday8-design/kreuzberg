@@ -41,7 +41,16 @@ def mock_run_process(mocker: MockerFixture) -> Mock:
                 result.stderr = b"Error processing file"
                 raise OCRError("Error processing file")
 
-            Path(f"{output_file}.txt").write_text("Sample OCR text")
+            # Check if TSV output format is requested
+            if "tsv" in command:
+                tsv_content = """level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext
+5\t1\t1\t1\t1\t1\t50\t50\t100\t30\t95.0\tSample
+5\t1\t1\t1\t1\t2\t160\t50\t60\t30\t94.0\tOCR
+5\t1\t1\t1\t1\t3\t230\t50\t60\t30\t96.0\ttext"""
+                Path(f"{output_file}.tsv").write_text(tsv_content)
+            else:
+                output_txt_file = Path(f"{output_file}.txt")
+                output_txt_file.write_text("Sample OCR text")
             result.returncode = 0
             return result
 
@@ -893,6 +902,7 @@ async def test_tesseract_environment_variables_non_linux_no_env_vars(
 async def test_tesseract_image_processing_process_image_with_different_modes(
     backend: TesseractBackend, mock_run_process: Mock
 ) -> None:
+    TesseractBackend._version_checked = False
     modes = ["RGB", "RGBA", "L", "P", "CMYK"]
 
     for mode in modes:
@@ -1054,7 +1064,7 @@ def test_tesseract_utility_functions_normalize_spaces_in_results(
 async def test_tesseract_concurrent_processing(backend: TesseractBackend, mock_run_process: Mock) -> None:
     import asyncio
 
-    images = [Image.new("RGB", (50, 50), f"color{i}") for i in range(5)]
+    images = [Image.new("RGB", (50, 50), "white") for i in range(5)]
 
     async def process_image(img: Any) -> ExtractionResult:
         return await backend.process_image(img, language="eng")
