@@ -8,7 +8,7 @@ import re
 import subprocess
 import sys
 import tempfile
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from enum import Enum
 from io import StringIO
 from pathlib import Path
@@ -29,6 +29,7 @@ from kreuzberg._mime_types import HTML_MIME_TYPE, MARKDOWN_MIME_TYPE, PLAIN_TEXT
 from kreuzberg._ocr._base import OCRBackend
 from kreuzberg._ocr._table_extractor import extract_words, reconstruct_table, to_markdown
 from kreuzberg._types import ExtractionResult, HTMLToMarkdownConfig, TableData
+from kreuzberg._utils._cache import get_ocr_cache
 from kreuzberg._utils._string import normalize_spaces
 from kreuzberg._utils._sync import run_sync
 from kreuzberg._utils._tmp import create_temp_file
@@ -248,6 +249,10 @@ class TesseractConfig:
     table_min_confidence: float = 30.0
     """Minimum confidence score to include a word in table extraction."""
 
+    def to_dict(self) -> dict[str, Any]:
+        """Convert config to dictionary for passing as kwargs."""
+        return asdict(self)
+
 
 class TesseractBackend(OCRBackend[TesseractConfig]):
     _version_checked: ClassVar[bool] = False
@@ -257,7 +262,7 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
         image: PILImage,
         **kwargs: Unpack[TesseractConfig],
     ) -> ExtractionResult:
-        from kreuzberg._utils._cache import get_ocr_cache  # noqa: PLC0415
+        use_cache = kwargs.pop("use_cache", True)
 
         save_image = image
         if image.mode not in ("RGB", "RGBA", "L", "LA", "P", "1"):
@@ -273,22 +278,12 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
             "ocr_config": str(sorted(kwargs.items())),
         }
 
-        ocr_cache = get_ocr_cache()
-        cached_result = await ocr_cache.aget(**cache_kwargs)
-        if cached_result is not None:
-            return cached_result
-
-        if ocr_cache.is_processing(**cache_kwargs):
-            event = ocr_cache.mark_processing(**cache_kwargs)
-            await anyio.to_thread.run_sync(event.wait)
-
-            # Try cache again after waiting for other process to complete  # ~keep
-            cached_result = await ocr_cache.aget(**cache_kwargs)
-            if cached_result is not None:
+        if use_cache:
+            cached_result = await self._handle_cache_lookup(cache_kwargs)
+            if cached_result:
                 return cached_result
 
-        ocr_cache.mark_processing(**cache_kwargs)
-
+        ocr_cache = get_ocr_cache()
         try:
             await self._validate_tesseract_version()
             image_path, unlink = await create_temp_file(".png")
@@ -303,42 +298,20 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
             try:
                 result = await self.process_file(image_path, **kwargs)
 
-                await ocr_cache.aset(result, **cache_kwargs)
+                if use_cache:
+                    await ocr_cache.aset(result, **cache_kwargs)
 
                 return result
             finally:
                 await unlink()
         finally:
-            ocr_cache.mark_complete(**cache_kwargs)
+            if use_cache:
+                ocr_cache.mark_complete(**cache_kwargs)
 
-    async def process_file(  # noqa: C901, PLR0912, PLR0915
-        self,
-        path: Path,
-        **kwargs: Unpack[TesseractConfig],
-    ) -> ExtractionResult:
-        from kreuzberg._utils._cache import get_ocr_cache  # noqa: PLC0415
-
-        try:
-            stat = path.stat()
-            file_info = {
-                "path": str(path.resolve()),
-                "size": stat.st_size,
-                "mtime": stat.st_mtime,
-            }
-        except OSError:
-            file_info = {
-                "path": str(path),
-                "size": 0,
-                "mtime": 0,
-            }
-
-        cache_kwargs = {
-            "file_info": str(sorted(file_info.items())),
-            "ocr_backend": "tesseract",
-            "ocr_config": str(sorted(kwargs.items())),
-        }
-
+    async def _handle_cache_lookup(self, cache_kwargs: dict[str, Any]) -> ExtractionResult | None:
+        """Handle cache lookup before processing."""
         ocr_cache = get_ocr_cache()
+
         cached_result = await ocr_cache.aget(**cache_kwargs)
         if cached_result is not None:
             return cached_result
@@ -346,115 +319,161 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
         if ocr_cache.is_processing(**cache_kwargs):
             event = ocr_cache.mark_processing(**cache_kwargs)
             await anyio.to_thread.run_sync(event.wait)
-
-            # Try cache again after waiting for other process to complete  # ~keep
             cached_result = await ocr_cache.aget(**cache_kwargs)
             if cached_result is not None:
                 return cached_result
 
         ocr_cache.mark_processing(**cache_kwargs)
+        return None
 
+    def _prepare_tesseract_run_config(self, **kwargs: Any) -> dict[str, Any]:
+        """Prepare configuration for a Tesseract run."""
+        language = self._validate_language_code(kwargs.pop("language", "eng"))
+        psm = kwargs.pop("psm", PSMMode.AUTO)
+        output_format = kwargs.pop("output_format", "markdown")
+        enable_table_detection = kwargs.pop("enable_table_detection", False)
+
+        if enable_table_detection and output_format == "text":
+            output_format = "tsv"
+
+        if output_format == "markdown":
+            tesseract_format = "hocr"
+            ext = ".hocr"
+        elif output_format == "tsv":
+            tesseract_format = "tsv"
+            ext = ".tsv"
+        elif output_format == "hocr":
+            tesseract_format = "hocr"
+            ext = ".hocr"
+        else:
+            tesseract_format = "text"
+            ext = ".txt"
+
+        return {
+            "language": language,
+            "psm": psm,
+            "output_format": output_format,
+            "enable_table_detection": enable_table_detection,
+            "tesseract_format": tesseract_format,
+            "ext": ext,
+            "remaining_kwargs": kwargs,
+        }
+
+    async def _execute_tesseract(self, path: Path, output_base: str, run_config: dict[str, Any]) -> None:
+        """Build and execute the Tesseract command."""
+        command = [
+            "tesseract",
+            str(path),
+            output_base,
+            "-l",
+            run_config["language"],
+            "--psm",
+            str(run_config["psm"].value),
+            "--oem",
+            "1",
+            "--loglevel",
+            "OFF",
+        ]
+
+        if run_config["tesseract_format"] != "text":
+            command.append(run_config["tesseract_format"])
+
+        for kwarg, value in run_config["remaining_kwargs"].items():
+            if kwarg.startswith("table_"):
+                continue
+            if isinstance(value, bool):
+                command.extend(["-c", f"{kwarg}={1 if value else 0}"])
+            else:
+                command.extend(["-c", f"{kwarg}={value}"])
+
+        env: dict[str, Any] | None = None
+        if sys.platform.startswith("linux"):
+            env = {"OMP_THREAD_LIMIT": "1"}
+
+        try:
+            result = await run_process(command, env=env)
+            if not result.returncode == 0:
+                raise OCRError(
+                    "OCR failed with a non-0 return code.",
+                    context={"error": result.stderr.decode() if isinstance(result.stderr, bytes) else result.stderr},
+                )
+        except subprocess.CalledProcessError as e:
+            error_msg = e.stderr.decode("utf-8") if e.stderr else str(e)
+            raise OCRError(
+                f"Failed to OCR using tesseract: {error_msg}",
+                context={"command": command, "returncode": e.returncode, "error": error_msg},
+            ) from e
+
+    async def _process_tesseract_output(self, output: str, run_config: dict[str, Any]) -> ExtractionResult:
+        """Process the raw output from Tesseract based on the requested format."""
+        output_format = run_config["output_format"]
+        enable_table_detection = run_config["enable_table_detection"]
+        kwargs = run_config["remaining_kwargs"]
+
+        if output_format == "markdown":
+            return await self._process_hocr_to_markdown(output, enable_table_detection=enable_table_detection, **kwargs)
+        if output_format == "tsv" and enable_table_detection:
+            return await self._process_tsv_output(
+                output,
+                table_column_threshold=kwargs.get("table_column_threshold", 20),
+                table_row_threshold_ratio=kwargs.get("table_row_threshold_ratio", 0.5),
+                table_min_confidence=kwargs.get("table_min_confidence", 30.0),
+            )
+        if output_format == "tsv":
+            return self._extract_text_from_tsv(output)
+        if output_format == "hocr":
+            return ExtractionResult(content=output, mime_type=HTML_MIME_TYPE, metadata={}, chunks=[])
+
+        return ExtractionResult(
+            content=normalize_spaces(output), mime_type=PLAIN_TEXT_MIME_TYPE, metadata={}, chunks=[]
+        )
+
+    async def process_file(self, path: Path, **kwargs: Unpack[TesseractConfig]) -> ExtractionResult:
+        use_cache = kwargs.pop("use_cache", True)
+
+        try:
+            stat = path.stat()
+            file_info = {"path": str(path.resolve()), "size": stat.st_size, "mtime": stat.st_mtime}
+        except OSError:
+            file_info = {"path": str(path), "size": 0, "mtime": 0}
+
+        cache_kwargs = {
+            "file_info": str(sorted(file_info.items())),
+            "ocr_backend": "tesseract",
+            "ocr_config": str(sorted(kwargs.items())),
+        }
+
+        if use_cache:
+            cached_result = await self._handle_cache_lookup(cache_kwargs)
+            if cached_result:
+                return cached_result
+
+        ocr_cache = get_ocr_cache()
         try:
             await self._validate_tesseract_version()
 
-            language = self._validate_language_code(kwargs.pop("language", "eng"))
-            psm = kwargs.pop("psm", PSMMode.AUTO)
-            output_format = kwargs.pop("output_format", "markdown")
-            enable_table_detection = kwargs.pop("enable_table_detection", False)
-
-            if enable_table_detection and output_format == "text":
-                output_format = "tsv"
-
-            if output_format == "markdown":
-                tesseract_format = "hocr"
-                ext = ".hocr"
-            elif output_format == "tsv":
-                tesseract_format = output_format
-                ext = ".tsv"
-            elif output_format == "hocr":
-                tesseract_format = output_format
-                ext = ".hocr"
-            else:
-                tesseract_format = "text"
-                ext = ".txt"
-
-            output_path, unlink = await create_temp_file(ext)
+            run_config = self._prepare_tesseract_run_config(**kwargs)
+            output_path, unlink = await create_temp_file(run_config["ext"])
 
             try:
-                output_base = str(output_path).replace(ext, "")
-                command = [
-                    "tesseract",
-                    str(path),
-                    output_base,
-                    "-l",
-                    language,
-                    "--psm",
-                    str(psm.value),
-                    "--oem",
-                    "1",
-                    "--loglevel",
-                    "OFF",
-                ]
-
-                if tesseract_format != "text":
-                    command.append(tesseract_format)
-
-                for kwarg, value in kwargs.items():
-                    if kwarg.startswith("table_"):
-                        continue
-                    if isinstance(value, bool):
-                        command.extend(["-c", f"{kwarg}={1 if value else 0}"])
-                    else:
-                        command.extend(["-c", f"{kwarg}={value}"])
-
-                env: dict[str, Any] | None = None
-                if sys.platform.startswith("linux"):
-                    env = {"OMP_THREAD_LIMIT": "1"}
-
-                try:
-                    result = await run_process(command, env=env)
-                except subprocess.CalledProcessError as e:
-                    error_msg = e.stderr.decode("utf-8") if e.stderr else str(e)
-                    raise OCRError(
-                        f"Failed to OCR using tesseract: {error_msg}",
-                        context={"command": command, "returncode": e.returncode, "error": error_msg},
-                    ) from e
-
-                if not result.returncode == 0:
-                    raise OCRError(
-                        "OCR failed with a non-0 return code.",
-                        context={
-                            "error": result.stderr.decode() if isinstance(result.stderr, bytes) else result.stderr
-                        },
-                    )
+                output_base = str(output_path).replace(run_config["ext"], "")
+                await self._execute_tesseract(path, output_base, run_config)
 
                 output = await AsyncPath(output_path).read_text("utf-8")
+                extraction_result = await self._process_tesseract_output(output, run_config)
 
-                if output_format == "markdown":
-                    extraction_result = await self._process_hocr_to_markdown(
-                        output, enable_table_detection=enable_table_detection, **kwargs
+                if use_cache:
+                    final_cache_kwargs = cache_kwargs.copy()
+                    final_cache_kwargs["ocr_config"] = str(
+                        sorted(
+                            {
+                                **run_config["remaining_kwargs"],
+                                "language": run_config["language"],
+                                "psm": run_config["psm"],
+                            }.items()
+                        )
                     )
-                elif output_format == "tsv" and enable_table_detection:
-                    extraction_result = await self._process_tsv_output(
-                        output,
-                        table_column_threshold=kwargs.get("table_column_threshold", 20),
-                        table_row_threshold_ratio=kwargs.get("table_row_threshold_ratio", 0.5),
-                        table_min_confidence=kwargs.get("table_min_confidence", 30.0),
-                    )
-                elif output_format == "tsv":
-                    extraction_result = self._extract_text_from_tsv(output)
-                elif output_format == "hocr":
-                    extraction_result = ExtractionResult(
-                        content=output, mime_type=HTML_MIME_TYPE, metadata={}, chunks=[]
-                    )
-                else:
-                    extraction_result = ExtractionResult(
-                        content=normalize_spaces(output), mime_type=PLAIN_TEXT_MIME_TYPE, metadata={}, chunks=[]
-                    )
-
-                final_cache_kwargs = cache_kwargs.copy()
-                final_cache_kwargs["ocr_config"] = str(sorted({**kwargs, "language": language, "psm": psm}.items()))
-                await ocr_cache.aset(extraction_result, **final_cache_kwargs)
+                    await ocr_cache.aset(extraction_result, **final_cache_kwargs)
 
                 return extraction_result
             except (RuntimeError, OSError) as e:
@@ -462,7 +481,8 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
             finally:
                 await unlink()
         finally:
-            ocr_cache.mark_complete(**cache_kwargs)
+            if use_cache:
+                ocr_cache.mark_complete(**cache_kwargs)
 
     async def _process_tsv_output(
         self,
@@ -608,7 +628,7 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
 
         tables: list[TableData] = []
         if enable_table_detection:
-            soup = BeautifulSoup(hocr_content, "xml")
+            soup = BeautifulSoup(hocr_content, "lxml")
             tables = await self._extract_tables_from_hocr(
                 soup,
                 table_column_threshold,
@@ -630,7 +650,7 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
             markdown_content = normalize_spaces(markdown_content)
         except (ValueError, TypeError, AttributeError):
             try:
-                soup = BeautifulSoup(hocr_content, "xml")
+                soup = BeautifulSoup(hocr_content, "lxml")
                 words = soup.find_all("span", class_="ocrx_word")
                 text_parts = []
                 for word in words:
@@ -809,7 +829,7 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
 
         except (ValueError, TypeError, AttributeError):
             try:
-                soup = BeautifulSoup(hocr_content, "xml")
+                soup = BeautifulSoup(hocr_content, "lxml")
                 words = soup.find_all("span", class_="ocrx_word")
                 text_parts = []
                 for word in words:
@@ -845,6 +865,59 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
             chunks=[],
             tables=tables,
         )
+
+    def _process_tsv_output_sync(
+        self,
+        tsv_content: str,
+        table_column_threshold: int = 20,
+        table_row_threshold_ratio: float = 0.5,
+        table_min_confidence: float = 30.0,
+    ) -> ExtractionResult:
+        """Synchronously process TSV output and extract tables if detected.
+
+        Args:
+            tsv_content: Raw TSV output from Tesseract.
+            table_column_threshold: Pixel threshold for column clustering.
+            table_row_threshold_ratio: Row threshold as ratio of mean text height.
+            table_min_confidence: Minimum confidence score to include a word.
+
+        Returns:
+            ExtractionResult with extracted content and tables.
+        """
+        text_result = self._extract_text_from_tsv(tsv_content)
+
+        try:
+            if (
+                (words := extract_words(tsv_content, min_confidence=table_min_confidence))
+                and (
+                    table_data := reconstruct_table(
+                        words,
+                        column_threshold=table_column_threshold,
+                        row_threshold_ratio=table_row_threshold_ratio,
+                    )
+                )
+                and len(table_data) > 1
+            ):
+                markdown = to_markdown(table_data)
+
+                try:
+                    df = pd.DataFrame(table_data[1:], columns=table_data[0])
+                except (ImportError, IndexError):
+                    df = None
+
+                table: TableData = {"text": markdown, "df": df, "page_number": 1, "cropped_image": None}  # type: ignore[typeddict-item]
+
+                return ExtractionResult(
+                    content=text_result.content,
+                    mime_type=text_result.mime_type,
+                    metadata=text_result.metadata,
+                    tables=[table],
+                    chunks=text_result.chunks,
+                )
+        except (ValueError, KeyError, ImportError):
+            pass
+
+        return text_result
 
     async def _extract_tables_from_hocr(
         self,
@@ -996,21 +1069,80 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
                 "Tesseract version 5 is a required system dependency. Please install it on your system and make sure its available in $PATH."
             ) from e
 
-    def process_image_sync(
-        self,
-        image: PILImage,
-        **kwargs: Unpack[TesseractConfig],
-    ) -> ExtractionResult:
-        """Synchronously process an image and extract its text and metadata.
+    def _handle_cache_lookup_sync(self, cache_kwargs: dict[str, Any]) -> ExtractionResult | None:
+        """Handle cache lookup before processing (sync)."""
+        ocr_cache = get_ocr_cache()
 
-        Args:
-            image: An instance of PIL.Image representing the input image.
-            **kwargs: Any kwargs related to the given backend
+        cached_result = ocr_cache.get(**cache_kwargs)
+        if cached_result is not None:
+            return cached_result
 
-        Returns:
-            The extraction result object
-        """
-        from kreuzberg._utils._cache import get_ocr_cache  # noqa: PLC0415
+        if ocr_cache.is_processing(**cache_kwargs):
+            event = ocr_cache.mark_processing(**cache_kwargs)
+            event.wait()
+            cached_result = ocr_cache.get(**cache_kwargs)
+            if cached_result is not None:
+                return cached_result
+
+        ocr_cache.mark_processing(**cache_kwargs)
+        return None
+
+    def _execute_tesseract_sync(self, command: list[str]) -> None:
+        """Run tesseract command synchronously."""
+        env = os.environ.copy()
+        if sys.platform.startswith("linux"):
+            env["OMP_THREAD_LIMIT"] = "1"
+
+        try:
+            subprocess.run(
+                command,
+                check=True,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                encoding="utf-8",
+            )
+        except subprocess.CalledProcessError as e:
+            error_msg = e.stderr if e.stderr else str(e)
+            raise OCRError(
+                f"Failed to OCR using tesseract: {error_msg}",
+                context={"command": command, "returncode": e.returncode, "error": error_msg},
+            ) from e
+        except subprocess.TimeoutExpired as e:
+            raise OCRError(
+                "Tesseract timed out during processing.",
+                context={"command": command, "timeout": 30},
+            ) from e
+
+    def _process_tesseract_output_sync(self, output: str, run_config: dict[str, Any]) -> ExtractionResult:
+        """Process the raw output from Tesseract based on the requested format (sync)."""
+        output_format = run_config["output_format"]
+        enable_table_detection = run_config["enable_table_detection"]
+        kwargs = run_config["remaining_kwargs"]
+        config = TesseractConfig(**kwargs)
+
+        if output_format == "markdown":
+            return self._process_hocr_to_markdown_sync(output, config)
+        if output_format == "tsv" and enable_table_detection:
+            return self._process_tsv_output_sync(
+                output,
+                table_column_threshold=config.table_column_threshold,
+                table_row_threshold_ratio=config.table_row_threshold_ratio,
+                table_min_confidence=config.table_min_confidence,
+            )
+        if output_format == "tsv":
+            return self._extract_text_from_tsv(output)
+        if output_format == "hocr":
+            return ExtractionResult(content=output, mime_type=HTML_MIME_TYPE, metadata={}, chunks=[])
+
+        return ExtractionResult(
+            content=normalize_spaces(output), mime_type=PLAIN_TEXT_MIME_TYPE, metadata={}, chunks=[]
+        )
+
+    def process_image_sync(self, image: PILImage, **kwargs: Unpack[TesseractConfig]) -> ExtractionResult:
+        """Synchronously process an image and extract its text and metadata."""
+        use_cache = kwargs.pop("use_cache", True)
 
         save_image = image
         if image.mode not in ("RGB", "RGBA", "L", "LA", "P", "1"):
@@ -1026,53 +1158,35 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
             "ocr_config": str(sorted(kwargs.items())),
         }
 
-        ocr_cache = get_ocr_cache()
-        cached_result = ocr_cache.get(**cache_kwargs)
-        if cached_result is not None:
-            return cached_result
-
-        if ocr_cache.is_processing(**cache_kwargs):
-            event = ocr_cache.mark_processing(**cache_kwargs)
-            event.wait()
-
-            cached_result = ocr_cache.get(**cache_kwargs)
-            if cached_result is not None:
+        if use_cache:
+            cached_result = self._handle_cache_lookup_sync(cache_kwargs)
+            if cached_result:
                 return cached_result
 
-        ocr_cache.mark_processing(**cache_kwargs)
-
+        ocr_cache = get_ocr_cache()
         try:
             self._validate_tesseract_version_sync()
             with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_file:
                 image_path = Path(tmp_file.name)
                 save_image.save(str(image_path), format="PNG")
             try:
-                result = self.process_file_sync(image_path, **kwargs)
+                kwargs_with_cache = {**kwargs, "use_cache": use_cache}
+                result = self.process_file_sync(image_path, **kwargs_with_cache)
 
-                ocr_cache.set(result, **cache_kwargs)
+                if use_cache:
+                    ocr_cache.set(result, **cache_kwargs)
 
                 return result
             finally:
                 if image_path.exists():
                     image_path.unlink()
         finally:
-            ocr_cache.mark_complete(**cache_kwargs)
+            if use_cache:
+                ocr_cache.mark_complete(**cache_kwargs)
 
-    def process_file_sync(
-        self,
-        path: Path,
-        **kwargs: Unpack[TesseractConfig],
-    ) -> ExtractionResult:
-        """Synchronously process a file and extract its text and metadata.
-
-        Args:
-            path: A Path object representing the file to be processed.
-            **kwargs: Any kwargs related to the given backend
-
-        Returns:
-            The extraction result object
-        """
-        from kreuzberg._utils._cache import get_ocr_cache  # noqa: PLC0415
+    def process_file_sync(self, path: Path, **kwargs: Unpack[TesseractConfig]) -> ExtractionResult:
+        """Synchronously process a file and extract its text and metadata."""
+        use_cache = kwargs.pop("use_cache", True)
 
         file_info = self._get_file_info(path)
 
@@ -1082,104 +1196,74 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
             "ocr_config": str(sorted(kwargs.items())),
         }
 
-        ocr_cache = get_ocr_cache()
-        cached_result = ocr_cache.get(**cache_kwargs)
-        if cached_result is not None:
-            return cached_result
-
-        if ocr_cache.is_processing(**cache_kwargs):
-            event = ocr_cache.mark_processing(**cache_kwargs)
-            event.wait()
-
-            cached_result = ocr_cache.get(**cache_kwargs)
-            if cached_result is not None:
+        if use_cache:
+            cached_result = self._handle_cache_lookup_sync(cache_kwargs)
+            if cached_result:
                 return cached_result
 
-        ocr_cache.mark_processing(**cache_kwargs)
-
+        ocr_cache = get_ocr_cache()
         try:
             self._validate_tesseract_version_sync()
 
-            config = TesseractConfig(**kwargs)
-            language = self._validate_language_code(config.language)
+            run_config = self._prepare_tesseract_run_config(**kwargs)
 
-            if config.output_format == "markdown":
-                with tempfile.NamedTemporaryFile(suffix=".hocr", delete=False) as tmp_file:
-                    output_base = tmp_file.name.replace(".hocr", "")
+            temp_fd, temp_path = tempfile.mkstemp(suffix=run_config["ext"])
+            os.close(temp_fd)
+            os.unlink(temp_path)
+            output_base = temp_path.replace(run_config["ext"], "")
 
-                try:
-                    from dataclasses import asdict  # noqa: PLC0415
+            try:
+                command = self._build_tesseract_command(
+                    path,
+                    output_base,
+                    run_config["language"],
+                    run_config["psm"],
+                    run_config["tesseract_format"],
+                    **run_config["remaining_kwargs"],
+                )
+                self._execute_tesseract_sync(command)
 
-                    config_dict = asdict(config)
-                    filtered_config = {
-                        k: v
-                        for k, v in config_dict.items()
-                        if k
-                        not in [
-                            "language",
-                            "psm",
-                            "output_format",
-                            "enable_table_detection",
-                            "table_column_threshold",
-                            "table_row_threshold_ratio",
-                            "table_min_confidence",
-                        ]
-                    }
-                    command = self._build_tesseract_command(path, output_base, language, config.psm, **filtered_config)
-                    command.append("hocr")
-                    self._run_tesseract_sync(command)
-
-                    hocr_path = Path(f"{output_base}.hocr")
-                    if not hocr_path.exists():
-                        extraction_result = ExtractionResult(
-                            content="[OCR processing failed]",
-                            mime_type=MARKDOWN_MIME_TYPE,
-                            metadata={"source_format": "hocr", "error": "hOCR file not generated"},  # type: ignore[typeddict-unknown-key]
-                            chunks=[],
-                            tables=[],
-                        )
-                    else:
-                        with hocr_path.open(encoding="utf-8") as f:
-                            hocr_content = f.read()
-
-                        extraction_result = self._process_hocr_to_markdown_sync(hocr_content, config)
-
-                        hocr_path.unlink(missing_ok=True)
-                finally:
-                    for ext in [".hocr", ".tsv"]:
-                        cleanup_path = Path(f"{output_base}{ext}")
-                        cleanup_path.unlink(missing_ok=True)
-            else:
-                with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as tmp_file:
-                    output_base = tmp_file.name.replace(".txt", "")
-
-                try:
-                    config_dict = asdict(config)
-                    filtered_config = {
-                        k: v for k, v in config_dict.items() if k not in ["language", "psm", "output_format"]
-                    }
-                    command = self._build_tesseract_command(path, output_base, language, config.psm, **filtered_config)
-                    self._run_tesseract_sync(command)
-
-                    output_path = Path(output_base + ".txt")
-                    with output_path.open(encoding="utf-8") as f:
-                        output = f.read()
-                    extraction_result = ExtractionResult(
-                        content=normalize_spaces(output), mime_type=PLAIN_TEXT_MIME_TYPE, metadata={}, chunks=[]
+                output_path = Path(f"{output_base}{run_config['ext']}")
+                if not output_path.exists():
+                    return ExtractionResult(
+                        content="[OCR processing failed]",
+                        mime_type=PLAIN_TEXT_MIME_TYPE,
+                        metadata={
+                            "source_format": run_config["tesseract_format"],
+                            "error": f"{run_config['ext']} file not generated",
+                        },
+                        chunks=[],
+                        tables=[],
                     )
-                finally:
-                    Path(f"{output_base}.txt").unlink(missing_ok=True)
 
-            final_cache_kwargs = cache_kwargs.copy()
-            config_dict = asdict(config)
-            final_cache_kwargs["ocr_config"] = str(sorted(config_dict.items()))
-            ocr_cache.set(extraction_result, **final_cache_kwargs)
+                with output_path.open(encoding="utf-8") as f:
+                    output = f.read()
 
-            return extraction_result
+                extraction_result = self._process_tesseract_output_sync(output, run_config)
+
+                if use_cache:
+                    final_cache_kwargs = cache_kwargs.copy()
+                    final_cache_kwargs["ocr_config"] = str(
+                        sorted(
+                            {
+                                **run_config["remaining_kwargs"],
+                                "language": run_config["language"],
+                                "psm": run_config["psm"],
+                            }.items()
+                        )
+                    )
+                    ocr_cache.set(extraction_result, **final_cache_kwargs)
+
+                return extraction_result
+            finally:
+                for cleanup_ext in [".txt", ".hocr", ".tsv"]:
+                    cleanup_path = Path(f"{output_base}{cleanup_ext}")
+                    cleanup_path.unlink(missing_ok=True)
         except Exception as e:
             raise OCRError(f"Failed to OCR using tesseract: {e}") from e
         finally:
-            ocr_cache.mark_complete(**cache_kwargs)
+            if use_cache:
+                ocr_cache.mark_complete(**cache_kwargs)
 
     def _get_file_info(self, path: Path) -> dict[str, Any]:
         """Get file information for caching."""
@@ -1226,34 +1310,6 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
             else:
                 command.extend(["-c", f"{kwarg}={value}"])
         return command
-
-    def _run_tesseract_sync(self, command: list[str]) -> None:
-        """Run tesseract command synchronously."""
-        env = os.environ.copy()
-        if sys.platform.startswith("linux"):
-            env["OMP_THREAD_LIMIT"] = "1"
-
-        try:
-            subprocess.run(
-                command,
-                check=True,
-                env=env,
-                capture_output=True,
-                text=True,
-                timeout=30,
-                encoding="utf-8",
-            )
-        except subprocess.CalledProcessError as e:
-            error_msg = e.stderr if e.stderr else str(e)
-            raise OCRError(
-                f"Failed to OCR using tesseract: {error_msg}",
-                context={"command": command, "returncode": e.returncode, "error": error_msg},
-            ) from e
-        except subprocess.TimeoutExpired as e:
-            raise OCRError(
-                "Tesseract timed out during processing.",
-                context={"command": command, "timeout": 30},
-            ) from e
 
     @classmethod
     def _validate_tesseract_version_sync(cls) -> None:
@@ -1470,7 +1526,7 @@ class TesseractProcessPool:
             max_processes: Maximum number of processes.
             memory_limit_gb: Memory limit in GB.
         """
-        from kreuzberg._utils._process_pool import ProcessPoolManager  # noqa: PLC0415
+        from kreuzberg._utils._process_pool import ProcessPoolManager
 
         self.config = config or TesseractConfig()
         self.process_manager = ProcessPoolManager(

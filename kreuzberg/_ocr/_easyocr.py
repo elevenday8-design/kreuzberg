@@ -22,6 +22,18 @@ try:  # pragma: no cover
 except ImportError:  # pragma: no cover
     from typing_extensions import Unpack
 
+try:
+    import easyocr
+    import numpy as np
+    import torch
+
+    HAS_EASYOCR = True
+except ImportError:
+    HAS_EASYOCR = False
+    easyocr = None
+    np = None
+    torch = None
+
 
 EASYOCR_SUPPORTED_LANGUAGE_CODES: Final[set[str]] = {
     "abq",
@@ -179,8 +191,6 @@ class EasyOCRBackend(OCRBackend[EasyOCRConfig]):
         Raises:
             OCRError: If OCR processing fails.
         """
-        import numpy as np  # noqa: PLC0415
-
         await self._init_easyocr(**kwargs)
 
         beam_width = kwargs.pop("beam_width")
@@ -305,24 +315,19 @@ class EasyOCRBackend(OCRBackend[EasyOCRConfig]):
 
     @classmethod
     def _is_gpu_available(cls) -> bool:
-        try:
-            import torch  # noqa: PLC0415
-
-            return bool(torch.cuda.is_available())
-        except ImportError:  # pragma: no cover
+        if not HAS_EASYOCR or torch is None:
             return False
+        return bool(torch.cuda.is_available())
 
     @classmethod
     async def _init_easyocr(cls, **kwargs: Unpack[EasyOCRConfig]) -> None:
         if cls._reader is not None:
             return
 
-        try:
-            import easyocr  # noqa: PLC0415
-        except ImportError as e:  # pragma: no cover
+        if not HAS_EASYOCR or easyocr is None:
             raise MissingDependencyError.create_for_package(
                 dependency_group="easyocr", functionality="EasyOCR as an OCR backend", package_name="easyocr"
-            ) from e
+            )
 
         languages = cls._validate_language_code(kwargs.pop("language", "en"))
 
@@ -423,8 +428,6 @@ class EasyOCRBackend(OCRBackend[EasyOCRConfig]):
         Raises:
             OCRError: If OCR processing fails.
         """
-        import numpy as np  # noqa: PLC0415
-
         self._init_easyocr_sync(**kwargs)
 
         beam_width = kwargs.pop("beam_width")
@@ -479,12 +482,10 @@ class EasyOCRBackend(OCRBackend[EasyOCRConfig]):
         if cls._reader is not None:
             return
 
-        try:
-            import easyocr  # noqa: PLC0415
-        except ImportError as e:  # pragma: no cover
+        if not HAS_EASYOCR or easyocr is None:
             raise MissingDependencyError.create_for_package(
                 dependency_group="easyocr", functionality="EasyOCR as an OCR backend", package_name="easyocr"
-            ) from e
+            )
 
         languages = cls._validate_language_code(kwargs.pop("language", "en"))
 

@@ -10,15 +10,17 @@ from io import StringIO
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
 from anyio import Path as AsyncPath
 from PIL import Image
 from python_calamine import CalamineWorkbook
 
 from kreuzberg._extractors._base import Extractor
 from kreuzberg._mime_types import MARKDOWN_MIME_TYPE, SPREADSHEET_MIME_TYPES
-from kreuzberg._types import ExtractionResult, Metadata
+from kreuzberg._types import ExtractionResult, Metadata, TableData
 from kreuzberg._utils._string import normalize_spaces
 from kreuzberg._utils._sync import run_sync, run_taskgroup
+from kreuzberg._utils._table import enhance_table_markdown
 from kreuzberg._utils._tmp import create_temp_file
 from kreuzberg.exceptions import ParsingError
 
@@ -187,10 +189,6 @@ class SpreadSheetExtractor(Extractor):
 
     def _enhance_sheet_with_table_data(self, workbook: CalamineWorkbook, sheet_name: str) -> str:
         try:
-            import pandas as pd  # noqa: PLC0415
-
-            from kreuzberg._utils._table import enhance_table_markdown  # noqa: PLC0415
-
             sheet = workbook.get_sheet_by_name(sheet_name)
             data = sheet.to_python()
 
@@ -204,15 +202,13 @@ class SpreadSheetExtractor(Extractor):
             if df.empty:
                 return f"## {sheet_name}\n\n*No data*"
 
-            from kreuzberg._types import TableData  # noqa: PLC0415
-
             placeholder_image = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
             mock_table: TableData = {"df": df, "text": "", "page_number": 0, "cropped_image": placeholder_image}
 
             enhanced_markdown = enhance_table_markdown(mock_table)
             return f"## {sheet_name}\n\n{enhanced_markdown}"
 
-        except (ImportError, AttributeError, ValueError):
+        except (AttributeError, ValueError):
             return self._convert_sheet_to_text_sync(workbook, sheet_name)
 
     @staticmethod

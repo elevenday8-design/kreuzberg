@@ -151,20 +151,22 @@ async def extract_file(
     """
     cache = get_document_cache()
     path = Path(file_path)
-    cached_result = cache.get(path, config)
-    if cached_result is not None:
-        return cached_result
 
-    if cache.is_processing(path, config):
-        event = cache.mark_processing(path, config)
-        await anyio.to_thread.run_sync(event.wait)  # pragma: no cover
-
-        # Try cache again after waiting for other process to complete  # ~keep
-        cached_result = cache.get(path, config)  # pragma: no cover
-        if cached_result is not None:  # pragma: no cover
+    if config.use_cache:
+        cached_result = cache.get(path, config)
+        if cached_result is not None:
             return cached_result
 
-    cache.mark_processing(path, config)
+        if cache.is_processing(path, config):
+            event = cache.mark_processing(path, config)
+            await anyio.to_thread.run_sync(event.wait)  # pragma: no cover
+
+            # Try cache again after waiting for other process to complete  # ~keep
+            cached_result = cache.get(path, config)  # pragma: no cover
+            if cached_result is not None:  # pragma: no cover
+                return cached_result
+
+        cache.mark_processing(path, config)
 
     try:
         if not path.exists():
@@ -183,11 +185,13 @@ async def extract_file(
 
         result = await _validate_and_post_process_async(result=result, config=config, file_path=path)
 
-        cache.set(path, config, result)
+        if config.use_cache:
+            cache.set(path, config, result)
 
         return result
     finally:
-        cache.mark_complete(path, config)
+        if config.use_cache:
+            cache.mark_complete(path, config)
 
 
 async def batch_extract_file(
@@ -336,20 +340,22 @@ def extract_file_sync(
     """
     cache = get_document_cache()
     path = Path(file_path)
-    cached_result = cache.get(path, config)
-    if cached_result is not None:
-        return cached_result
 
-    if cache.is_processing(path, config):
-        event = cache.mark_processing(path, config)
-        event.wait()  # pragma: no cover
-
-        # Try cache again after waiting for other process to complete  # ~keep
-        cached_result = cache.get(path, config)  # pragma: no cover
-        if cached_result is not None:  # pragma: no cover
+    if config.use_cache:
+        cached_result = cache.get(path, config)
+        if cached_result is not None:
             return cached_result
 
-    cache.mark_processing(path, config)
+        if cache.is_processing(path, config):
+            event = cache.mark_processing(path, config)
+            event.wait()  # pragma: no cover
+
+            # Try cache again after waiting for other process to complete  # ~keep
+            cached_result = cache.get(path, config)  # pragma: no cover
+            if cached_result is not None:  # pragma: no cover
+                return cached_result
+
+        cache.mark_processing(path, config)
 
     try:
         if not path.exists():
@@ -368,11 +374,13 @@ def extract_file_sync(
 
         result = _validate_and_post_process_sync(result=result, config=config, file_path=path)
 
-        cache.set(path, config, result)
+        if config.use_cache:
+            cache.set(path, config, result)
 
         return result
     finally:
-        cache.mark_complete(path, config)
+        if config.use_cache:
+            cache.mark_complete(path, config)
 
 
 def batch_extract_file_sync(

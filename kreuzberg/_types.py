@@ -413,6 +413,8 @@ class ExtractionConfig:
     """Password(s) for encrypted PDF files. Can be a single password or list of passwords to try in sequence. Only used when crypto extra is installed."""
     html_to_markdown_config: HTMLToMarkdownConfig | None = None
     """Configuration for HTML to Markdown conversion. If None, uses default settings."""
+    use_cache: bool = True
+    """Whether to use caching for extraction results. Set to False to disable all caching."""
 
     def __post_init__(self) -> None:
         if self.custom_entity_patterns is not None and isinstance(self.custom_entity_patterns, dict):
@@ -445,24 +447,32 @@ class ExtractionConfig:
             A dict of the OCR configuration or an empty dict if no backend is provided.
         """
         if self.ocr_backend is None:
-            return {}
+            return {"use_cache": self.use_cache}
 
         if self.ocr_config is not None:
-            return asdict(self.ocr_config)
+            config_dict = asdict(self.ocr_config)
+            config_dict["use_cache"] = self.use_cache
+            return config_dict
 
         match self.ocr_backend:
             case "tesseract":
                 from kreuzberg._ocr._tesseract import TesseractConfig  # noqa: PLC0415
 
-                return asdict(TesseractConfig())
+                config_dict = asdict(TesseractConfig())
+                config_dict["use_cache"] = self.use_cache
+                return config_dict
             case "easyocr":
                 from kreuzberg._ocr._easyocr import EasyOCRConfig  # noqa: PLC0415
 
-                return asdict(EasyOCRConfig())
+                config_dict = asdict(EasyOCRConfig())
+                config_dict["use_cache"] = self.use_cache
+                return config_dict
             case _:
                 from kreuzberg._ocr._paddleocr import PaddleOCRConfig  # noqa: PLC0415
 
-                return asdict(PaddleOCRConfig())
+                config_dict = asdict(PaddleOCRConfig())
+                config_dict["use_cache"] = self.use_cache
+                return config_dict
 
 
 @dataclass(frozen=True)
@@ -482,8 +492,8 @@ class HTMLToMarkdownConfig:
     """Callback function invoked for each chunk during stream processing."""
     progress_callback: Callable[[int, int], None] | None = None
     """Callback function for progress updates (current, total)."""
-    parser: str | None = None
-    """BeautifulSoup parser to use (e.g., 'html.parser', 'lxml')."""
+    parser: str | None = "lxml"
+    """BeautifulSoup parser to use. Defaults to 'lxml' for ~30% better performance. Falls back to 'html.parser' if lxml not available."""
     autolinks: bool = True
     """Convert URLs to clickable links automatically."""
     bullets: str = "*+-"

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, cast
 
 from playa import asobj, parse
@@ -143,8 +143,10 @@ def _parse_date_string(date_str: str) -> str:
             second = date_str[12:14]
             time_part = f"T{hour}:{minute}:{second}"
         if time_part:
-            return datetime.strptime(f"{year}-{month}-{day}{time_part}", "%Y-%m-%dT%H:%M:%S").isoformat()  # noqa: DTZ007
-        return datetime.strptime(f"{year}-{month}-{day}", "%Y-%m-%d").isoformat()  # noqa: DTZ007
+            dt = datetime.strptime(f"{year}-{month}-{day}{time_part}", "%Y-%m-%dT%H:%M:%S")
+            return dt.replace(tzinfo=timezone.utc).isoformat()
+        dt = datetime.strptime(f"{year}-{month}-{day}", "%Y-%m-%d")
+        return dt.replace(tzinfo=timezone.utc).isoformat()
     return date_str
 
 

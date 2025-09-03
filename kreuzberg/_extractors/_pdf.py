@@ -175,7 +175,7 @@ class PDFExtractor(Extractor):
             try:
                 with pypdfium_file_lock(input_file):
                     document = await run_sync(pypdfium2.PdfDocument, str(input_file))
-                    return [page.render(scale=4.25).to_pil() for page in cast("pypdfium2.PdfDocument", document)]
+                    return [page.render(scale=200 / 72).to_pil() for page in cast("pypdfium2.PdfDocument", document)]
             except pypdfium2.PdfiumError as e:  # noqa: PERF203
                 last_error = e
                 if not should_retry(e, attempt + 1):
@@ -298,23 +298,7 @@ class PDFExtractor(Extractor):
                     bitmap.close()
                     page.close()
 
-            image_paths = []
-            temp_files = []
-
-            try:
-                for i, img in enumerate(images):
-                    fd, temp_path = tempfile.mkstemp(suffix=f"_page_{i}.png")
-                    temp_files.append((fd, temp_path))
-                    img.save(temp_path, format="PNG")
-                    os.close(fd)
-                    image_paths.append(temp_path)
-
-                return self._process_pdf_images_with_ocr(image_paths)
-
-            finally:
-                for _, temp_path in temp_files:
-                    with contextlib.suppress(OSError):
-                        Path(temp_path).unlink()
+            return self._process_pdf_images_with_ocr_direct(images)
 
         except Exception as e:
             raise ParsingError(f"Failed to OCR PDF: {e}") from e
@@ -345,6 +329,40 @@ class PDFExtractor(Extractor):
                 results = backend.process_batch_sync(paths, **asdict(easy_config))
             case _:
                 raise NotImplementedError(f"Sync OCR not implemented for {self.config.ocr_backend}")
+
+        return "\n\n".join(result.content for result in results)
+
+    def _process_pdf_images_with_ocr_direct(self, images: list[Image]) -> str:
+        """Process PIL images directly without temp files."""
+        backend = get_ocr_backend(self.config.ocr_backend)
+
+        match self.config.ocr_backend:
+            case "tesseract":
+                config = (
+                    self.config.ocr_config if isinstance(self.config.ocr_config, TesseractConfig) else TesseractConfig()
+                )
+                results = []
+                for image in images:
+                    result = backend.process_image_sync(image, **asdict(config))
+                    results.append(result)
+            case "paddleocr":
+                paddle_config = (
+                    self.config.ocr_config if isinstance(self.config.ocr_config, PaddleOCRConfig) else PaddleOCRConfig()
+                )
+                results = []
+                for image in images:
+                    result = backend.process_image_sync(image, **asdict(paddle_config))
+                    results.append(result)
+            case "easyocr":
+                easy_config = (
+                    self.config.ocr_config if isinstance(self.config.ocr_config, EasyOCRConfig) else EasyOCRConfig()
+                )
+                results = []
+                for image in images:
+                    result = backend.process_image_sync(image, **asdict(easy_config))
+                    results.append(result)
+            case _:
+                raise NotImplementedError(f"Direct image OCR not implemented for {self.config.ocr_backend}")
 
         return "\n\n".join(result.content for result in results)
 

@@ -157,13 +157,11 @@ def _remove_empty_rows_cols(table: list[list[str]]) -> list[list[str]]:
     if not table:
         return table
 
-    # Remove empty rows
     table = [row for row in table if any(cell.strip() for cell in row)]
 
     if not table:
         return []
 
-    # Remove empty columns
     non_empty_cols = [
         col_idx for col_idx in range(len(table[0])) if any(row[col_idx].strip() for row in table if col_idx < len(row))
     ]
@@ -196,10 +194,8 @@ def reconstruct_table(
     if not col_positions or not row_positions:
         return []
 
-    # Initialize empty table
     table: list[list[str]] = [[""] * len(col_positions) for _ in range(len(row_positions))]
 
-    # Place words in table cells
     for word in words:
         col_idx = _find_closest_index(word["left"], col_positions)
 
@@ -228,13 +224,10 @@ def to_markdown(table: list[list[str]]) -> str:
 
     lines = []
 
-    # Header row
     lines.append("| " + " | ".join(str(cell) for cell in table[0]) + " |")
 
-    # Separator row
     lines.append("| " + " | ".join(["---"] * len(table[0])) + " |")
 
-    # Data rows
     for row in table[1:]:
         padded_row = list(row) + [""] * (len(table[0]) - len(row))
         lines.append("| " + " | ".join(str(cell) for cell in padded_row[: len(table[0])]) + " |")
