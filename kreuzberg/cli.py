@@ -1,5 +1,3 @@
-"""Command-line interface for kreuzberg."""
-
 from __future__ import annotations
 
 import json

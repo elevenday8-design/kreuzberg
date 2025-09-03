@@ -1,5 +1,3 @@
-"""General-purpose file-based caching layer for Kreuzberg."""
-
 from __future__ import annotations
 
 import hashlib

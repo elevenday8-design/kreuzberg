@@ -1,10 +1,3 @@
-"""Configuration discovery and loading for Kreuzberg.
-
-This module provides configuration loading from both kreuzberg.toml and pyproject.toml files.
-Configuration is automatically discovered by searching up the directory tree from the current
-working directory.
-"""
-
 from __future__ import annotations
 
 import sys

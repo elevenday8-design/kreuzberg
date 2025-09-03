@@ -1,4 +1,3 @@
-"""Device detection and management utilities for GPU acceleration."""
 # ruff: noqa: BLE001  # ~keep
 
 from __future__ import annotations

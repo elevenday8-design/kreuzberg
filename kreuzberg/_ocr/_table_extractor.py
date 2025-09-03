@@ -1,5 +1,3 @@
-"""Table extraction from Tesseract TSV output."""
-
 from __future__ import annotations
 
 import csv

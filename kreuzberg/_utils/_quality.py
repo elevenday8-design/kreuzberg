@@ -1,5 +1,3 @@
-"""Quality post-processing utilities for extracted text."""
-
 from __future__ import annotations
 
 import re

@@ -1,5 +1,3 @@
-"""Process pool utilities for CPU-intensive operations."""
-
 from __future__ import annotations
 
 import io
