@@ -11,13 +11,6 @@ from kreuzberg.exceptions import ParsingError
 if TYPE_CHECKING:
     from kreuzberg._types import TSVWord
 
-try:
-    from scipy.cluster.hierarchy import fclusterdata
-
-    SCIPY_AVAILABLE = True
-except ImportError:
-    SCIPY_AVAILABLE = False
-
 
 def extract_words(tsv_data: str, *, min_confidence: float = 30.0) -> list[TSVWord]:
     """Parse TSV output into structured word data.
@@ -68,15 +61,15 @@ def extract_words(tsv_data: str, *, min_confidence: float = 30.0) -> list[TSVWor
         raise ParsingError("Failed to parse TSV data", context={"error": str(e)}) from e
 
 
-def _detect_columns_simple(words: list[TSVWord], *, column_threshold: int = 20) -> list[int]:
-    """Simple column detection without scipy.
+def detect_columns(words: list[TSVWord], *, column_threshold: int = 20) -> list[int]:
+    """Detect columns using X position clustering.
 
     Args:
-        words: List of word dictionaries.
+        words: List of word dictionaries from TSV.
         column_threshold: Pixel threshold for column clustering.
 
     Returns:
-        List of detected column positions.
+        Sorted list of column X positions.
     """
     if not words:
         return []
@@ -97,51 +90,18 @@ def _detect_columns_simple(words: list[TSVWord], *, column_threshold: int = 20) 
             current_group = [x]
 
     columns.append(int(np.median(current_group)))
-
     return columns
 
 
-def detect_columns(words: list[TSVWord], *, column_threshold: int = 20) -> list[int]:
-    """Detect columns using hierarchical clustering on X positions.
+def detect_rows(words: list[TSVWord], *, row_threshold_ratio: float = 0.5) -> list[int]:
+    """Detect rows using Y position clustering.
 
     Args:
         words: List of word dictionaries from TSV.
-        column_threshold: Pixel threshold for column clustering.
+        row_threshold_ratio: Row threshold as ratio of mean text height.
 
     Returns:
-        Sorted list of column X positions.
-    """
-    if not words:
-        return []
-
-    x_positions = np.array([w["left"] for w in words]).reshape(-1, 1)
-
-    if len(x_positions) == 1:
-        return [int(x_positions[0, 0])]
-
-    if not SCIPY_AVAILABLE:
-        return _detect_columns_simple(words, column_threshold=column_threshold)
-
-    clusters = fclusterdata(x_positions, column_threshold, criterion="distance", method="single")
-
-    column_positions = []
-    for cluster_id in np.unique(clusters):
-        cluster_mask = clusters == cluster_id
-        cluster_positions = x_positions[cluster_mask]
-        column_positions.append(int(np.median(cluster_positions)))
-
-    return sorted(column_positions)
-
-
-def _detect_rows_simple(words: list[TSVWord], threshold: float) -> list[int]:
-    """Simple row detection without scipy.
-
-    Args:
-        words: List of word dictionaries.
-        threshold: Distance threshold for grouping.
-
-    Returns:
-        List of detected row positions.
+        Sorted list of row Y positions.
     """
     if not words:
         return []
@@ -150,6 +110,9 @@ def _detect_rows_simple(words: list[TSVWord], threshold: float) -> list[int]:
 
     if len(y_centers) == 1:
         return [int(y_centers[0])]
+
+    mean_height = np.mean([w["height"] for w in words])
+    threshold = mean_height * row_threshold_ratio
 
     rows = []
     current_group = [y_centers[0]]
@@ -162,44 +125,7 @@ def _detect_rows_simple(words: list[TSVWord], threshold: float) -> list[int]:
             current_group = [y]
 
     rows.append(int(np.median(current_group)))
-
     return rows
-
-
-def detect_rows(words: list[TSVWord], *, row_threshold_ratio: float = 0.5) -> list[int]:
-    """Detect rows using clustering on Y positions.
-
-    Args:
-        words: List of word dictionaries from TSV.
-        row_threshold_ratio: Row threshold as ratio of mean text height.
-
-    Returns:
-        Sorted list of row Y positions.
-    """
-    if not words:
-        return []
-
-    y_centers = np.array([w["top"] + w["height"] / 2 for w in words])
-    mean_height = np.mean([w["height"] for w in words])
-    threshold = mean_height * row_threshold_ratio
-
-    y_positions = y_centers.reshape(-1, 1)
-
-    if len(y_positions) == 1:
-        return [int(y_positions[0, 0])]
-
-    if not SCIPY_AVAILABLE:
-        return _detect_rows_simple(words, float(threshold))
-
-    clusters = fclusterdata(y_positions, threshold, criterion="distance", method="single")
-
-    row_positions = []
-    for cluster_id in np.unique(clusters):
-        cluster_mask = clusters == cluster_id
-        cluster_positions = y_positions[cluster_mask]
-        row_positions.append(int(np.median(cluster_positions)))
-
-    return sorted(row_positions)
 
 
 def _find_closest_index(value: float, positions: list[int]) -> int:
@@ -231,11 +157,13 @@ def _remove_empty_rows_cols(table: list[list[str]]) -> list[list[str]]:
     if not table:
         return table
 
+    # Remove empty rows
     table = [row for row in table if any(cell.strip() for cell in row)]
 
     if not table:
         return []
 
+    # Remove empty columns
     non_empty_cols = [
         col_idx for col_idx in range(len(table[0])) if any(row[col_idx].strip() for row in table if col_idx < len(row))
     ]
@@ -268,8 +196,10 @@ def reconstruct_table(
     if not col_positions or not row_positions:
         return []
 
+    # Initialize empty table
     table: list[list[str]] = [[""] * len(col_positions) for _ in range(len(row_positions))]
 
+    # Place words in table cells
     for word in words:
         col_idx = _find_closest_index(word["left"], col_positions)
 
@@ -298,10 +228,13 @@ def to_markdown(table: list[list[str]]) -> str:
 
     lines = []
 
+    # Header row
     lines.append("| " + " | ".join(str(cell) for cell in table[0]) + " |")
 
+    # Separator row
     lines.append("| " + " | ".join(["---"] * len(table[0])) + " |")
 
+    # Data rows
     for row in table[1:]:
         padded_row = list(row) + [""] * (len(table[0]) - len(row))
         lines.append("| " + " | ".join(str(cell) for cell in padded_row[: len(table[0])]) + " |")
@@ -312,7 +245,7 @@ def to_markdown(table: list[list[str]]) -> str:
 def extract_table_from_tsv(
     tsv_data: str, *, column_threshold: int = 20, row_threshold_ratio: float = 0.5, min_confidence: float = 30.0
 ) -> str:
-    """Convenience function to extract table from TSV data.
+    """Extract table from TSV data and convert to markdown.
 
     Args:
         tsv_data: Raw TSV output from Tesseract.
@@ -332,41 +265,3 @@ def extract_table_from_tsv(
         return ""
 
     return to_markdown(table)
-
-
-# For backward compatibility, create a class that wraps the functions
-class TesseractTableExtractor:
-    """Legacy class wrapper for table extraction functions.
-
-    This class is maintained for backward compatibility.
-    New code should use the functions directly.
-    """
-
-    def __init__(
-        self,
-        column_threshold: int = 20,
-        row_threshold_ratio: float = 0.5,
-        min_confidence: float = 30.0,
-    ) -> None:
-        self.column_threshold = column_threshold
-        self.row_threshold_ratio = row_threshold_ratio
-        self.min_confidence = min_confidence
-
-    def extract_words(self, tsv_data: str) -> list[TSVWord]:
-        return extract_words(tsv_data, min_confidence=self.min_confidence)
-
-    def detect_columns(self, words: list[TSVWord]) -> list[int]:
-        return detect_columns(words, column_threshold=self.column_threshold)
-
-    def detect_rows(self, words: list[TSVWord]) -> list[int]:
-        return detect_rows(words, row_threshold_ratio=self.row_threshold_ratio)
-
-    def reconstruct_table(self, words: list[TSVWord]) -> list[list[str]]:
-        return reconstruct_table(
-            words,
-            column_threshold=self.column_threshold,
-            row_threshold_ratio=self.row_threshold_ratio,
-        )
-
-    def to_markdown(self, table: list[list[str]]) -> str:
-        return to_markdown(table)

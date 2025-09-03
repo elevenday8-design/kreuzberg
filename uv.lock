@@ -957,7 +957,7 @@ name = "exceptiongroup"
 version = "1.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/0b/9f/a65090624ecf468cdca03533906e7c69ed7588582240cfe7cc9e770b50eb/exceptiongroup-1.3.0.tar.gz", hash = "sha256:b241f5885f560bc56a59ee63ca4c6a8bfa46ae4ad651af316d4e81817bb9fd88", size = 29749, upload-time = "2025-05-10T17:42:51.123Z" }
 wheels = [
@@ -1746,7 +1746,7 @@ requires-dist = [
     { name = "exceptiongroup", marker = "python_full_version < '3.11'", specifier = ">=1.2.2" },
     { name = "fast-langdetect", marker = "extra == 'langdetect'", specifier = ">=0.3.2" },
     { name = "gmft", marker = "extra == 'gmft'", specifier = ">=0.4.2" },
-    { name = "html-to-markdown", extras = ["lxml"], specifier = ">=1.9.0" },
+    { name = "html-to-markdown", extras = ["lxml"], specifier = ">=1.9.1" },
     { name = "keybert", marker = "extra == 'entity-extraction'", specifier = ">=0.9.0" },
     { name = "kreuzberg", extras = ["additional-extensions", "api", "chunking", "cli", "crypto", "document-classification", "easyocr", "entity-extraction", "gmft", "langdetect", "paddleocr"], marker = "extra == 'all'" },
     { name = "litestar", extras = ["standard", "structlog", "opentelemetry"], marker = "extra == 'api'", specifier = ">=2.17.0" },
@@ -1755,7 +1755,7 @@ requires-dist = [
     { name = "msgspec", specifier = ">=0.18.0" },
     { name = "paddleocr", marker = "extra == 'paddleocr'", specifier = ">=3.2.0" },
     { name = "paddlepaddle", marker = "extra == 'paddleocr'", specifier = ">=3.1.1" },
-    { name = "pandas", specifier = ">=2.0.0" },
+    { name = "pandas", specifier = ">=2.3.2" },
     { name = "pandas", marker = "extra == 'document-classification'", specifier = ">=2.3.2" },
     { name = "playa-pdf", specifier = ">=0.7.0" },
     { name = "playa-pdf", extras = ["crypto"], marker = "extra == 'crypto'", specifier = ">=0.7.0" },

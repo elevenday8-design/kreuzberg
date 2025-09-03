@@ -5,7 +5,14 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from kreuzberg._ocr._table_extractor import TesseractTableExtractor, extract_table_from_tsv
+from kreuzberg._ocr._table_extractor import (
+    detect_columns,
+    detect_rows,
+    extract_table_from_tsv,
+    extract_words,
+    reconstruct_table,
+    to_markdown,
+)
 from kreuzberg._ocr._tesseract import TesseractBackend
 
 
@@ -89,28 +96,27 @@ def test_table_extractor_with_real_tsv() -> None:
 5\t1\t3\t1\t1\t2\t250\t200\t60\t30\t92.0\t$1.20
 5\t1\t3\t1\t1\t3\t400\t200\t40\t30\t93.0\t15"""
 
-    extractor = TesseractTableExtractor()
-    words = extractor.extract_words(tsv_data)
+    words = extract_words(tsv_data)
 
     assert len(words) == 9
     assert words[0]["text"] == "Product"
 
-    cols = extractor.detect_columns(words)
+    cols = detect_columns(words)
     assert len(cols) == 3
     assert 90 < cols[0] < 110
     assert 240 < cols[1] < 260
     assert 390 < cols[2] < 410
 
-    rows = extractor.detect_rows(words)
+    rows = detect_rows(words)
     assert len(rows) == 3
 
-    table = extractor.reconstruct_table(words)
+    table = reconstruct_table(words)
     assert len(table) == 3
     assert table[0] == ["Product", "Price", "Quantity"]
     assert table[1] == ["Apples", "$2.50", "10"]
     assert table[2] == ["Bananas", "$1.20", "15"]
 
-    markdown = extractor.to_markdown(table)
+    markdown = to_markdown(table)
     assert "| Product | Price | Quantity |" in markdown
     assert "| --- | --- | --- |" in markdown
     assert "| Apples | $2.50 | 10 |" in markdown
@@ -138,9 +144,8 @@ def test_table_extraction_with_empty_cells() -> None:
 5\t1\t2\t1\t1\t1\t50\t100\t60\t30\t92.0\tData1
 5\t1\t2\t1\t1\t2\t350\t100\t60\t30\t91.0\tData3"""
 
-    extractor = TesseractTableExtractor()
-    words = extractor.extract_words(tsv_data)
-    table = extractor.reconstruct_table(words)
+    words = extract_words(tsv_data)
+    table = reconstruct_table(words)
 
     assert len(table) == 2
     assert table[0] == ["Header1", "Header2", "Header3"]
@@ -155,8 +160,7 @@ def test_table_extraction_confidence_threshold() -> None:
 5\t1\t1\t1\t1\t2\t150\t50\t60\t30\t20.0\tBad
 5\t1\t1\t1\t1\t3\t250\t50\t60\t30\t85.0\tAlsoGood"""
 
-    extractor = TesseractTableExtractor(min_confidence=30.0)
-    words = extractor.extract_words(tsv_data)
+    words = extract_words(tsv_data, min_confidence=30.0)
 
     assert len(words) == 2
     assert words[0]["text"] == "Good"
@@ -177,8 +181,7 @@ def test_column_clustering_thresholds(column_threshold: int, expected_cols: int)
 5\t1\t1\t1\t1\t2\t80\t50\t40\t30\t94.0\tB
 5\t1\t1\t1\t1\t3\t200\t50\t40\t30\t93.0\tC"""
 
-    extractor = TesseractTableExtractor(column_threshold=column_threshold)
-    words = extractor.extract_words(tsv_data)
-    cols = extractor.detect_columns(words)
+    words = extract_words(tsv_data)
+    cols = detect_columns(words, column_threshold=column_threshold)
 
     assert len(cols) == expected_cols

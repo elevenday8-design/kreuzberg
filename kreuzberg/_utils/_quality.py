@@ -103,7 +103,6 @@ def clean_extracted_text(text: str) -> str:
 
 
 def _calculate_ocr_penalty(text: str, total_chars: int) -> float:
-    """Calculate penalty for OCR artifacts."""
     if total_chars == 0:
         return 0.0
 
@@ -112,7 +111,6 @@ def _calculate_ocr_penalty(text: str, total_chars: int) -> float:
 
 
 def _calculate_script_penalty(text: str, total_chars: int) -> float:
-    """Calculate penalty for script/style content."""
     if total_chars == 0:
         return 0.0
 
@@ -122,7 +120,6 @@ def _calculate_script_penalty(text: str, total_chars: int) -> float:
 
 
 def _calculate_navigation_penalty(text: str, total_chars: int) -> float:
-    """Calculate penalty for navigation content."""
     if total_chars == 0:
         return 0.0
 
@@ -132,7 +129,6 @@ def _calculate_navigation_penalty(text: str, total_chars: int) -> float:
 
 
 def _calculate_structure_bonus(text: str) -> float:
-    """Calculate bonus for proper text structure."""
     if not text:
         return 0.0
 
@@ -165,7 +161,6 @@ def _calculate_structure_bonus(text: str) -> float:
 
 
 def _calculate_metadata_bonus(metadata: dict[str, Any]) -> float:
-    """Calculate bonus for rich metadata."""
     if not metadata:
         return 0.0
 
@@ -176,7 +171,6 @@ def _calculate_metadata_bonus(metadata: dict[str, Any]) -> float:
 
 
 def _clean_ocr_artifacts(text: str) -> str:
-    """Remove common OCR artifacts from text."""
     text = _OCR_ARTIFACTS["scattered_chars"].sub(lambda m: m.group().replace(" ", ""), text)
 
     text = _OCR_ARTIFACTS["repeated_punctuation"].sub("...", text)
@@ -189,7 +183,6 @@ def _clean_ocr_artifacts(text: str) -> str:
 
 
 def _clean_navigation_elements(text: str) -> str:
-    """Remove navigation elements from text."""
     text = _NAVIGATION_PATTERNS["nav_words"].sub(" ", text)
 
     text = _NAVIGATION_PATTERNS["breadcrumbs"].sub(" ", text)

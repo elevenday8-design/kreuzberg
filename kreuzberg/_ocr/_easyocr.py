@@ -225,15 +225,6 @@ class EasyOCRBackend(OCRBackend[EasyOCRConfig]):
 
     @staticmethod
     def _process_easyocr_result(result: list[Any], image: Image.Image) -> ExtractionResult:
-        """Process EasyOCR result into an ExtractionResult with metadata.
-
-        Args:
-            result: The raw result from EasyOCR.
-            image: The original PIL image.
-
-        Returns:
-            ExtractionResult: The extraction result containing text content, mime type, and metadata.
-        """
         if not result:
             return ExtractionResult(
                 content="",
@@ -314,11 +305,6 @@ class EasyOCRBackend(OCRBackend[EasyOCRConfig]):
 
     @classmethod
     def _is_gpu_available(cls) -> bool:
-        """Check if GPU is available for EasyOCR.
-
-        Returns:
-            bool: True if GPU support is available.
-        """
         try:
             import torch  # noqa: PLC0415
 
@@ -328,15 +314,6 @@ class EasyOCRBackend(OCRBackend[EasyOCRConfig]):
 
     @classmethod
     async def _init_easyocr(cls, **kwargs: Unpack[EasyOCRConfig]) -> None:
-        """Initialize EasyOCR with the provided configuration.
-
-        Args:
-            **kwargs: Configuration parameters for EasyOCR including language, etc.
-
-        Raises:
-            MissingDependencyError: If EasyOCR is not installed.
-            OCRError: If initialization fails.
-        """
         if cls._reader is not None:
             return
 
@@ -369,17 +346,6 @@ class EasyOCRBackend(OCRBackend[EasyOCRConfig]):
 
     @classmethod
     def _resolve_device_config(cls, **kwargs: Unpack[EasyOCRConfig]) -> DeviceInfo:
-        """Resolve device configuration with backward compatibility.
-
-        Args:
-            **kwargs: Configuration parameters including device settings.
-
-        Returns:
-            DeviceInfo object for the selected device.
-
-        Raises:
-            ValidationError: If requested device is not available and fallback is disabled.
-        """
         use_gpu = kwargs.get("use_gpu", False)
         device = kwargs.get("device", "auto")
         memory_limit = kwargs.get("gpu_memory_limit")

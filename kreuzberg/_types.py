@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from kreuzberg._ocr._tesseract import TesseractConfig
 
 OcrBackendType = Literal["tesseract", "easyocr", "paddleocr"]
-OutputFormatType = Literal["text", "tsv", "hocr"]
+OutputFormatType = Literal["text", "tsv", "hocr", "markdown"]
 
 
 class BoundingBox(TypedDict):
