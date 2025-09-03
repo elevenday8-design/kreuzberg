@@ -360,7 +360,7 @@ def extract_file_sync(
             result = extractor.extract_path_sync(Path(file_path))
         else:
             result = ExtractionResult(
-                content=Path(file_path).read_text(),
+                content=Path(file_path).read_text(encoding="utf-8"),
                 chunks=[],
                 mime_type=mime_type,
                 metadata={},

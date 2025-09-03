@@ -188,7 +188,11 @@ def _write_output(
         if verbose:
             console.print(f"[green]✓[/green] Output written to: {output}")
     else:
-        click.echo(formatted_output)
+        try:
+            click.echo(formatted_output)
+        except UnicodeEncodeError:
+            # Fallback to direct buffer write for systems with non-UTF-8 encoding
+            sys.stdout.buffer.write(formatted_output.encode("utf-8"))
 
 
 def handle_error(error: Exception, verbose: bool) -> None:  # pragma: no cover
