@@ -1,15 +1,17 @@
 # Kreuzberg Benchmarks
 
-Performance benchmarking suite for the Kreuzberg text extraction library, focusing on sync vs async performance comparison.
+Performance benchmarking suite for the Kreuzberg text extraction library, with comprehensive testing capabilities.
 
 ## Features
 
-- **Comprehensive Performance Metrics**: Memory usage, CPU utilization, execution time, GC collections
-- **Sync vs Async Comparison**: Direct performance comparison between synchronous and asynchronous implementations
-- **Flame Graph Generation**: Visual profiling with py-spy integration
-- **JSON Output**: Structured results for CI/CD integration and historical tracking
+- **Multiple Benchmark Types**: Baseline, statistical, serialization, and Tesseract-specific benchmarks
+- **Comprehensive Performance Metrics**: Memory usage, CPU utilization, execution time, cache performance
+- **Statistical Analysis**: Multiple trials with proper statistical reporting (mean, stdev, median)
+- **Cache Performance Testing**: Cold vs warm cache comparison with speedup calculations
+- **Serialization Benchmarking**: JSON vs msgpack performance comparison
+- **Tesseract Format Comparison**: Different OCR output formats (text, hOCR, markdown, TSV)
 - **Rich CLI Interface**: Beautiful terminal output with progress bars and tables
-- **Stress Testing**: High-load benchmarks for performance limits
+- **JSON Output**: Structured results for CI/CD integration and historical tracking
 
 ## Installation
 
@@ -20,33 +22,29 @@ uv sync
 
 ## Usage
 
-### Basic Benchmarking
+### Benchmark Commands
 
 ```bash
-# Run all benchmarks
-kreuzberg-bench run
+# Run comprehensive benchmarks
+python -m benchmarks run
 
-# Run only sync benchmarks
-kreuzberg-bench run --sync-only
+# Run baseline cache performance test
+python -m benchmarks baseline --output results/baseline.json
 
-# Run only async benchmarks
-kreuzberg-bench run --async-only
+# Run statistical benchmark with multiple trials
+python -m benchmarks statistical --trials 10 --output results/stats.json
 
-# Run direct sync vs async comparison
-kreuzberg-bench run --comparison-only
-```
+# Run serialization performance test
+python -m benchmarks serialization --output results/serialization.json
 
-### Advanced Options
+# Run Tesseract format comparison
+python -m benchmarks tesseract --output-dir results/
 
-```bash
-# Include flame graphs
-kreuzberg-bench run --flame
+# Compare two benchmark results
+python -m benchmarks compare results/before.json results/after.json
 
-# Include stress tests
-kreuzberg-bench run --stress
-
-# Custom output directory
-kreuzberg-bench run --output-dir ./my-results
+# Analyze benchmark results
+python -m benchmarks analyze results/benchmark.json --quality
 
 # Custom test files directory
 kreuzberg-bench run --test-files-dir ../tests/test_source_files

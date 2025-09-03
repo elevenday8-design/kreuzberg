@@ -1,5 +1,7 @@
 """Command-line interface for Kreuzberg benchmarks."""
 
+# type: ignore[index,unused-ignore] 
+
 from __future__ import annotations
 
 import json
@@ -317,131 +319,11 @@ def compare(
 
 
 @app.command()
-def tesseract(
-    test_file: Path | None = typer.Option(
-        None,
-        "--test-file",
-        "-f",
-        help="Specific file to test (otherwise uses default test files)",
-    ),
-    output_dir: Path = typer.Option(
-        Path("benchmarks/results"),
-        "--output-dir",
-        "-o",
-        help="Directory to save benchmark results",
-    ),  # noqa: B008
-    formats: str = typer.Option(
-        "all",
-        "--formats",
-        help="Comma-separated list of formats to test (text,hocr,markdown,tsv,all)",
-    ),
-    include_tables: bool = typer.Option(
-        True,
-        "--include-tables",
-        help="Include TSV with table detection in benchmarks",
-    ),
-    test_thresholds: bool = typer.Option(
-        False,
-        "--test-thresholds",
-        help="Test different table detection threshold parameters",
-    ),
-    profile_overhead: bool = typer.Option(
-        False,
-        "--profile-overhead",
-        help="Profile conversion overhead for each format",
-    ),
-) -> None:
-    """Run Tesseract OCR output format benchmarks."""
-    import asyncio
-    import sys
-
-    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-    from tesseract_output_benchmark import TesseractOutputBenchmark
-
-    console.print("[bold blue]Tesseract Output Format Benchmarks[/bold blue]")
-
-    benchmark = TesseractOutputBenchmark(console)
-
-    if test_file:
-        if not test_file.exists():
-            console.print(f"[red]Error: File not found: {test_file}[/red]")
-            raise typer.Exit(1)
-        test_files = {"custom": test_file}
-    else:
-        test_files = {
-            "simple_text": Path("tests/test_source_files/searchable.pdf"),
-            "scanned_pdf": Path("tests/test_source_files/scanned.pdf"),
-            "ocr_image": Path("tests/test_source_files/ocr-image.jpg"),
-            "simple_table": Path("tests/test_source_files/tables/simple_table.png"),
-        }
-
-    if formats == "all":
-        pass
-    else:
-        [f.strip() for f in formats.split(",")]
-
-    results: dict[str, Any] = {}
-
-    async def run_benchmarks() -> dict[str, Any]:
-        console.print("\n[bold]Format Comparison[/bold]")
-        for name, file_path in test_files.items():
-            if not file_path.exists():
-                console.print(f"[yellow]Skipping {name}: file not found[/yellow]")
-                continue
-
-            console.print(f"\nTesting: {name}")
-            comparison = await benchmark.benchmark_all_formats(
-                file_path, include_table_detection=include_tables
-            )
-            benchmark.print_comparison_report(comparison)
-            results[f"comparison_{name}"] = comparison
-
-        if test_thresholds:
-            console.print("\n[bold]Table Detection Threshold Testing[/bold]")
-            table_image = Path("tests/test_source_files/tables/simple_table.png")
-            if table_image.exists():
-                threshold_results = benchmark.benchmark_table_detection_thresholds(
-                    table_image
-                )
-                results["threshold_testing"] = threshold_results
-
-                console.print(f"Tested {len(threshold_results)} threshold combinations")
-                best = min(threshold_results.items(), key=lambda x: x[1].duration)
-                console.print(f"Fastest: {best[0]} at {best[1].duration:.3f}s")
-
-        if profile_overhead:
-            console.print("\n[bold]Conversion Overhead Profiling[/bold]")
-            test_image = Path("tests/test_source_files/ocr-image.jpg")
-            if test_image.exists():
-                overhead = await benchmark.profile_conversion_overhead(test_image)
-                results["conversion_overhead"] = overhead
-
-                for fmt, timings in overhead.items():
-                    overhead_pct = (
-                        (timings["conversion"] / timings["total"] * 100)
-                        if timings["total"] > 0
-                        else 0
-                    )
-                    console.print(f"{fmt}: {overhead_pct:.1f}% conversion overhead")
-
-        return results
-
-    try:
-        results = asyncio.run(run_benchmarks())
-
-        output_dir.mkdir(parents=True, exist_ok=True)
-        import time
-
-        timestamp = time.strftime("%Y%m%d_%H%M%S")
-        output_file = output_dir / f"tesseract_benchmark_{timestamp}.json"
-
-        benchmark.save_results(results, output_file)
-        console.print(f"\n[green]Results saved to: {output_file}[/green]")
-
-    except Exception as e:
-        console.print(f"[red]Benchmark failed: {e}[/red]")
-        raise typer.Exit(1)
+def tesseract() -> None:
+    """Run Tesseract OCR output format benchmarks (DEPRECATED)."""
+    console.print(
+        "[yellow]This command is deprecated. Use 'baseline', 'statistical', or 'serialization' commands instead.[/yellow]"
+    )
 
 
 @app.command()
@@ -503,6 +385,306 @@ def analyze(
 
     if quality_report:
         _generate_quality_report(data, console)
+
+
+@app.command()
+def baseline(
+    output_file: Path | None = typer.Option(
+        None, "--output", "-o", help="Save results to file"
+    ),
+) -> None:
+    """Run baseline performance benchmark."""
+    import asyncio
+    import time
+    from kreuzberg import extract_file_sync, batch_extract_file
+    from kreuzberg._utils._cache import clear_all_caches
+
+    console.print("[bold blue]Baseline Performance Benchmark[/bold blue]")
+
+    test_files_dir = Path("tests/test_source_files")
+    test_files = list(test_files_dir.glob("*.pdf"))
+
+    if not test_files:
+        console.print("[red]No test files found in tests/test_source_files[/red]")
+        return
+
+    single_file = test_files[0]
+    mixed_files = test_files[:3] if len(test_files) >= 3 else [single_file] * 3
+
+    results = {}
+    console.print(f"Testing with file: {single_file.name}")
+
+    # Cold cache test
+    clear_all_caches()
+    start_time = time.time()
+    result = extract_file_sync(single_file)
+    cold_duration = time.time() - start_time
+
+    # Warm cache test
+    start_time = time.time()
+    result = extract_file_sync(single_file)
+    warm_duration = time.time() - start_time
+
+    # Batch test
+    clear_all_caches()
+    start_time = time.time()
+
+    async def run_batch() -> list[Any]:
+        return await batch_extract_file(mixed_files)
+
+    asyncio.run(run_batch())
+    batch_duration = time.time() - start_time
+
+    results = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "test_file": str(single_file),
+        "cold_cache_duration": cold_duration,
+        "warm_cache_duration": warm_duration,
+        "batch_duration": batch_duration,
+        "speedup_factor": cold_duration / warm_duration if warm_duration > 0 else 0,
+        "content_length": len(result.content),
+    }
+
+    # Display results
+    console.print(f"\n[green]Cold cache extraction: {cold_duration:.3f}s[/green]")
+    console.print(f"[green]Warm cache extraction: {warm_duration:.3f}s[/green]")
+    console.print(f"[green]Batch extraction: {batch_duration:.3f}s[/green]")
+    console.print(f"[yellow]Cache speedup: {results['speedup_factor']:.2f}x[/yellow]")
+
+    if output_file:
+        with open(output_file, "w") as f:
+            json.dump(results, f, indent=2)
+        console.print(f"[blue]Results saved to {output_file}[/blue]")
+
+
+@app.command()
+def statistical(
+    trials: int = typer.Option(5, "--trials", "-t", help="Number of trials to run"),
+    output_file: Path | None = typer.Option(
+        None, "--output", "-o", help="Save results to file"
+    ),
+) -> None:
+    """Run statistical benchmark with multiple trials."""
+    import asyncio
+    import statistics
+    import time
+    from kreuzberg import ExtractionConfig, extract_file
+    from kreuzberg._utils._cache import clear_all_caches
+
+    console.print("[bold blue]Statistical Performance Benchmark[/bold blue]")
+
+    test_files_dir = Path("tests/test_source_files")
+    pdf_files = list(test_files_dir.glob("*.pdf"))
+
+    if not pdf_files:
+        console.print("[red]No PDF test files found[/red]")
+        return
+
+    single_file = pdf_files[0]
+    config = ExtractionConfig(
+        force_ocr=True, ocr_backend="tesseract", extract_tables=True, chunk_content=True
+    )
+
+    console.print(f"File: {single_file.name}")
+    console.print(f"Trials: {trials}")
+    console.print("=" * 60)
+
+    cold_times = []
+    warm_times = []
+
+    async def run_trial() -> tuple[float, float]:
+        # Cold cache trial
+        clear_all_caches()
+        start_time = time.time()
+        await extract_file(single_file, config=config)
+        cold_time = time.time() - start_time
+        cold_times.append(cold_time)
+
+        # Warm cache trial
+        start_time = time.time()
+        await extract_file(single_file, config=config)
+        warm_time = time.time() - start_time
+        warm_times.append(warm_time)
+
+        return cold_time, warm_time
+
+    console.print("Running trials...")
+    for i in range(trials):
+        cold_time, warm_time = asyncio.run(run_trial())
+        console.print(f"Trial {i + 1}: Cold={cold_time:.3f}s, Warm={warm_time:.3f}s")
+
+    results = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "test_file": str(single_file),
+        "trials": trials,
+        "cold_cache": {
+            "mean": statistics.mean(cold_times),
+            "stdev": statistics.stdev(cold_times) if len(cold_times) > 1 else 0,
+            "median": statistics.median(cold_times),
+            "min": min(cold_times),
+            "max": max(cold_times),
+            "raw_times": cold_times,
+        },
+        "warm_cache": {
+            "mean": statistics.mean(warm_times),
+            "stdev": statistics.stdev(warm_times) if len(warm_times) > 1 else 0,
+            "median": statistics.median(warm_times),
+            "min": min(warm_times),
+            "max": max(warm_times),
+            "raw_times": warm_times,
+        },
+    }
+
+    # Display summary
+    cold_cache = results["cold_cache"]  # type: ignore[index]
+    warm_cache = results["warm_cache"]  # type: ignore[index]
+
+    console.print(
+        f"\n[green]Cold cache - Mean: {cold_cache['mean']:.3f}s ± {cold_cache['stdev']:.3f}s[/green]"
+    )
+    console.print(
+        f"[green]Warm cache - Mean: {warm_cache['mean']:.3f}s ± {warm_cache['stdev']:.3f}s[/green]"
+    )
+    speedup = cold_cache["mean"] / warm_cache["mean"] if warm_cache["mean"] > 0 else 0
+    console.print(f"[yellow]Average speedup: {speedup:.2f}x[/yellow]")
+
+    if output_file:
+        with open(output_file, "w") as f:
+            json.dump(results, f, indent=2)
+        console.print(f"[blue]Results saved to {output_file}[/blue]")
+
+
+@app.command()
+def serialization(
+    output_file: Path | None = typer.Option(
+        None, "--output", "-o", help="Save results to file"
+    ),
+) -> None:
+    """Benchmark serialization performance (JSON vs msgpack)."""
+    import time
+    import statistics
+    from kreuzberg._types import ExtractionResult
+
+    console.print("[bold blue]Serialization Performance Benchmark[/bold blue]")
+
+    # Create test data
+    large_content = "This is a realistic OCR result content. " * 500
+    metadata: dict[str, Any] = {
+        "file_path": "/some/long/path/to/document.pdf",
+        "ocr_backend": "tesseract",
+        "ocr_config": {"language": "eng", "psm": 3},
+        "processing_time": 15.234,
+        "confidence_scores": [0.95, 0.87, 0.92, 0.88, 0.94],
+        "page_count": 10,
+    }
+
+    test_result = ExtractionResult(
+        content=large_content,
+        mime_type="text/plain",
+        metadata=metadata,  # type: ignore[arg-type]
+        chunks=["chunk1", "chunk2", "chunk3"] * 20,
+    )
+
+    cache_data = {
+        "type": "ExtractionResult",
+        "data": test_result,
+        "timestamp": time.time(),
+        "version": "1.0.0",
+    }
+
+    trials = 100
+    json_serialize_times = []
+    json_deserialize_times = []
+
+    # JSON benchmarks
+    console.print("Benchmarking JSON serialization...")
+    for _ in range(trials):
+        start_time = time.time()
+        json_str = json.dumps(cache_data, default=str)
+        json_serialize_times.append(time.time() - start_time)
+
+        start_time = time.time()
+        json.loads(json_str)
+        json_deserialize_times.append(time.time() - start_time)
+
+    # Try msgpack if available
+    msgpack_serialize_times = []
+    msgpack_deserialize_times = []
+
+    try:
+        import msgpack  # type: ignore[import-not-found]
+
+        console.print("Benchmarking msgpack serialization...")
+
+        for _ in range(trials):
+            start_time = time.time()
+            msgpack_bytes = msgpack.packb(cache_data, default=str)
+            msgpack_serialize_times.append(time.time() - start_time)
+
+            start_time = time.time()
+            msgpack.unpackb(msgpack_bytes, raw=False)
+            msgpack_deserialize_times.append(time.time() - start_time)
+
+    except ImportError:
+        console.print(
+            "[yellow]msgpack not available - skipping msgpack benchmarks[/yellow]"
+        )
+
+    results = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "trials": trials,
+        "data_size_chars": len(large_content),
+        "json": {
+            "serialize_mean": statistics.mean(json_serialize_times),
+            "serialize_stdev": statistics.stdev(json_serialize_times),
+            "deserialize_mean": statistics.mean(json_deserialize_times),
+            "deserialize_stdev": statistics.stdev(json_deserialize_times),
+        },
+    }
+
+    if msgpack_serialize_times:
+        results["msgpack"] = {
+            "serialize_mean": statistics.mean(msgpack_serialize_times),
+            "serialize_stdev": statistics.stdev(msgpack_serialize_times),
+            "deserialize_mean": statistics.mean(msgpack_deserialize_times),
+            "deserialize_stdev": statistics.stdev(msgpack_deserialize_times),
+        }
+
+        # Calculate speedup
+        json_data = results["json"]  # type: ignore[index]
+        msgpack_data = results["msgpack"]  # type: ignore[index]
+
+        json_total = json_data["serialize_mean"] + json_data["deserialize_mean"]
+        msgpack_total = (
+            msgpack_data["serialize_mean"] + msgpack_data["deserialize_mean"]
+        )
+        speedup = json_total / msgpack_total if msgpack_total > 0 else 0
+        results["msgpack_speedup"] = speedup
+
+    # Display results
+    json_data = results["json"]  # type: ignore[index]
+    console.print(
+        f"\n[green]JSON serialize: {json_data['serialize_mean']:.6f}s ± {json_data['serialize_stdev']:.6f}s[/green]"
+    )
+    console.print(
+        f"[green]JSON deserialize: {json_data['deserialize_mean']:.6f}s ± {json_data['deserialize_stdev']:.6f}s[/green]"
+    )
+
+    if "msgpack" in results:
+        msgpack_data = results["msgpack"]  # type: ignore[index]
+        console.print(
+            f"[green]msgpack serialize: {msgpack_data['serialize_mean']:.6f}s ± {msgpack_data['serialize_stdev']:.6f}s[/green]"
+        )
+        console.print(
+            f"[green]msgpack deserialize: {msgpack_data['deserialize_mean']:.6f}s ± {msgpack_data['deserialize_stdev']:.6f}s[/green]"
+        )
+        speedup_val = results["msgpack_speedup"]  # type: ignore[index]
+        console.print(f"[yellow]msgpack speedup: {speedup_val:.2f}x[/yellow]")
+
+    if output_file:
+        with open(output_file, "w") as f:
+            json.dump(results, f, indent=2)
+        console.print(f"[blue]Results saved to {output_file}[/blue]")
 
 
 if __name__ == "__main__":
