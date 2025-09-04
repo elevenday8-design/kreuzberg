@@ -1,7 +1,5 @@
 from importlib.metadata import version
 
-from kreuzberg._config import discover_and_load_config, load_config_from_path, try_discover_config
-
 from ._registry import ExtractorRegistry
 from ._types import (
     EasyOCRConfig,
@@ -55,11 +53,8 @@ __all__ = [
     "batch_extract_bytes_sync",
     "batch_extract_file",
     "batch_extract_file_sync",
-    "discover_and_load_config",
     "extract_bytes",
     "extract_bytes_sync",
     "extract_file",
     "extract_file_sync",
-    "load_config_from_path",
-    "try_discover_config",
 ]

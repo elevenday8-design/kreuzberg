@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import lru_cache
 from json import dumps, loads
 from typing import TYPE_CHECKING, Annotated, Any, Literal
 
@@ -17,7 +18,7 @@ from kreuzberg import (
     ValidationError,
     batch_extract_bytes,
 )
-from kreuzberg._config import try_discover_config
+from kreuzberg._config import discover_config
 
 if TYPE_CHECKING:
     from litestar.datastructures import UploadFile
@@ -80,18 +81,9 @@ def _convert_value_type(current_value: Any, new_value: Any) -> Any:
     return new_value
 
 
-def _config_to_dict(config: ExtractionConfig) -> dict[str, Any]:
-    config_dict = {}
-    for field_name in config.__dataclass_fields__:
-        value = getattr(config, field_name)
-        if value is not None and hasattr(value, "__dataclass_fields__"):
-            config_dict[field_name] = msgspec.to_builtins(value)
-        else:
-            config_dict[field_name] = value
-    return config_dict
-
-
-def _create_ocr_config(ocr_backend: str | None, config_dict: dict[str, Any]) -> Any:
+def _create_ocr_config(
+    ocr_backend: Literal["tesseract", "easyocr", "paddleocr"] | None, config_dict: dict[str, Any]
+) -> Any:
     if ocr_backend == "tesseract":
         return TesseractConfig(**config_dict)
     if ocr_backend == "easyocr":
@@ -101,21 +93,26 @@ def _create_ocr_config(ocr_backend: str | None, config_dict: dict[str, Any]) -> 
     return config_dict
 
 
-def merge_configs(
+@lru_cache(maxsize=128)
+def _merge_configs_cached(
     static_config: ExtractionConfig | None,
-    query_params: dict[str, Any],
-    header_config: dict[str, Any] | None,
+    query_params: tuple[tuple[str, Any], ...],
+    header_config: tuple[tuple[str, Any], ...] | None,
 ) -> ExtractionConfig:
-    """Merge configurations with precedence: header > query > static > default."""
+    """Cached implementation of merge_configs with hashable parameters."""
     base_config = static_config or ExtractionConfig()
-    config_dict = _config_to_dict(base_config)
+    config_dict = base_config.to_dict()
 
-    for key, value in query_params.items():
+    # Convert query_params tuple back to dict for processing
+    query_dict = dict(query_params) if query_params else {}
+    for key, value in query_dict.items():
         if value is not None and key in config_dict:
             config_dict[key] = _convert_value_type(config_dict[key], value)
 
+    # Convert header_config tuple back to dict for processing
     if header_config:
-        for key, value in header_config.items():
+        header_dict = dict(header_config)
+        for key, value in header_dict.items():
             if key in config_dict:
                 config_dict[key] = value
 
@@ -124,6 +121,19 @@ def merge_configs(
         config_dict["ocr_config"] = _create_ocr_config(ocr_backend, config_dict["ocr_config"])
 
     return ExtractionConfig(**config_dict)
+
+
+def merge_configs(
+    static_config: ExtractionConfig | None,
+    query_params: dict[str, Any],
+    header_config: dict[str, Any] | None,
+) -> ExtractionConfig:
+    """Merge configurations with precedence: header > query > static > default."""
+    # Convert dict parameters to hashable tuples for caching
+    query_tuple = tuple(sorted(query_params.items())) if query_params else ()
+    header_tuple = tuple(sorted(header_config.items())) if header_config else None
+
+    return _merge_configs_cached(static_config, query_tuple, header_tuple)
 
 
 @post("/extract", operation_id="ExtractFiles")
@@ -151,7 +161,7 @@ async def handle_files_upload(  # noqa: PLR0913
 
     Precedence: Header config > Query params > Static config > Defaults
     """
-    static_config = try_discover_config()
+    static_config = discover_config()
 
     query_params = {
         "chunk_content": chunk_content,
@@ -168,8 +178,7 @@ async def handle_files_upload(  # noqa: PLR0913
     }
 
     header_config = None
-    config_header = request.headers.get("X-Extraction-Config")
-    if config_header:
+    if config_header := request.headers.get("X-Extraction-Config"):
         try:
             header_config = loads(config_header)
         except Exception as e:
@@ -192,7 +201,7 @@ async def health_check() -> dict[str, str]:
 @get("/config", operation_id="GetConfiguration")
 async def get_configuration() -> dict[str, Any]:
     """Get the current configuration."""
-    config = try_discover_config()
+    config = discover_config()
     if config is None:
         return {"message": "No configuration file found", "config": None}
 

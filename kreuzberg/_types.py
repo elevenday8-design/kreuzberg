@@ -34,6 +34,31 @@ OcrBackendType = Literal["tesseract", "easyocr", "paddleocr"]
 OutputFormatType = Literal["text", "tsv", "hocr", "markdown"]
 
 
+class ConfigDict:
+    """Abstract base class for configuration objects that can be converted to dictionaries."""
+
+    def to_dict(self, include_none: bool = False) -> dict[str, Any]:
+        """Convert configuration to dictionary.
+
+        Args:
+            include_none: If True, include fields with None values.
+                         If False (default), exclude None values.
+
+        Returns:
+            Dictionary representation of the configuration.
+        """
+        result = msgspec.to_builtins(
+            self,
+            builtin_types=(type(None),),
+            order="deterministic",
+        )
+
+        if include_none:
+            return result  # type: ignore[no-any-return]
+
+        return {k: v for k, v in result.items() if v is not None}
+
+
 class PSMMode(Enum):
     """Enum for Tesseract Page Segmentation Modes (PSM) with human-readable values."""
 
@@ -62,7 +87,7 @@ class PSMMode(Enum):
 
 
 @dataclass(unsafe_hash=True, frozen=True, slots=True)
-class TesseractConfig:
+class TesseractConfig(ConfigDict):
     """Configuration options for Tesseract OCR engine."""
 
     classify_use_pre_adapted_templates: bool = True
@@ -104,13 +129,9 @@ class TesseractConfig:
     table_min_confidence: float = 30.0
     """Minimum confidence score to include a word in table extraction."""
 
-    def to_dict(self) -> dict[str, Any]:
-        """Convert config to dictionary for passing as kwargs."""
-        return asdict(self)
-
 
 @dataclass(unsafe_hash=True, frozen=True, slots=True)
-class EasyOCRConfig:
+class EasyOCRConfig(ConfigDict):
     """Configuration options for EasyOCR."""
 
     add_margin: float = 0.1
@@ -163,7 +184,7 @@ class EasyOCRConfig:
 
 
 @dataclass(unsafe_hash=True, frozen=True, slots=True)
-class PaddleOCRConfig:
+class PaddleOCRConfig(ConfigDict):
     """Configuration options for PaddleOCR.
 
     This dataclass provides type hints and documentation for all PaddleOCR parameters.
@@ -240,7 +261,7 @@ class PaddleOCRConfig:
 
 
 @dataclass(unsafe_hash=True, frozen=True, slots=True)
-class GMFTConfig:
+class GMFTConfig(ConfigDict):
     """Configuration options for GMFT table extraction.
 
     This class encapsulates the configuration options for GMFT, providing a way to customize its behavior.
@@ -347,28 +368,25 @@ class GMFTConfig:
 
 
 @dataclass(frozen=True, slots=True)
-class LanguageDetectionConfig:
-    """Configuration for language detection.
-
-    Attributes:
-        low_memory: If True, uses a smaller model (~200MB). If False, uses a larger, more accurate model.
-            Defaults to True for better memory efficiency.
-        top_k: Maximum number of languages to return for multilingual detection. Defaults to 3.
-        multilingual: If True, uses multilingual detection to handle mixed-language text.
-            If False, uses single language detection. Defaults to False.
-        cache_dir: Custom directory for model cache. If None, uses system default.
-        allow_fallback: If True, falls back to small model if large model fails. Defaults to True.
-    """
+class LanguageDetectionConfig(ConfigDict):
+    """Configuration for language detection."""
 
     low_memory: bool = True
+    """If True, uses a smaller model (~200MB). If False, uses a larger, more accurate model.
+    Defaults to True for better memory efficiency."""
     top_k: int = 3
+    """Maximum number of languages to return for multilingual detection."""
     multilingual: bool = False
+    """If True, uses multilingual detection to handle mixed-language text.
+    If False, uses single language detection."""
     cache_dir: str | None = None
+    """Custom directory for model cache. If None, uses system default."""
     allow_fallback: bool = True
+    """If True, falls back to small model if large model fails."""
 
 
 @dataclass(unsafe_hash=True, frozen=True, slots=True)
-class SpacyEntityExtractionConfig:
+class SpacyEntityExtractionConfig(ConfigDict):
     """Configuration for spaCy-based entity extraction."""
 
     model_cache_dir: str | Path | None = None
@@ -779,7 +797,7 @@ ValidationHook = Callable[[ExtractionResult], None | Awaitable[None]]
 
 
 @dataclass(unsafe_hash=True, slots=True)
-class ExtractionConfig:
+class ExtractionConfig(ConfigDict):
     """Represents configuration settings for an extraction process.
 
     This class encapsulates the configuration options for extracting text
@@ -891,6 +909,32 @@ class ExtractionConfig:
                 config_dict = asdict(PaddleOCRConfig())
                 config_dict["use_cache"] = self.use_cache
                 return config_dict
+
+    def to_dict(self, include_none: bool = False) -> dict[str, Any]:
+        """Convert configuration to dictionary recursively.
+
+        Args:
+            include_none: If True, include fields with None values.
+                         If False (default), exclude None values.
+
+        Returns:
+            Dictionary representation of the configuration with nested configs converted.
+        """
+        result = msgspec.to_builtins(
+            self,
+            builtin_types=(type(None),),
+            order="deterministic",
+        )
+
+        # Recursively convert nested config objects
+        for field_name, value in result.items():
+            if hasattr(value, "to_dict"):
+                result[field_name] = value.to_dict(include_none=include_none)
+
+        if include_none:
+            return result  # type: ignore[no-any-return]
+
+        return {k: v for k, v in result.items() if v is not None}
 
 
 @dataclass(frozen=True)

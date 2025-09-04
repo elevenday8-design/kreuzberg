@@ -435,8 +435,8 @@ def discover_and_load_config(start_path: Path | str | None = None) -> Extraction
     return build_extraction_config_from_dict(config_dict)
 
 
-def try_discover_config(start_path: Path | str | None = None) -> ExtractionConfig | None:
-    """Try to discover and load configuration, returning None if no config file found.
+def discover_config(start_path: Path | str | None = None) -> ExtractionConfig | None:
+    """Discover and load configuration, returning None if no config file found.
 
     If a config file is found, attempts to load it. Any errors during loading will bubble up.
 
