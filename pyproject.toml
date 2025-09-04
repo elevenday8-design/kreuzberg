@@ -63,6 +63,7 @@ dependencies = [
   "html-to-markdown[lxml]>=1.9.1",
   "mcp>=1.13.0",
   "msgspec>=0.18.0",
+  "numpy>=1.24.0",
   "playa-pdf>=0.7.0",
   "polars>=1.33.0",
   "psutil>=7.0.0",
