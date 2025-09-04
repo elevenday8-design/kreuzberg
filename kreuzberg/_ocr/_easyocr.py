@@ -30,8 +30,8 @@ try:
 except ImportError:
     HAS_EASYOCR = False
     easyocr = None
-    np = None  # type: ignore[assignment]
-    torch = None  # type: ignore[assignment]
+    np = None
+    torch = None
 
 
 EASYOCR_SUPPORTED_LANGUAGE_CODES: Final[set[str]] = {

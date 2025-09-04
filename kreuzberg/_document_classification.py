@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
+import polars as pl
+
 from kreuzberg._ocr import get_ocr_backend
 from kreuzberg._types import ExtractionConfig, ExtractionResult  # noqa: TC001
 from kreuzberg.exceptions import MissingDependencyError
@@ -121,14 +123,14 @@ def classify_document_from_layout(
     if not config.auto_detect_document_type:
         return None, None
 
-    if result.layout is None or result.layout.empty:
+    if result.layout is None or result.layout.is_empty():
         return None, None
 
     layout_df = result.layout
     if not all(col in layout_df.columns for col in ["text", "top", "height"]):
         return None, None
 
-    layout_text = " ".join(layout_df["text"].astype(str).tolist())
+    layout_text = " ".join(layout_df["text"].cast(str).to_list())
 
     text_to_classify = layout_text
     if result.metadata:
@@ -142,17 +144,29 @@ def classify_document_from_layout(
     except Exception:  # noqa: BLE001
         translated_text = text_to_classify.lower()
 
-    layout_df["translated_text"] = translated_text
+    layout_df = layout_df.with_columns(pl.lit(translated_text).alias("translated_text"))
 
-    page_height = layout_df["top"].max() + layout_df["height"].max()
+    # Cast columns to numeric types for arithmetic operations
+    try:
+        layout_df = layout_df.with_columns(
+            [pl.col("top").cast(pl.Float64, strict=False), pl.col("height").cast(pl.Float64, strict=False)]
+        )
+
+        page_height_val = layout_df.select(pl.col("top").max() + pl.col("height").max()).item()
+        if page_height_val is None:
+            page_height_val = 0.0
+        page_height = float(page_height_val)
+    except Exception:  # noqa: BLE001
+        # Fallback if casting fails
+        page_height = 1000.0
     scores = dict.fromkeys(DOCUMENT_CLASSIFIERS, 0.0)
 
     for doc_type, patterns in DOCUMENT_CLASSIFIERS.items():
         for pattern in patterns:
-            found_words = layout_df[layout_df["translated_text"].str.contains(pattern, case=False, na=False)]
-            if not found_words.empty:
+            found_words = layout_df.filter(layout_df["translated_text"].str.contains(pattern))
+            if not found_words.is_empty():
                 scores[doc_type] += 1.0
-                word_top = found_words.iloc[0]["top"]
+                word_top = found_words[0, "top"]
                 if word_top < page_height * 0.3:
                     scores[doc_type] += 0.5
 
@@ -176,7 +190,7 @@ def auto_detect_document_type(
     if config.document_classification_mode == "vision" and file_path:
         layout_result = get_ocr_backend("tesseract").process_file_sync(file_path, **config.get_config_dict())
         result.document_type, result.document_type_confidence = classify_document_from_layout(layout_result, config)
-    elif result.layout is not None and not result.layout.empty:
+    elif result.layout is not None and not result.layout.is_empty():
         result.document_type, result.document_type_confidence = classify_document_from_layout(result, config)
     else:
         result.document_type, result.document_type_confidence = classify_document(result, config)
