@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import traceback
 from functools import lru_cache
 from json import dumps, loads
 from typing import TYPE_CHECKING, Annotated, Any, Literal
@@ -66,6 +67,33 @@ def exception_handler(request: Request[Any, Any, Any], exception: KreuzbergError
     return Response(
         content={"message": message, "details": details},
         status_code=status_code,
+    )
+
+
+def general_exception_handler(request: Request[Any, Any, Any], exception: Exception) -> Response[Any]:
+    """Temporary handler to catch ALL exceptions for debugging."""
+    error_type = type(exception).__name__
+    error_message = str(exception)
+    traceback_str = traceback.format_exc()
+
+    if request.app.logger:
+        request.app.logger.error(
+            "Unhandled exception",
+            method=request.method,
+            url=str(request.url),
+            error_type=error_type,
+            message=error_message,
+            traceback=traceback_str,
+        )
+
+    return Response(
+        content={
+            "error_type": error_type,
+            "message": error_message,
+            "traceback": traceback_str,
+            "debug": "This is a temporary debug handler",
+        },
+        status_code=HTTP_500_INTERNAL_SERVER_ERROR,
     )
 
 
@@ -211,8 +239,9 @@ async def get_configuration() -> dict[str, Any]:
 app = Litestar(
     route_handlers=[handle_files_upload, health_check, get_configuration],
     plugins=[OpenTelemetryPlugin(OpenTelemetryConfig())],
-    logging_config=StructLoggingConfig(),
+    logging_config=StructLoggingConfig(),  # Use default config
     exception_handlers={
         KreuzbergError: exception_handler,
+        Exception: general_exception_handler,  # Catch all exceptions for debugging
     },
 )
