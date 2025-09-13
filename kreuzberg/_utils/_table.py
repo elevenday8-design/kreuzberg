@@ -89,6 +89,9 @@ def _format_table_row(row: Any, df: Any, float_col_formatting: dict[str, str]) -
                     formatted_row.append(str(int(value)))
                 else:
                     formatted_row.append(f"{value:.2f}")
+            elif isinstance(value, bool):
+                # Polars uses lowercase for booleans
+                formatted_row.append(str(value).lower())
             else:
                 clean_value = str(value).strip().replace("|", "\\|")
                 formatted_row.append(clean_value)
@@ -201,7 +204,9 @@ def extract_table_structure_info(table: TableData) -> dict[str, Any]:
 
     total_cells = df.height * df.width
     if total_cells > 0:
-        empty_cells = df.null_count().sum().item()
+        # In polars, sum() returns a DataFrame, we need to get the scalar value
+        null_counts = df.null_count()
+        empty_cells = sum(null_counts.row(0))  # Get sum of null counts across all columns
         info["empty_cells"] = empty_cells
         info["data_density"] = (total_cells - empty_cells) / total_cells
 
