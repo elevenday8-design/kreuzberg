@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import logging
 import os
 import re
 import subprocess
@@ -16,9 +17,9 @@ from anyio import run_process
 from kreuzberg._constants import MINIMAL_SUPPORTED_PANDOC_VERSION
 from kreuzberg._extractors._base import Extractor
 from kreuzberg._mime_types import MARKDOWN_MIME_TYPE
-from kreuzberg._types import ExtractionResult, Metadata
+from kreuzberg._types import ExtractedImage, ExtractionResult, Metadata
 from kreuzberg._utils._string import normalize_spaces
-from kreuzberg._utils._sync import run_taskgroup
+from kreuzberg._utils._sync import run_maybe_async, run_taskgroup
 from kreuzberg._utils._tmp import create_temp_file
 from kreuzberg.exceptions import MissingDependencyError, ParsingError, ValidationError
 
@@ -170,9 +171,16 @@ class PandocExtractor(Extractor):
             results = await run_taskgroup(metadata_task, content_task)
             metadata, content = cast("tuple[Metadata, str]", results)
 
-            return ExtractionResult(
+            result = ExtractionResult(
                 content=normalize_spaces(content), metadata=metadata, mime_type=MARKDOWN_MIME_TYPE, chunks=[]
             )
+
+            if self.config.extract_images:
+                result.images = await self._extract_images_with_pandoc(str(path))
+                if self.config.ocr_extracted_images and result.images:
+                    result.image_ocr_results = await self._process_images_with_ocr(result.images)
+
+            return result
         except ExceptionGroup as eg:
             raise ParsingError("Failed to process file", context={"file": str(path), "errors": eg.exceptions}) from eg
 
@@ -197,9 +205,16 @@ class PandocExtractor(Extractor):
             metadata = self._extract_metadata_sync(path)
             content = self._extract_file_sync(path)
 
-            return ExtractionResult(
+            result = ExtractionResult(
                 content=normalize_spaces(content), metadata=metadata, mime_type=MARKDOWN_MIME_TYPE, chunks=[]
             )
+
+            if self.config.extract_images:
+                result.images = run_maybe_async(self._extract_images_with_pandoc, str(path))
+                if self.config.ocr_extracted_images and result.images:
+                    result.image_ocr_results = run_maybe_async(self._process_images_with_ocr, result.images)
+
+            return result
         except Exception as e:
             raise ParsingError("Failed to process file", context={"file": str(path), "error": str(e)}) from e
 
@@ -569,6 +584,59 @@ class PandocExtractor(Extractor):
         finally:
             with contextlib.suppress(OSError):
                 Path(output_path).unlink()
+
+    async def _extract_images_with_pandoc(self, file_path: str) -> list[ExtractedImage]:
+        images = []
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            media_dir = Path(temp_dir) / "media"
+            media_dir.mkdir()
+
+            try:
+                cmd = [
+                    "pandoc",
+                    str(file_path),
+                    "--extract-media",
+                    str(media_dir),
+                    "-t",
+                    "markdown",
+                    "-o",
+                    "/dev/null",
+                ]
+
+                await run_process(cmd)
+
+                if media_dir.exists():
+                    for img_path in media_dir.rglob("*"):
+                        if img_path.is_file() and img_path.suffix.lower() in {
+                            ".jpg",
+                            ".jpeg",
+                            ".png",
+                            ".gif",
+                            ".bmp",
+                            ".tiff",
+                            ".webp",
+                        }:
+                            try:
+                                image_data = await AsyncPath(img_path).read_bytes()
+
+                                images.append(
+                                    ExtractedImage(
+                                        data=image_data,
+                                        format=img_path.suffix[1:].lower(),
+                                        filename=img_path.name,
+                                        page_number=None,
+                                    )
+                                )
+                            except Exception as e:  # noqa: BLE001
+                                logging.getLogger(__name__).warning(
+                                    "Failed to read extracted image %s: %s", img_path, e
+                                )
+
+            except Exception as e:  # noqa: BLE001
+                logging.getLogger(__name__).warning("Pandoc image extraction failed: %s", e)
+
+        return images
 
 
 class MarkdownExtractor(PandocExtractor):

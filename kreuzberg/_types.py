@@ -679,7 +679,7 @@ def normalize_metadata(data: dict[str, Any] | None) -> Metadata:
     return normalized
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(unsafe_hash=True, frozen=True, slots=True)
 class Entity:
     type: str
     """e.g., PERSON, ORGANIZATION, LOCATION, DATE, EMAIL, PHONE, or custom"""
@@ -689,6 +689,28 @@ class Entity:
     """Start character offset in the content"""
     end: int
     """End character offset in the content"""
+
+
+@dataclass(unsafe_hash=True, frozen=True, slots=True)
+class ExtractedImage:
+    data: bytes
+    format: str
+    filename: str | None = None
+    page_number: int | None = None
+    dimensions: tuple[int, int] | None = None
+    colorspace: str | None = None
+    bits_per_component: int | None = None
+    is_mask: bool = False
+    description: str | None = None
+
+
+@dataclass(unsafe_hash=True, frozen=True, slots=True)
+class ImageOCRResult:
+    image: ExtractedImage
+    ocr_result: ExtractionResult
+    confidence_score: float | None = None
+    processing_time: float | None = None
+    skipped_reason: str | None = None
 
 
 @dataclass(slots=True)
@@ -703,6 +725,10 @@ class ExtractionResult:
     """Extracted tables. Is an empty list if 'extract_tables' is not set to True in the ExtractionConfig."""
     chunks: list[str] = field(default_factory=list)
     """The extracted content chunks. This is an empty list if 'chunk_content' is not set to True in the ExtractionConfig."""
+    images: list[ExtractedImage] = field(default_factory=list)
+    """Extracted images. Empty list if 'extract_images' is not enabled."""
+    image_ocr_results: list[ImageOCRResult] = field(default_factory=list)
+    """OCR results from extracted images. Empty list if disabled or none processed."""
     entities: list[Entity] | None = None
     """Extracted entities, if entity extraction is enabled."""
     keywords: list[tuple[str, float]] | None = None
@@ -761,6 +787,39 @@ class ExtractionConfig(ConfigDict):
     """Whether to extract tables from the content. This requires the 'gmft' dependency."""
     extract_tables_from_ocr: bool = False
     """Extract tables from OCR output using TSV format (Tesseract only)."""
+    extract_images: bool = False
+    """Whether to extract images from documents."""
+    ocr_extracted_images: bool = False
+    """Whether to perform OCR on extracted images."""
+    deduplicate_images: bool = True
+    """Whether to remove duplicate images using CRC32 checksums."""
+    image_ocr_backend: OcrBackendType | None = None
+    """Optional override OCR backend for image OCR; falls back to ocr_backend when None."""
+    image_ocr_min_dimensions: tuple[int, int] = (50, 50)
+    """Minimum (width, height) in pixels for image OCR eligibility."""
+    image_ocr_max_dimensions: tuple[int, int] = (10000, 10000)
+    """Maximum (width, height) in pixels for image OCR eligibility."""
+    image_ocr_formats: frozenset[str] = frozenset(
+        {
+            "jpg",
+            "jpeg",
+            "png",
+            "gif",
+            "bmp",
+            "tiff",
+            "tif",
+            "webp",
+            "jp2",
+            "jpx",
+            "jpm",
+            "mj2",
+            "pnm",
+            "pbm",
+            "pgm",
+            "ppm",
+        }
+    )
+    """Allowed image formats for OCR processing (lowercase, without dot)."""
     max_chars: int = DEFAULT_MAX_CHARACTERS
     """The size of each chunk in characters."""
     max_overlap: int = DEFAULT_MAX_OVERLAP
@@ -839,7 +898,6 @@ class ExtractionConfig(ConfigDict):
                 context={"ocr_backend": self.ocr_backend, "ocr_config": type(self.ocr_config).__name__},
             )
 
-        # Validate DPI configuration
         if self.target_dpi <= 0:
             raise ValidationError("target_dpi must be positive", context={"target_dpi": self.target_dpi})
         if self.min_dpi <= 0:
@@ -900,7 +958,7 @@ class ExtractionConfig(ConfigDict):
         return {k: v for k, v in result.items() if v is not None}
 
 
-@dataclass(frozen=True)
+@dataclass(unsafe_hash=True, frozen=True, slots=True)
 class HTMLToMarkdownConfig:
     stream_processing: bool = False
     """Enable streaming mode for processing large HTML documents."""
@@ -968,4 +1026,5 @@ class HTMLToMarkdownConfig:
     """Remove form elements from HTML."""
 
     def to_dict(self) -> dict[str, Any]:
-        return {key: value for key, value in self.__dict__.items() if value is not None}
+        result = msgspec.to_builtins(self, builtin_types=(type(None),), order="deterministic")
+        return {k: v for k, v in result.items() if v is not None}

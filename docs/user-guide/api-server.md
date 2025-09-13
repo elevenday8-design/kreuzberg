@@ -131,6 +131,22 @@ curl -X POST "http://localhost:8000/extract?force_ocr=true&ocr_backend=tesseract
   -F "data=@image.jpg"
 ```
 
+Enable image extraction and optional OCR over images:
+
+```bash
+# Extract embedded images from documents
+curl -X POST "http://localhost:8000/extract?extract_images=true" \
+  -F "data=@document.pdf"
+
+# Extract images and run OCR on them using Tesseract
+curl -X POST "http://localhost:8000/extract?extract_images=true&ocr_extracted_images=true&image_ocr_backend=tesseract" \
+  -F "data=@scanned_document.pdf"
+
+# Control OCR filtering for images by size and formats
+curl -X POST "http://localhost:8000/extract?extract_images=true&ocr_extracted_images=true&image_ocr_min_width=50&image_ocr_min_height=50&image_ocr_max_width=5000&image_ocr_max_height=5000" \
+  -F "data=@slides.pptx"
+```
+
 Enable language detection:
 
 ```bash
@@ -151,6 +167,11 @@ curl -X POST "http://localhost:8000/extract?auto_detect_language=true" \
 - `ocr_backend` (string): OCR engine (`tesseract`, `easyocr`, `paddleocr`)
 - `auto_detect_language` (boolean): Enable automatic language detection
 - `pdf_password` (string): Password for encrypted PDFs
+- `extract_images` (boolean): Extract embedded images from supported formats
+- `ocr_extracted_images` (boolean): Run OCR on extracted images
+- `image_ocr_backend` (string): OCR engine to use for images
+- `image_ocr_min_width` / `image_ocr_min_height` (integer): Minimum dimensions to OCR
+- `image_ocr_max_width` / `image_ocr_max_height` (integer): Maximum dimensions to OCR
 
 **Boolean Parameter Formats:**
 

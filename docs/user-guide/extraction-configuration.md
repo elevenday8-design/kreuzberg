@@ -211,6 +211,11 @@ curl -X POST "http://localhost:8000/extract?force_ocr=true&ocr_backend=tesseract
 - `ocr_backend` (string): OCR engine (`tesseract`, `easyocr`, `paddleocr`)
 - `auto_detect_language` (boolean): Enable automatic language detection
 - `pdf_password` (string): Password for encrypted PDFs
+- `extract_images` (boolean): Extract embedded images from supported formats (PDF, PPTX, HTML, Office)
+- `ocr_extracted_images` (boolean): Run OCR on extracted images
+- `image_ocr_backend` (string): OCR engine for images (`tesseract`, `easyocr`, `paddleocr`)
+- `image_ocr_min_width` / `image_ocr_min_height` (integer): Minimum dimensions to OCR
+- `image_ocr_max_width` / `image_ocr_max_height` (integer): Maximum dimensions to OCR
 
 ### Header Configuration
 

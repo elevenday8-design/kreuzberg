@@ -1,30 +1,44 @@
 from __future__ import annotations
 
+import asyncio
 import contextlib
+import io
+import logging
 import os
 import tempfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
 from multiprocessing import cpu_count
 from pathlib import Path
 from re import Pattern
 from re import compile as compile_regex
-from typing import TYPE_CHECKING, ClassVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 import anyio
 import pypdfium2
 from anyio import Path as AsyncPath
 from playa import parse
+from playa.document import Document
+from playa.image import get_image_suffix_and_writer
 
 from kreuzberg._extractors._base import Extractor
 from kreuzberg._mime_types import PDF_MIME_TYPE, PLAIN_TEXT_MIME_TYPE
 from kreuzberg._ocr import get_ocr_backend
 from kreuzberg._playa import extract_pdf_metadata, extract_pdf_metadata_sync
-from kreuzberg._types import EasyOCRConfig, ExtractionResult, Metadata, OcrBackendType, PaddleOCRConfig, TesseractConfig
+from kreuzberg._types import (
+    EasyOCRConfig,
+    ExtractedImage,
+    ExtractionResult,
+    Metadata,
+    OcrBackendType,
+    PaddleOCRConfig,
+    TesseractConfig,
+)
 from kreuzberg._utils._errors import create_error_context, should_retry
 from kreuzberg._utils._image_preprocessing import calculate_optimal_dpi
 from kreuzberg._utils._pdf_lock import pypdfium_file_lock
 from kreuzberg._utils._string import normalize_spaces
-from kreuzberg._utils._sync import run_sync, run_taskgroup_batched
+from kreuzberg._utils._sync import run_maybe_async, run_sync, run_taskgroup_batched
 from kreuzberg._utils._table import generate_table_summary
 from kreuzberg._utils._tmp import create_temp_file
 from kreuzberg.exceptions import ParsingError
@@ -32,6 +46,8 @@ from kreuzberg.exceptions import ParsingError
 if TYPE_CHECKING:  # pragma: no cover
     from PIL.Image import Image
     from playa.document import Document
+
+logger = logging.getLogger(__name__)
 
 
 class PDFExtractor(Extractor):
@@ -56,6 +72,10 @@ class PDFExtractor(Extractor):
         content_bytes = await AsyncPath(path).read_bytes()
 
         result: ExtractionResult | None = None
+
+        document: Document | None = None
+        if self.config.extract_images or self.config.extract_tables:
+            document = self._parse_with_password_attempts(content_bytes)
 
         if not self.config.force_ocr:
             try:
@@ -91,6 +111,12 @@ class PDFExtractor(Extractor):
                     f"{table_summary['total_rows']} total rows",
                 }
 
+        if self.config.extract_images and document:
+            result.images = await self._extract_images_from_playa(document)
+            result.images = self._check_image_memory_limits(result.images)
+            if self.config.ocr_extracted_images:
+                result.image_ocr_results = await self._process_images_with_ocr(result.images)
+
         return self._apply_quality_processing(result)
 
     def extract_bytes_sync(self, content: bytes) -> ExtractionResult:
@@ -110,6 +136,12 @@ class PDFExtractor(Extractor):
                 Path(temp_path).unlink()
 
     def extract_path_sync(self, path: Path) -> ExtractionResult:
+        content_bytes = path.read_bytes()
+
+        document: Document | None = None
+        if self.config.extract_images or self.config.extract_tables:
+            document = self._parse_with_password_attempts(content_bytes)
+
         try:
             text = self._extract_pdf_searchable_text_sync(path)
         except ParsingError:
@@ -150,6 +182,12 @@ class PDFExtractor(Extractor):
                 f"{table_summary['total_rows']} total rows",
             }
 
+        if self.config.extract_images and document:
+            result.images = self._extract_images_from_playa_sync(document)
+            result.images = self._check_image_memory_limits(result.images)
+            if self.config.ocr_extracted_images:
+                result.image_ocr_results = run_maybe_async(self._process_images_with_ocr, result.images)
+
         return self._apply_quality_processing(result)
 
     def _validate_extracted_text(self, text: str, corruption_threshold: float = 0.05) -> bool:
@@ -162,6 +200,89 @@ class PDFExtractor(Extractor):
             return len(corruption_matches) <= self.MINIMUM_CORRUPTED_RESULTS
 
         return (len(corruption_matches) / len(text)) < corruption_threshold
+
+    async def _extract_images_from_playa(self, doc: Document) -> list[ExtractedImage]:
+        async def extract_single_image(page_num: int, img_index: int, img_obj: Any) -> ExtractedImage | None:
+            try:
+                suffix, writer = get_image_suffix_and_writer(img_obj.stream)
+
+                buffer = io.BytesIO()
+                writer(buffer)
+
+                filename = f"page_{page_num}_image_{img_index}{suffix}"
+
+                return ExtractedImage(
+                    data=buffer.getvalue(),
+                    format=suffix[1:],
+                    filename=filename,
+                    page_number=page_num,
+                    dimensions=img_obj.srcsize,
+                    colorspace=img_obj.colorspace.name if img_obj.colorspace else None,
+                    bits_per_component=img_obj.bits,
+                    is_mask=img_obj.imagemask,
+                )
+            except Exception as e:  # noqa: BLE001
+                logger.warning("Failed to extract image on page %s: %s", page_num, e)
+                return None
+
+        tasks = []
+        img_counter = 1
+        for page_num, page in enumerate(doc.pages, 1):
+            for img_obj in page.images:
+                tasks.append(extract_single_image(page_num, img_counter, img_obj))
+                img_counter += 1
+
+        if tasks:
+            results = await asyncio.gather(*tasks)
+            return [img for img in results if img is not None]
+
+        return []
+
+    def _extract_images_from_playa_sync(self, doc: Document) -> list[ExtractedImage]:
+        def extract_single_image(page_num: int, img_index: int, img_obj: Any) -> ExtractedImage | None:
+            try:
+                suffix, writer = get_image_suffix_and_writer(img_obj.stream)
+
+                buffer = io.BytesIO()
+                writer(buffer)
+
+                filename = f"page_{page_num}_image_{img_index}{suffix}"
+
+                return ExtractedImage(
+                    data=buffer.getvalue(),
+                    format=suffix[1:],
+                    filename=filename,
+                    page_number=page_num,
+                    dimensions=img_obj.srcsize,
+                    colorspace=img_obj.colorspace.name if img_obj.colorspace else None,
+                    bits_per_component=img_obj.bits,
+                    is_mask=img_obj.imagemask,
+                )
+            except Exception as e:  # noqa: BLE001
+                logger.warning("Failed to extract image on page %s: %s", page_num, e)
+                return None
+
+        jobs = []
+        img_counter = 1
+        for page_num, page in enumerate(doc.pages, 1):
+            for img_obj in page.images:
+                jobs.append((page_num, img_counter, img_obj))
+                img_counter += 1
+
+        if not jobs:
+            return []
+
+        images = []
+        max_workers = min(8, len(jobs))
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(extract_single_image, *job): i for i, job in enumerate(jobs)}
+            for future in as_completed(futures):
+                result = future.result()
+                if result:
+                    images.append(result)
+
+        images.sort(key=lambda x: int((x.filename or "page_0_image_0.jpg").split("_")[-1].split(".")[0]))
+        return images
 
     async def _convert_pdf_to_images(self, input_file: Path) -> list[Image]:
         document: pypdfium2.PdfDocument | None = None
@@ -302,18 +423,41 @@ class PDFExtractor(Extractor):
 
     def _extract_pdf_with_ocr_sync(self, path: Path) -> str:
         pdf = None
+        temp_files: list[Path] = []
         try:
-            images = []
             with pypdfium_file_lock(path):
                 pdf = pypdfium2.PdfDocument(str(path))
                 for page in pdf:
-                    bitmap = page.render(scale=200 / 72)
+                    width, height = page.get_size()
+
+                    if self.config.auto_adjust_dpi:
+                        optimal_dpi = calculate_optimal_dpi(
+                            page_width=width,
+                            page_height=height,
+                            target_dpi=self.config.target_dpi,
+                            max_dimension=self.config.max_image_dimension,
+                            min_dpi=self.config.min_dpi,
+                            max_dpi=self.config.max_dpi,
+                        )
+                    else:
+                        optimal_dpi = self.config.target_dpi
+
+                    scale = optimal_dpi / 72.0
+
+                    bitmap = page.render(scale=scale)
                     pil_image = bitmap.to_pil()
-                    images.append(pil_image)
+
+                    fd, tmp = tempfile.mkstemp(suffix=".png")
+                    os.close(fd)
+                    tmp_path = Path(tmp)
+                    pil_image.save(tmp_path)
+                    temp_files.append(tmp_path)
+
+                    pil_image.close()
                     bitmap.close()
                     page.close()
 
-            return self._process_pdf_images_with_ocr_direct(images)
+            return self._process_pdf_images_with_ocr([str(p) for p in temp_files])
 
         except Exception as e:
             raise ParsingError(f"Failed to OCR PDF: {e}") from e
@@ -321,6 +465,9 @@ class PDFExtractor(Extractor):
             if pdf:
                 with pypdfium_file_lock(path), contextlib.suppress(Exception):
                     pdf.close()
+            for p in temp_files:
+                with contextlib.suppress(OSError):
+                    p.unlink()
 
     def _process_pdf_images_with_ocr(self, image_paths: list[str]) -> str:
         backend = get_ocr_backend(self.config.ocr_backend)

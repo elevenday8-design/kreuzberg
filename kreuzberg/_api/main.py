@@ -3,7 +3,6 @@ from __future__ import annotations
 import base64
 import io
 import traceback
-from functools import lru_cache
 from json import dumps, loads
 from typing import TYPE_CHECKING, Annotated, Any, Literal
 
@@ -14,9 +13,11 @@ from typing_extensions import TypedDict
 
 from kreuzberg import (
     EasyOCRConfig,
+    ExtractedImage,
     ExtractionConfig,
     ExtractionResult,
     GMFTConfig,
+    ImageOCRResult,
     KreuzbergError,
     LanguageDetectionConfig,
     MissingDependencyError,
@@ -146,7 +147,6 @@ def _create_ocr_config(
     return config_dict
 
 
-@lru_cache(maxsize=128)
 def _merge_configs_cached(
     static_config: ExtractionConfig | None,
     query_params: tuple[tuple[str, Any], ...],
@@ -223,6 +223,13 @@ async def handle_files_upload(  # noqa: PLR0913
     ocr_backend: Literal["tesseract", "easyocr", "paddleocr"] | None = None,
     auto_detect_language: str | bool | None = None,
     pdf_password: str | None = None,
+    extract_images: str | bool | None = None,
+    ocr_extracted_images: str | bool | None = None,
+    image_ocr_backend: Literal["tesseract", "easyocr", "paddleocr"] | None = None,
+    image_ocr_min_width: int | None = None,
+    image_ocr_min_height: int | None = None,
+    image_ocr_max_width: int | None = None,
+    image_ocr_max_height: int | None = None,
 ) -> list[ExtractionResult]:
     """Extract text, metadata, and structured data from uploaded documents.
 
@@ -250,11 +257,38 @@ async def handle_files_upload(  # noqa: PLR0913
         ocr_backend: OCR engine to use (tesseract, easyocr, paddleocr)
         auto_detect_language: Enable automatic language detection
         pdf_password: Password for encrypted PDF files
+        extract_images: Enable image extraction for supported formats
+        ocr_extracted_images: Run OCR over extracted images
+        image_ocr_backend: Optional backend override for image OCR
+        image_ocr_min_width: Minimum image width for OCR eligibility
+        image_ocr_min_height: Minimum image height for OCR eligibility
+        image_ocr_max_width: Maximum image width for OCR eligibility
+        image_ocr_max_height: Maximum image height for OCR eligibility
 
     Returns:
         List of extraction results, one per uploaded file
+
+    Additional query parameters:
+        extract_images: Enable image extraction for supported formats
+        ocr_extracted_images: Run OCR over extracted images
+        image_ocr_backend: Optional backend override for image OCR
+        image_ocr_min_width: Minimum image width for OCR eligibility
+        image_ocr_min_height: Minimum image height for OCR eligibility
+        image_ocr_max_width: Maximum image width for OCR eligibility
+        image_ocr_max_height: Maximum image height for OCR eligibility
     """
     static_config = discover_config()
+
+    min_dims = (
+        (image_ocr_min_width, image_ocr_min_height)
+        if image_ocr_min_width is not None and image_ocr_min_height is not None
+        else None
+    )
+    max_dims = (
+        (image_ocr_max_width, image_ocr_max_height)
+        if image_ocr_max_width is not None and image_ocr_max_height is not None
+        else None
+    )
 
     query_params = {
         "chunk_content": chunk_content,
@@ -268,6 +302,11 @@ async def handle_files_upload(  # noqa: PLR0913
         "ocr_backend": ocr_backend,
         "auto_detect_language": auto_detect_language,
         "pdf_password": pdf_password,
+        "extract_images": extract_images,
+        "ocr_extracted_images": ocr_extracted_images,
+        "image_ocr_backend": image_ocr_backend,
+        "image_ocr_min_dimensions": min_dims,
+        "image_ocr_max_dimensions": max_dims,
     }
 
     header_config = None
@@ -316,16 +355,39 @@ async def get_configuration() -> ConfigurationResponse:
 
 
 def _polars_dataframe_encoder(obj: Any) -> Any:
-    """Convert polars DataFrame to dict for JSON serialization."""
     return obj.to_dicts()
 
 
 def _pil_image_encoder(obj: Any) -> str:
-    """Convert PIL Image to base64 string for JSON serialization."""
     buffer = io.BytesIO()
     obj.save(buffer, format="PNG")
     img_str = base64.b64encode(buffer.getvalue()).decode()
     return f"data:image/png;base64,{img_str}"
+
+
+def _extracted_image_encoder(obj: ExtractedImage) -> dict[str, Any]:
+    encoded_data = base64.b64encode(obj.data).decode()
+    return {
+        "data": f"data:image/{obj.format};base64,{encoded_data}",
+        "format": obj.format,
+        "filename": obj.filename,
+        "page_number": obj.page_number,
+        "dimensions": obj.dimensions,
+        "colorspace": obj.colorspace,
+        "bits_per_component": obj.bits_per_component,
+        "is_mask": obj.is_mask,
+        "description": obj.description,
+    }
+
+
+def _image_ocr_result_encoder(obj: ImageOCRResult) -> dict[str, Any]:
+    return {
+        "image": obj.image,
+        "ocr_result": obj.ocr_result,
+        "confidence_score": obj.confidence_score,
+        "processing_time": obj.processing_time,
+        "skipped_reason": obj.skipped_reason,
+    }
 
 
 openapi_config = OpenAPIConfig(
@@ -344,10 +406,11 @@ openapi_config = OpenAPIConfig(
     create_examples=True,
 )
 
-# Type encoders for custom serialization
 type_encoders = {
     pl.DataFrame: _polars_dataframe_encoder,
     Image.Image: _pil_image_encoder,
+    ExtractedImage: _extracted_image_encoder,
+    ImageOCRResult: _image_ocr_result_encoder,
 }
 
 app = Litestar(
@@ -360,5 +423,5 @@ app = Litestar(
         Exception: general_exception_handler,
     },
     type_encoders=type_encoders,
-    request_max_body_size=1024 * 1024 * 1024,  # 1GB limit for large file uploads
+    request_max_body_size=1024 * 1024 * 1024,
 )
