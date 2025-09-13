@@ -467,7 +467,7 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
             last_para = -1
 
             for line_key in sorted(lines.keys()):
-                page_num, block_num, par_num, line_num = line_key
+                _page_num, block_num, par_num, _line_num = line_key
 
                 if block_num != last_block:
                     if text_parts:  # ~keep
