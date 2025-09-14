@@ -56,7 +56,6 @@ async def run_taskgroup_batched(
     if not async_tasks:
         return []
 
-    # For small numbers of tasks or when semaphore disabled, use sequential batches
     if len(async_tasks) <= batch_size or not use_semaphore:
         results: list[Any] = []
         for i in range(0, len(async_tasks), batch_size):
@@ -64,7 +63,6 @@ async def run_taskgroup_batched(
             results.extend(await run_taskgroup(*batch))
         return results
 
-    # Use semaphore for better concurrency control
     semaphore = asyncio.Semaphore(batch_size)
 
     async def run_with_semaphore(task: Awaitable[Any], index: int) -> tuple[int, Any]:
@@ -72,11 +70,9 @@ async def run_taskgroup_batched(
             result = await task
             return (index, result)
 
-    # Run all tasks with semaphore control and preserve order
     indexed_tasks = [run_with_semaphore(task, i) for i, task in enumerate(async_tasks)]
     indexed_results = await asyncio.gather(*indexed_tasks)
 
-    # Sort by index to maintain original order
     indexed_results.sort(key=lambda x: x[0])
     return [result for _, result in indexed_results]
 

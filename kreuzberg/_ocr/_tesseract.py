@@ -32,7 +32,7 @@ from kreuzberg._utils._cache import get_ocr_cache
 from kreuzberg._utils._process_pool import ProcessPoolManager, get_optimal_worker_count
 from kreuzberg._utils._string import normalize_spaces
 from kreuzberg._utils._sync import run_sync
-from kreuzberg._utils._tmp import create_temp_file
+from kreuzberg._utils._tmp import create_temp_file, temporary_file_sync
 from kreuzberg.exceptions import MissingDependencyError, OCRError, ValidationError
 
 if TYPE_CHECKING:
@@ -346,11 +346,9 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
         if output_format == "tsv":
             return self._extract_text_from_tsv(output)
         if output_format == "hocr":
-            return ExtractionResult(content=output, mime_type=HTML_MIME_TYPE, metadata={}, chunks=[])
+            return ExtractionResult(content=output, mime_type=HTML_MIME_TYPE, metadata={})
 
-        return ExtractionResult(
-            content=normalize_spaces(output), mime_type=PLAIN_TEXT_MIME_TYPE, metadata={}, chunks=[]
-        )
+        return ExtractionResult(content=normalize_spaces(output), mime_type=PLAIN_TEXT_MIME_TYPE, metadata={})
 
     async def process_file(self, path: Path, **kwargs: Unpack[TesseractConfig]) -> ExtractionResult:
         use_cache = kwargs.pop("use_cache", True)
@@ -496,9 +494,7 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
                     content += parts[11] + " "
             content = content.strip()
 
-        return ExtractionResult(
-            content=normalize_spaces(content), mime_type=PLAIN_TEXT_MIME_TYPE, metadata={}, chunks=[]
-        )
+        return ExtractionResult(content=normalize_spaces(content), mime_type=PLAIN_TEXT_MIME_TYPE, metadata={})
 
     async def _process_hocr_to_markdown(
         self,
@@ -950,11 +946,9 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
         if output_format == "tsv":
             return self._extract_text_from_tsv(output)
         if output_format == "hocr":
-            return ExtractionResult(content=output, mime_type=HTML_MIME_TYPE, metadata={}, chunks=[])
+            return ExtractionResult(content=output, mime_type=HTML_MIME_TYPE, metadata={})
 
-        return ExtractionResult(
-            content=normalize_spaces(output), mime_type=PLAIN_TEXT_MIME_TYPE, metadata={}, chunks=[]
-        )
+        return ExtractionResult(content=normalize_spaces(output), mime_type=PLAIN_TEXT_MIME_TYPE, metadata={})
 
     def process_image_sync(self, image: PILImage, **kwargs: Unpack[TesseractConfig]) -> ExtractionResult:
         use_cache = kwargs.pop("use_cache", True)
@@ -981,10 +975,8 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
         ocr_cache = get_ocr_cache()
         try:
             self._validate_tesseract_version_sync()
-            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_file:
-                image_path = Path(tmp_file.name)
+            with temporary_file_sync(".png") as image_path:
                 save_image.save(str(image_path), format="PNG")
-            try:
                 kwargs_with_cache = {**kwargs, "use_cache": use_cache}
                 result = self.process_file_sync(image_path, **kwargs_with_cache)
 
@@ -992,9 +984,6 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
                     ocr_cache.set(result, **cache_kwargs)
 
                 return result
-            finally:
-                if image_path.exists():
-                    image_path.unlink()
         finally:
             if use_cache:
                 ocr_cache.mark_complete(**cache_kwargs)
@@ -1115,7 +1104,7 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
             return []
 
         results: list[ExtractionResult] = [
-            ExtractionResult(content="", mime_type=PLAIN_TEXT_MIME_TYPE, metadata={}, chunks=[])
+            ExtractionResult(content="", mime_type=PLAIN_TEXT_MIME_TYPE, metadata={})
         ] * len(paths)
 
         run_config = self._prepare_tesseract_run_config(**kwargs)
@@ -1138,7 +1127,7 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
                     results[idx] = self._result_from_dict(result_dict)
                 except Exception as e:  # noqa: BLE001
                     results[idx] = ExtractionResult(
-                        content=f"[OCR error: {e}]", mime_type=PLAIN_TEXT_MIME_TYPE, metadata={}, chunks=[]
+                        content=f"[OCR error: {e}]", mime_type=PLAIN_TEXT_MIME_TYPE, metadata={}
                     )
 
         return results

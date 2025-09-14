@@ -9,7 +9,7 @@ from anyio import Path as AsyncPath
 
 from kreuzberg._extractors._base import Extractor
 from kreuzberg._mime_types import EML_MIME_TYPE, PLAIN_TEXT_MIME_TYPE
-from kreuzberg._types import ExtractedImage, ExtractionResult, normalize_metadata
+from kreuzberg._types import ExtractedImage, ExtractionResult, ImageOCRResult, normalize_metadata
 from kreuzberg._utils._sync import run_maybe_async, run_sync
 from kreuzberg.exceptions import MissingDependencyError
 
@@ -84,18 +84,13 @@ class EmailExtractor(Extractor):
             text_parts.append(f"BCC: {bcc_formatted}")
 
     def _format_email_field(self, field: Any) -> str:
-        if isinstance(field, list):
-            emails = []
-            for item in field:
-                if isinstance(item, dict):
-                    email = item.get("email", "")
-                    emails.append(str(email))
-                else:
-                    emails.append(str(item))
-            return ", ".join(emails)
-        if isinstance(field, dict):
-            return str(field.get("email", ""))
-        return str(field)
+        match field:
+            case list():
+                return ", ".join(str(item.get("email", "")) if isinstance(item, dict) else str(item) for item in field)
+            case dict():
+                return str(field.get("email", ""))
+            case _:
+                return str(field)
 
     def _extract_email_body(self, parsed_email: dict[str, Any], text_parts: list[str]) -> None:
         text_content = parsed_email.get("text")
@@ -146,7 +141,7 @@ class EmailExtractor(Extractor):
         images: list[ExtractedImage] = []
         attachments = parsed_email.get("attachments") or []
         if not isinstance(attachments, list):
-            return images
+            return []
 
         for idx, att in enumerate(attachments, start=1):
             if not isinstance(att, dict):
@@ -212,9 +207,13 @@ class EmailExtractor(Extractor):
             )
 
             if self.config.extract_images:
-                result.images = self._extract_images_from_attachments(parsed_email)
+                images = self._extract_images_from_attachments(parsed_email)
+                result.images = images
                 if self.config.ocr_extracted_images and result.images:
-                    result.image_ocr_results = run_maybe_async(self._process_images_with_ocr, result.images)
+                    image_ocr_results: list[ImageOCRResult] = run_maybe_async(
+                        self._process_images_with_ocr, result.images
+                    )
+                    result.image_ocr_results = image_ocr_results
 
             return result
 

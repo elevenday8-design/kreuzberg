@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from itertools import chain
 from multiprocessing import cpu_count
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -44,7 +45,7 @@ class KreuzbergBenchmarks:
             ".yml",
             ".toml",
         ]
-        test_files = [file for ext in extensions for file in self.test_files_dir.glob(f"*{ext}")]
+        test_files = list(chain.from_iterable(self.test_files_dir.glob(f"*{ext}") for ext in extensions))
 
         return sorted(test_files)[:10]
 

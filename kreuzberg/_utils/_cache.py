@@ -20,7 +20,6 @@ from kreuzberg._utils._sync import run_sync
 
 T = TypeVar("T")
 
-# Cache cleanup trigger - run cleanup every N writes
 CACHE_CLEANUP_FREQUENCY = 100
 
 
@@ -141,7 +140,6 @@ class KreuzbergCache(Generic[T]):
             cache_files = list(self.cache_dir.glob("*.msgpack"))
             cutoff_time = time.time() - (self.max_age_days * 24 * 3600)
 
-            # Remove expired files and filter the list
             remaining_files = []
             for cache_file in cache_files:
                 try:

@@ -29,7 +29,6 @@ if TYPE_CHECKING:
 
     from kreuzberg._types import ExtractionConfig
 
-# Memory limits for image processing (in bytes)
 MAX_TOTAL_IMAGE_SIZE_MB = 100
 MAX_SINGLE_IMAGE_SIZE_MB = 50
 MAX_TOTAL_IMAGE_SIZE = MAX_TOTAL_IMAGE_SIZE_MB * 1024 * 1024
@@ -101,10 +100,8 @@ class Extractor(ABC):
         if not images:
             return []
 
-        # Calculate sizes once and create tuples for efficient processing
         images_with_sizes = [(img, len(img.data)) for img in images]
 
-        # Filter out images exceeding single image limit
         valid_images = []
         for img, size in images_with_sizes:
             if size <= MAX_SINGLE_IMAGE_SIZE:
@@ -119,11 +116,9 @@ class Extractor(ABC):
 
         total_size = sum(size for _, size in valid_images)
 
-        # If total is within limits, return all valid images
         if total_size <= MAX_TOTAL_IMAGE_SIZE:
             return [img for img, _ in valid_images]
 
-        # Need to select subset - sort by size and greedily add smallest first
         logger.warning(
             "Total image size %d MB exceeds limit of %d MB, selecting subset",
             total_size // (1024 * 1024),
@@ -143,9 +138,8 @@ class Extractor(ABC):
 
         return selected
 
-    # Deduplication constants
-    _SMALL_IMAGE_THRESHOLD = 1024  # 1KB - hash entire content below this
-    _HASH_SAMPLE_SIZE = 512  # Bytes to sample from start/end for hash
+    _SMALL_IMAGE_THRESHOLD = 1024
+    _HASH_SAMPLE_SIZE = 512
 
     def _compute_image_hash(self, img: ExtractedImage) -> int:
         """Compute hash for image deduplication using progressive hashing.
@@ -161,12 +155,9 @@ class Extractor(ABC):
         """
         data_len = len(img.data)
 
-        # For small images, hash everything
         if data_len < self._SMALL_IMAGE_THRESHOLD:
             return zlib.crc32(img.data) & 0xFFFFFFFF
 
-        # For larger images, use progressive hashing:
-        # Size + first N bytes + last N bytes + format
         hash_components = [
             str(data_len).encode(),
             img.data[: self._HASH_SAMPLE_SIZE],
@@ -174,7 +165,6 @@ class Extractor(ABC):
             img.format.encode() if img.format else b"",
         ]
 
-        # Combine components for hash
         combined = b"".join(hash_components)
         return zlib.crc32(combined) & 0xFFFFFFFF
 
@@ -224,7 +214,6 @@ class Extractor(ABC):
 
         cfg: dict[str, Any] = asdict(default_config)
 
-        # Update with user config if compatible
         if self.config.ocr_config and isinstance(self.config.ocr_config, config_class):
             user_cfg: dict[str, Any] = asdict(self.config.ocr_config)
             cfg.update(user_cfg)
@@ -241,12 +230,10 @@ class Extractor(ABC):
         Returns:
             Reason for skipping if invalid, None if valid
         """
-        # Check format
         fmt = img.format.lower()
         if fmt not in self.config.image_ocr_formats:
             return f"Unsupported format: {img.format}"
 
-        # Check dimensions if available
         if img.dimensions is not None:
             w, h = img.dimensions
             min_w, min_h = self.config.image_ocr_min_dimensions
@@ -282,25 +269,25 @@ class Extractor(ABC):
                 processing_time=duration,
             )
         except (OSError, ValueError) as e:  # pragma: no cover
-            # Image decoding or OCR processing errors
             return ImageOCRResult(
                 image=target,
                 ocr_result=ExtractionResult(content="", mime_type="text/plain", metadata={}),
                 skipped_reason=f"OCR failed: {type(e).__name__}: {e}",
             )
         except (RuntimeError, TypeError) as e:  # pragma: no cover
-            # OCR backend errors
             return ImageOCRResult(
                 image=target,
                 ocr_result=ExtractionResult(content="", mime_type="text/plain", metadata={}),
                 skipped_reason=f"Backend error: {type(e).__name__}: {e}",
             )
 
-    async def _process_images_with_ocr(self, images: list[ExtractedImage]) -> list[ImageOCRResult]:
+    async def _process_images_with_ocr(
+        self, images: tuple[ExtractedImage, ...] | list[ExtractedImage]
+    ) -> list[ImageOCRResult]:
         """Process multiple images with OCR.
 
         Args:
-            images: List of images to process
+            images: Tuple or list of images to process
 
         Returns:
             List of OCR results
@@ -308,24 +295,20 @@ class Extractor(ABC):
         if not images or not self.config.ocr_extracted_images:
             return []
 
-        # Preprocess images
-        images = self._deduplicate_images(images)
-        images = self._check_image_memory_limits(images)
+        images_list = list(self._deduplicate_images(list(images)))
+        images_list = self._check_image_memory_limits(images_list)
 
-        # Get backend
         backend_name = self.config.image_ocr_backend or self.config.ocr_backend
         if backend_name is None:
             return []
 
-        # Prepare configuration and backend
         cfg = self._prepare_ocr_config(backend_name)
         backend = get_ocr_backend(backend_name)
 
         results: list[ImageOCRResult] = []
         tasks = []
 
-        # Validate and prepare tasks
-        for img in images:
+        for img in images_list:
             skip_reason = self._validate_image_for_ocr(img)
             if skip_reason:
                 results.append(
@@ -338,7 +321,6 @@ class Extractor(ABC):
             else:
                 tasks.append(self._ocr_single_image(img, backend, cfg))
 
-        # Process valid images in batches
         if tasks:
             batch_size = max(1, min(len(tasks), cpu_count()))
             results.extend(await run_taskgroup_batched(*tasks, batch_size=batch_size))

@@ -3,8 +3,7 @@ from __future__ import annotations
 import base64
 import io
 import traceback
-from functools import lru_cache
-from json import dumps, loads
+from json import dumps
 from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 import msgspec
@@ -17,20 +16,25 @@ from kreuzberg import (
     ExtractedImage,
     ExtractionConfig,
     ExtractionResult,
-    GMFTConfig,
     ImageOCRResult,
     KreuzbergError,
-    LanguageDetectionConfig,
     MissingDependencyError,
     PaddleOCRConfig,
     ParsingError,
-    SpacyEntityExtractionConfig,
     TesseractConfig,
     ValidationError,
     batch_extract_bytes,
 )
+from kreuzberg._api._config_cache import (
+    create_gmft_config_cached,
+    create_html_markdown_config_cached,
+    create_language_detection_config_cached,
+    create_ocr_config_cached,
+    create_spacy_config_cached,
+    discover_config_cached,
+    parse_header_config_cached,
+)
 from kreuzberg._config import discover_config
-from kreuzberg._types import HTMLToMarkdownConfig
 
 if TYPE_CHECKING:
     from litestar.datastructures import UploadFile
@@ -54,7 +58,7 @@ class ImageOCRResultDict(TypedDict):
     """TypedDict for image OCR result JSON representation."""
 
     image: ExtractedImageDict
-    ocr_result: Any  # ExtractionResult serialized
+    ocr_result: Any
     confidence_score: float | None
     processing_time: float | None
     skipped_reason: str | None
@@ -172,49 +176,6 @@ def _create_ocr_config(
     return config_dict
 
 
-@lru_cache(maxsize=256)
-def _merge_configs_cached(
-    static_config: ExtractionConfig | None,
-    query_params: tuple[tuple[str, Any], ...],
-    header_config: tuple[tuple[str, Any], ...] | None,
-) -> ExtractionConfig:
-    base_config = static_config or ExtractionConfig()
-    config_dict = base_config.to_dict()
-
-    query_dict = dict(query_params) if query_params else {}
-    for key, value in query_dict.items():
-        if value is not None and key in config_dict:
-            config_dict[key] = _convert_value_type(config_dict[key], value)
-
-    if header_config:
-        header_dict = dict(header_config)
-        for key, value in header_dict.items():
-            if key in config_dict:
-                config_dict[key] = value
-
-    if "ocr_config" in config_dict and isinstance(config_dict["ocr_config"], dict):
-        ocr_backend = config_dict.get("ocr_backend")
-        config_dict["ocr_config"] = _create_ocr_config(ocr_backend, config_dict["ocr_config"])
-
-    if "gmft_config" in config_dict and isinstance(config_dict["gmft_config"], dict):
-        config_dict["gmft_config"] = GMFTConfig(**config_dict["gmft_config"])
-
-    if "language_detection_config" in config_dict and isinstance(config_dict["language_detection_config"], dict):
-        config_dict["language_detection_config"] = LanguageDetectionConfig(**config_dict["language_detection_config"])
-
-    if "spacy_entity_extraction_config" in config_dict and isinstance(
-        config_dict["spacy_entity_extraction_config"], dict
-    ):
-        config_dict["spacy_entity_extraction_config"] = SpacyEntityExtractionConfig(
-            **config_dict["spacy_entity_extraction_config"]
-        )
-
-    if "html_to_markdown_config" in config_dict and isinstance(config_dict["html_to_markdown_config"], dict):
-        config_dict["html_to_markdown_config"] = HTMLToMarkdownConfig(**config_dict["html_to_markdown_config"])
-
-    return ExtractionConfig(**config_dict)
-
-
 def _create_dimension_tuple(width: int | None, height: int | None) -> tuple[int, int] | None:
     """Create a dimension tuple from width and height values.
 
@@ -230,28 +191,48 @@ def _create_dimension_tuple(width: int | None, height: int | None) -> tuple[int,
     return None
 
 
-def _make_hashable(obj: Any, max_depth: int = 10, _current_depth: int = 0) -> Any:
-    if _current_depth >= max_depth:
-        return str(obj)
-
-    if isinstance(obj, dict):
-        return tuple(sorted((k, _make_hashable(v, max_depth, _current_depth + 1)) for k, v in obj.items()))
-    if isinstance(obj, list):
-        if len(obj) > 1000:
-            return (*tuple(_make_hashable(item, max_depth, _current_depth + 1) for item in obj[:1000]), "...")
-        return tuple(_make_hashable(item, max_depth, _current_depth + 1) for item in obj)
-    return obj
-
-
 def merge_configs(
     static_config: ExtractionConfig | None,
     query_params: dict[str, Any],
     header_config: dict[str, Any] | None,
 ) -> ExtractionConfig:
-    query_tuple = tuple(sorted(query_params.items())) if query_params else ()
-    header_tuple = _make_hashable(header_config) if header_config else None
+    base_config = static_config or ExtractionConfig()
+    config_dict = base_config.to_dict()
 
-    return _merge_configs_cached(static_config, query_tuple, header_tuple)
+    for key, value in query_params.items():
+        if value is not None and key in config_dict:
+            config_dict[key] = _convert_value_type(config_dict[key], value)
+
+    if header_config:
+        for key, value in header_config.items():
+            if key in config_dict:
+                config_dict[key] = value
+
+    if "ocr_config" in config_dict and isinstance(config_dict["ocr_config"], dict):
+        ocr_backend = config_dict.get("ocr_backend")
+        config_dict["ocr_config"] = create_ocr_config_cached(ocr_backend, config_dict["ocr_config"])
+
+    if "gmft_config" in config_dict and isinstance(config_dict["gmft_config"], dict):
+        config_dict["gmft_config"] = create_gmft_config_cached(config_dict["gmft_config"])
+
+    if "language_detection_config" in config_dict and isinstance(config_dict["language_detection_config"], dict):
+        config_dict["language_detection_config"] = create_language_detection_config_cached(
+            config_dict["language_detection_config"]
+        )
+
+    if "spacy_entity_extraction_config" in config_dict and isinstance(
+        config_dict["spacy_entity_extraction_config"], dict
+    ):
+        config_dict["spacy_entity_extraction_config"] = create_spacy_config_cached(
+            config_dict["spacy_entity_extraction_config"]
+        )
+
+    if "html_to_markdown_config" in config_dict and isinstance(config_dict["html_to_markdown_config"], dict):
+        config_dict["html_to_markdown_config"] = create_html_markdown_config_cached(
+            config_dict["html_to_markdown_config"]
+        )
+
+    return ExtractionConfig(**config_dict)
 
 
 @post("/extract", operation_id="ExtractFiles")
@@ -323,7 +304,7 @@ async def handle_files_upload(  # noqa: PLR0913
         image_ocr_max_width: Maximum image width for OCR eligibility
         image_ocr_max_height: Maximum image height for OCR eligibility
     """
-    static_config = discover_config()
+    static_config = discover_config_cached()
 
     min_dims = _create_dimension_tuple(image_ocr_min_width, image_ocr_min_height)
     max_dims = _create_dimension_tuple(image_ocr_max_width, image_ocr_max_height)
@@ -350,7 +331,7 @@ async def handle_files_upload(  # noqa: PLR0913
     header_config = None
     if config_header := request.headers.get("X-Extraction-Config"):
         try:
-            header_config = loads(config_header)
+            header_config = parse_header_config_cached(config_header)
         except Exception as e:
             raise ValidationError(f"Invalid JSON in X-Extraction-Config header: {e}", context={"error": str(e)}) from e
 

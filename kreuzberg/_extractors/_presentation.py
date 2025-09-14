@@ -14,7 +14,7 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 
 from kreuzberg._extractors._base import Extractor
 from kreuzberg._mime_types import MARKDOWN_MIME_TYPE, POWER_POINT_MIME_TYPE
-from kreuzberg._types import ExtractedImage, ExtractionResult
+from kreuzberg._types import ExtractedImage, ExtractionResult, ImageOCRResult
 from kreuzberg._utils._string import normalize_spaces
 from kreuzberg._utils._sync import run_maybe_async
 
@@ -34,27 +34,31 @@ class PresentationExtractor(Extractor):
     async def extract_bytes_async(self, content: bytes) -> ExtractionResult:
         result = self._extract_pptx(content)
         if self.config.extract_images and self.config.ocr_extracted_images and result.images:
-            result.image_ocr_results = await self._process_images_with_ocr(result.images)
+            image_ocr_results = await self._process_images_with_ocr(result.images)
+            result.image_ocr_results = image_ocr_results
         return result
 
     async def extract_path_async(self, path: Path) -> ExtractionResult:
         content = await AsyncPath(path).read_bytes()
         result = self._extract_pptx(content)
         if self.config.extract_images and self.config.ocr_extracted_images and result.images:
-            result.image_ocr_results = await self._process_images_with_ocr(result.images)
+            image_ocr_results = await self._process_images_with_ocr(result.images)
+            result.image_ocr_results = image_ocr_results
         return result
 
     def extract_bytes_sync(self, content: bytes) -> ExtractionResult:
         result = self._extract_pptx(content)
         if self.config.extract_images and self.config.ocr_extracted_images and result.images:
-            result.image_ocr_results = run_maybe_async(self._process_images_with_ocr, result.images)
+            image_ocr_results: list[ImageOCRResult] = run_maybe_async(self._process_images_with_ocr, result.images)
+            result.image_ocr_results = image_ocr_results
         return result
 
     def extract_path_sync(self, path: Path) -> ExtractionResult:
         content = Path(path).read_bytes()
         result = self._extract_pptx(content)
         if self.config.extract_images and self.config.ocr_extracted_images and result.images:
-            result.image_ocr_results = run_maybe_async(self._process_images_with_ocr, result.images)
+            image_ocr_results: list[ImageOCRResult] = run_maybe_async(self._process_images_with_ocr, result.images)
+            result.image_ocr_results = image_ocr_results
         return result
 
     def _extract_pptx(self, file_contents: bytes) -> ExtractionResult:
@@ -125,7 +129,8 @@ class PresentationExtractor(Extractor):
         )
 
         if self.config.extract_images:
-            result.images = self._extract_images_from_pptx(presentation)
+            images = self._extract_images_from_pptx(presentation)
+            result.images = images
 
         return self._apply_quality_processing(result)
 

@@ -4,14 +4,16 @@ from kreuzberg import ExtractionResult
 from kreuzberg._types import ExtractedImage, ImageOCRResult
 
 
-def test_image_ocr_result_hashable() -> None:
+def test_image_ocr_result_not_hashable() -> None:
     img = ExtractedImage(data=b"abc", format="png", filename="x.png", page_number=1)
     ocr = ExtractionResult(content="hello", mime_type="text/plain", metadata={})
     res = ImageOCRResult(image=img, ocr_result=ocr, confidence_score=0.9, processing_time=0.01)
 
-    _ = hash(res)
-    s = {res}
-    assert len(s) == 1
+    try:
+        hash(res)
+        raise AssertionError("ImageOCRResult should not be hashable")
+    except TypeError as e:
+        assert "unhashable" in str(e)
 
 
 def test_image_ocr_result_fields() -> None:

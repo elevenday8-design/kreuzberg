@@ -4,6 +4,7 @@ import sys
 from collections.abc import Awaitable, Callable, Iterable, Mapping
 from dataclasses import asdict, dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, NamedTuple, TypedDict
 
 import msgspec
@@ -25,8 +26,6 @@ else:  # pragma: no cover
     from typing import NotRequired
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from PIL.Image import Image
     from polars import DataFrame
 
@@ -164,6 +163,12 @@ class EasyOCRConfig(ConfigDict):
     """Maximum vertical distance for paragraph merging."""
     ycenter_ths: float = 0.5
     """Maximum shift in y direction for merging."""
+
+    def __post_init__(self) -> None:
+        if isinstance(self.language, list):
+            object.__setattr__(self, "language", tuple(self.language))
+        if isinstance(self.rotation_info, list):
+            object.__setattr__(self, "rotation_info", tuple(self.rotation_info))
 
 
 @dataclass(unsafe_hash=True, frozen=True, slots=True)
@@ -389,6 +394,10 @@ class ImageOCRConfig(ConfigDict):
     timeout_seconds: int = 30
     """Maximum time in seconds for OCR processing per image."""
 
+    def __post_init__(self) -> None:
+        if isinstance(self.allowed_formats, list):
+            object.__setattr__(self, "allowed_formats", frozenset(self.allowed_formats))
+
 
 @dataclass(unsafe_hash=True, frozen=True, slots=True)
 class LanguageDetectionConfig(ConfigDict):
@@ -432,6 +441,9 @@ class SpacyEntityExtractionConfig(ConfigDict):
     """Batch size for processing multiple texts."""
 
     def __post_init__(self) -> None:
+        if isinstance(self.model_cache_dir, Path):
+            object.__setattr__(self, "model_cache_dir", str(self.model_cache_dir))
+
         if self.language_models is None:
             object.__setattr__(self, "language_models", self._get_default_language_models())
 
@@ -745,7 +757,7 @@ class ExtractedImage:
     description: str | None = None
 
 
-@dataclass(unsafe_hash=True, frozen=True, slots=True)
+@dataclass(slots=True)
 class ImageOCRResult:
     image: ExtractedImage
     ocr_result: ExtractionResult
@@ -760,7 +772,7 @@ class ExtractionResult:
     """The extracted content."""
     mime_type: str
     """The mime type of the extracted content. Is either text/plain or text/markdown."""
-    metadata: Metadata
+    metadata: Metadata = field(default_factory=lambda: Metadata())
     """The metadata of the content."""
     tables: list[TableData] = field(default_factory=list)
     """Extracted tables. Is an empty list if 'extract_tables' is not set to True in the ExtractionConfig."""
@@ -834,7 +846,6 @@ class ExtractionConfig(ConfigDict):
     """Whether to remove duplicate images using CRC32 checksums."""
     image_ocr_config: ImageOCRConfig | None = None
     """Configuration for OCR processing of extracted images."""
-    # Legacy fields for backward compatibility - will be deprecated
     ocr_extracted_images: bool = False
     """Deprecated: Use image_ocr_config.enabled instead."""
     image_ocr_backend: OcrBackendType | None = None
@@ -929,7 +940,12 @@ class ExtractionConfig(ConfigDict):
         if self.validators is not None and isinstance(self.validators, list):
             object.__setattr__(self, "validators", tuple(self.validators))
 
-        # Handle backward compatibility for image OCR configuration
+        if isinstance(self.pdf_password, list):
+            object.__setattr__(self, "pdf_password", tuple(self.pdf_password))
+
+        if isinstance(self.image_ocr_formats, list):
+            object.__setattr__(self, "image_ocr_formats", frozenset(self.image_ocr_formats))
+
         if self.image_ocr_config is None and (
             self.ocr_extracted_images
             or self.image_ocr_backend is not None
@@ -957,7 +973,6 @@ class ExtractionConfig(ConfigDict):
                 }
             )
         ):
-            # Create ImageOCRConfig from legacy fields
             object.__setattr__(
                 self,
                 "image_ocr_config",
@@ -1004,27 +1019,22 @@ class ExtractionConfig(ConfigDict):
             )
 
     def get_config_dict(self) -> dict[str, Any]:
-        if self.ocr_backend is None:
-            return {"use_cache": self.use_cache}
-
-        if self.ocr_config is not None:
-            config_dict = asdict(self.ocr_config)
-            config_dict["use_cache"] = self.use_cache
-            return config_dict
-
         match self.ocr_backend:
+            case None:
+                return {"use_cache": self.use_cache}
+            case _ if self.ocr_config is not None:
+                config_dict = asdict(self.ocr_config)
+                config_dict["use_cache"] = self.use_cache
+                return config_dict
             case "tesseract":
                 config_dict = asdict(TesseractConfig())
-                config_dict["use_cache"] = self.use_cache
-                return config_dict
             case "easyocr":
                 config_dict = asdict(EasyOCRConfig())
-                config_dict["use_cache"] = self.use_cache
-                return config_dict
             case _:
                 config_dict = asdict(PaddleOCRConfig())
-                config_dict["use_cache"] = self.use_cache
-                return config_dict
+
+        config_dict["use_cache"] = self.use_cache
+        return config_dict
 
     def to_dict(self, include_none: bool = False) -> dict[str, Any]:
         result = msgspec.to_builtins(

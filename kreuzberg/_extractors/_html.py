@@ -46,7 +46,7 @@ class HTMLExtractor(Extractor):
         html_content = safe_decode(content)
         result = html_to_markdown.convert_to_markdown(html_content, **config_dict)
 
-        extraction_result = ExtractionResult(content=result, mime_type=MARKDOWN_MIME_TYPE, metadata={}, chunks=[])
+        extraction_result = ExtractionResult(content=result, mime_type=MARKDOWN_MIME_TYPE, metadata={})
 
         if self.config.extract_images:
             extraction_result.images = self._extract_images_from_html(html_content)

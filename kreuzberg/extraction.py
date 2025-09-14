@@ -3,7 +3,7 @@ from __future__ import annotations
 import multiprocessing as mp
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Final, cast
+from typing import TYPE_CHECKING, Final, cast
 
 import anyio
 
@@ -42,17 +42,14 @@ async def _handle_cache_async(path: Path, config: ExtractionConfig) -> Extractio
     """
     cache = get_document_cache()
 
-    # Try immediate cache hit
     cached_result = cache.get(path, config)
     if cached_result is not None:
         return cached_result
 
-    # Wait if another process is handling this file
     if cache.is_processing(path, config):
         event = cache.mark_processing(path, config)
         await anyio.to_thread.run_sync(event.wait)  # pragma: no cover
 
-        # Try cache again after waiting
         return cache.get(path, config)  # pragma: no cover
 
     return None
@@ -130,9 +127,9 @@ def _handle_chunk_content(
     mime_type: str,
     config: ExtractionConfig,
     content: str,
-) -> Any:
+) -> list[str]:
     chunker = get_chunker(mime_type=mime_type, max_characters=config.max_chars, overlap_characters=config.max_overlap)
-    return chunker.chunks(content)
+    return list(chunker.chunks(content))
 
 
 async def extract_bytes(content: bytes, mime_type: str, config: ExtractionConfig = DEFAULT_CONFIG) -> ExtractionResult:
@@ -180,7 +177,6 @@ async def extract_file(
     cache = get_document_cache()
     path = Path(file_path)
 
-    # Check cache if enabled
     if config.use_cache:
         cached_result = await _handle_cache_async(path, config)
         if cached_result is not None:
