@@ -230,6 +230,10 @@ async def test_init_easyocr_language_list(mocker: MockerFixture) -> None:
 @pytest.mark.anyio
 async def test_init_easyocr_error(mocker: MockerFixture) -> None:
     error_message = "Failed to initialize"
+    mock_easyocr = Mock()
+    mock_easyocr.Reader = Mock()
+
+    mocker.patch("kreuzberg._ocr._easyocr.easyocr", mock_easyocr)
     mocker.patch("kreuzberg._ocr._easyocr.run_sync", side_effect=Exception(error_message))
 
     backend = EasyOCRBackend()

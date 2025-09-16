@@ -240,6 +240,7 @@ plugins = [ "covdefaults" ]
 source = [ "kreuzberg" ]
 
 [tool.coverage.report]
+fail_under = 95
 exclude_lines = [
   'if TYPE_CHECKING:',
   "except ImportError:",
