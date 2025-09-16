@@ -17,6 +17,7 @@ if sys.version_info < (3, 11):  # pragma: no cover
     from exceptiongroup import ExceptionGroup  # type: ignore[import-not-found]
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
     from pathlib import Path
 
     from pytest_mock import MockerFixture
@@ -268,14 +269,23 @@ def test_extract_path_sync_parsing_error_wrapping(
 
 @pytest.mark.anyio
 async def test_extract_bytes_async_exception_cleanup(extractor: SpreadSheetExtractor, mocker: MockerFixture) -> None:
-    mock_path = "/tmp/test_excel.xlsx"
-    mock_unlink = mocker.AsyncMock()
+    from contextlib import asynccontextmanager
+    from pathlib import Path
 
-    mocker.patch("kreuzberg._extractors._spread_sheet.create_temp_file", return_value=(mock_path, mock_unlink))
+    cleanup_called = False
 
-    # Mock AsyncPath.write_bytes for extract_bytes_async exception cleanup test - legitimately needed ~keep
-    mock_write_bytes = mocker.AsyncMock()
-    mocker.patch("kreuzberg._extractors._spread_sheet.AsyncPath.write_bytes", mock_write_bytes)
+    async def mock_cleanup() -> None:
+        nonlocal cleanup_called
+        cleanup_called = True
+
+    @asynccontextmanager
+    async def mock_temp_file(extension: str, content: bytes | None = None) -> AsyncGenerator[Path, None]:
+        try:
+            yield Path("/tmp/test_excel.xlsx")
+        finally:
+            await mock_cleanup()
+
+    mocker.patch("kreuzberg._extractors._spread_sheet.temporary_file", side_effect=mock_temp_file)
 
     mock_error = ValueError("Test extraction error")
     mocker.patch.object(extractor, "extract_path_async", side_effect=mock_error)
@@ -285,9 +295,7 @@ async def test_extract_bytes_async_exception_cleanup(extractor: SpreadSheetExtra
     with pytest.raises(ValueError, match="Test extraction error"):
         await extractor.extract_bytes_async(test_content)
 
-    mock_write_bytes.assert_called_once_with(test_content)
-
-    mock_unlink.assert_called_once()
+    assert cleanup_called
 
 
 def test_convert_sheet_to_text_sync_empty_rows(extractor: SpreadSheetExtractor, mocker: MockerFixture) -> None:
@@ -515,7 +523,6 @@ def test_enhance_sheet_with_table_data_no_data_after_cleanup(
 
 
 def test_enhance_sheet_with_table_data_error_fallback(extractor: SpreadSheetExtractor, mocker: MockerFixture) -> None:
-    """Test that errors in enhance_table_markdown fall back to text conversion"""
     mock_workbook = mocker.Mock(spec=CalamineWorkbook)
     mock_sheet = mocker.Mock()
     mock_sheet.to_python.return_value = [["Header"], ["Data"]]
@@ -1057,17 +1064,14 @@ def test_spreadsheet_table_enhance_sheet_with_table_data_pandas_dataframe_operat
     mock_df_filtered = mocker.Mock()
     mock_df_final = mocker.Mock()
 
-    # Mock the filter operation
     mock_df_initial.filter.return_value = mock_df_filtered
 
-    # Mock the select operation
     mock_df_filtered.columns = ["column_0", "column_1", "column_2", "column_3"]
     mock_col = mocker.Mock()
     mock_col.is_null.return_value.all.return_value = False
     mock_df_filtered.__getitem__ = mocker.Mock(return_value=mock_col)
     mock_df_filtered.select.return_value = mock_df_final
 
-    # Mock is_empty check
     mock_df_final.is_empty.return_value = False
 
     mock_enhance = mocker.patch("kreuzberg._extractors._spread_sheet.enhance_table_markdown")

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sys
-from collections.abc import Awaitable, Callable, Iterable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -591,6 +591,8 @@ class ImagePreprocessingMetadata(NamedTuple):
 
 
 class Metadata(TypedDict, total=False):
+    abstract: NotRequired[str]
+    """Document abstract or summary."""
     authors: NotRequired[list[str]]
     """List of document authors."""
     categories: NotRequired[list[str]]
@@ -677,9 +679,26 @@ class Metadata(TypedDict, total=False):
     """Error message if extraction failed."""
     error_context: NotRequired[dict[str, Any]]
     """Error context information for debugging."""
+    json_schema: NotRequired[dict[str, Any]]
+    """JSON schema information extracted from structured data."""
+    notes: NotRequired[list[str]]
+    """Notes or additional information extracted from documents."""
+    note: NotRequired[str]
+    """Single note or annotation."""
+    name: NotRequired[str]
+    """Name field from structured data."""
+    body: NotRequired[str]
+    """Body text content."""
+    text: NotRequired[str]
+    """Generic text content."""
+    message: NotRequired[str]
+    """Message or communication content."""
+    attributes: NotRequired[dict[str, Any]]
+    """Additional attributes extracted from structured data (e.g., custom text fields with dotted keys)."""
 
 
 _VALID_METADATA_KEYS = {
+    "abstract",
     "authors",
     "categories",
     "citations",
@@ -722,6 +741,14 @@ _VALID_METADATA_KEYS = {
     "source_format",
     "error",
     "error_context",
+    "json_schema",
+    "notes",
+    "note",
+    "name",
+    "body",
+    "text",
+    "message",
+    "attributes",
 }
 
 
@@ -730,9 +757,29 @@ def normalize_metadata(data: dict[str, Any] | None) -> Metadata:
         return {}
 
     normalized: Metadata = {}
+    attributes: dict[str, Any] = {}
+
     for key, value in data.items():
-        if key in _VALID_METADATA_KEYS and value is not None:
-            normalized[key] = value  # type: ignore[literal-required]
+        if value is not None:
+            if key in _VALID_METADATA_KEYS:
+                normalized[key] = value  # type: ignore[literal-required]
+            elif "." in key and key.split(".")[-1] in {
+                "title",
+                "name",
+                "subject",
+                "description",
+                "content",
+                "body",
+                "text",
+                "message",
+                "note",
+                "abstract",
+                "summary",
+            }:
+                attributes[key] = value
+
+    if attributes:
+        normalized["attributes"] = attributes
 
     return normalized
 
@@ -836,6 +883,30 @@ ValidationHook = Callable[[ExtractionResult], None | Awaitable[None]]
 
 
 @dataclass(unsafe_hash=True, frozen=True, slots=True)
+class JSONExtractionConfig(ConfigDict):
+    extract_schema: bool = False
+    """Extract and include JSON schema information in metadata."""
+    custom_text_field_patterns: frozenset[str] | None = None
+    """Custom patterns to identify text fields beyond default keywords."""
+    max_depth: int = 10
+    """Maximum nesting depth to process in JSON structures."""
+    array_item_limit: int = 1000
+    """Maximum number of array items to process to prevent memory issues."""
+    include_type_info: bool = False
+    """Include data type information in extracted content."""
+    flatten_nested_objects: bool = True
+    """Flatten nested objects using dot notation for better text extraction."""
+
+    def __post_init__(self) -> None:
+        if self.max_depth <= 0:
+            raise ValidationError("max_depth must be positive", context={"max_depth": self.max_depth})
+        if self.array_item_limit <= 0:
+            raise ValidationError(
+                "array_item_limit must be positive", context={"array_item_limit": self.array_item_limit}
+            )
+
+
+@dataclass(unsafe_hash=True, frozen=True, slots=True)
 class ExtractionConfig(ConfigDict):
     force_ocr: bool = False
     """Whether to force OCR."""
@@ -924,6 +995,8 @@ class ExtractionConfig(ConfigDict):
     """Password(s) for encrypted PDF files. Can be a single password or list of passwords to try in sequence. Only used when crypto extra is installed."""
     html_to_markdown_config: HTMLToMarkdownConfig | None = None
     """Configuration for HTML to Markdown conversion. If None, uses default settings."""
+    json_config: JSONExtractionConfig | None = None
+    """Configuration for enhanced JSON extraction features. If None, uses standard JSON processing."""
     use_cache: bool = True
     """Whether to use caching for extraction results. Set to False to disable all caching."""
     target_dpi: int = 150
@@ -1060,70 +1133,68 @@ class ExtractionConfig(ConfigDict):
 
 @dataclass(unsafe_hash=True, frozen=True, slots=True)
 class HTMLToMarkdownConfig:
-    stream_processing: bool = False
-    """Enable streaming mode for processing large HTML documents."""
-    chunk_size: int = 1024
-    """Size of chunks when stream_processing is enabled."""
-    chunk_callback: Callable[[str], None] | None = None
-    """Callback function invoked for each chunk during stream processing."""
-    progress_callback: Callable[[int, int], None] | None = None
-    """Callback function for progress updates (current, total)."""
-    parser: str | None = "lxml"
-    """BeautifulSoup parser to use. Defaults to 'lxml' for ~30% better performance. Falls back to 'html.parser' if lxml not available."""
     autolinks: bool = True
-    """Convert URLs to clickable links automatically."""
+    """Automatically convert valid URLs to Markdown links."""
+    br_in_tables: bool = False
+    """Use <br> tags for line breaks in table cells instead of spaces."""
     bullets: str = "*+-"
     """Characters to use for unordered list bullets."""
     code_language: str = ""
-    """Default language for code blocks."""
+    """Default language identifier for fenced code blocks."""
     code_language_callback: Callable[[Any], str] | None = None
-    """Callback to determine code language dynamically."""
-    convert: str | Iterable[str] | None = None
-    """HTML tags to convert. If None, all supported tags are converted."""
+    """Function to dynamically determine code block language."""
+    convert: list[str] | None = None
+    """List of HTML tags to convert (None = all supported tags)."""
     convert_as_inline: bool = False
-    """Convert block elements as inline elements."""
-    custom_converters: Mapping[Any, Any] | None = None
-    """Custom converters for specific HTML elements."""
+    """Treat content as inline elements only."""
+    custom_converters: Mapping[str, Callable[..., str]] | None = None
+    """Mapping of HTML tag names to custom converter functions."""
     default_title: bool = False
-    """Use a default title if none is found."""
+    """Use default titles for elements like links."""
     escape_asterisks: bool = True
-    """Escape asterisks in text to prevent unintended emphasis."""
+    """Escape * characters to prevent unintended formatting."""
     escape_misc: bool = True
-    """Escape miscellaneous characters that have special meaning in Markdown."""
+    """Escape miscellaneous characters to prevent Markdown conflicts."""
     escape_underscores: bool = True
-    """Escape underscores in text to prevent unintended emphasis."""
+    """Escape _ characters to prevent unintended formatting."""
     extract_metadata: bool = True
-    """Extract metadata from HTML head section."""
+    """Extract document metadata as comment header."""
     heading_style: Literal["underlined", "atx", "atx_closed"] = "underlined"
     """Style for markdown headings."""
     highlight_style: Literal["double-equal", "html", "bold"] = "double-equal"
     """Style for highlighting text."""
-    keep_inline_images_in: Iterable[str] | None = None
-    """HTML tags where inline images should be preserved."""
+    keep_inline_images_in: list[str] | None = None
+    """Tags where inline images should be preserved."""
+    list_indent_type: Literal["spaces", "tabs"] = "spaces"
+    """Type of indentation to use for lists."""
+    list_indent_width: int = 4
+    """Number of spaces per indentation level (use 2 for Discord/Slack)."""
     newline_style: Literal["spaces", "backslash"] = "spaces"
     """Style for line breaks in markdown."""
-    strip: str | Iterable[str] | None = None
-    """HTML tags to strip completely from output."""
+    preprocess_html: bool = False
+    """Enable HTML preprocessing to clean messy HTML."""
+    preprocessing_preset: Literal["minimal", "standard", "aggressive"] = "standard"
+    """Preprocessing level for cleaning HTML."""
+    remove_forms: bool = True
+    """Remove form elements during preprocessing."""
+    remove_navigation: bool = True
+    """Remove navigation elements during preprocessing."""
+    strip: list[str] | None = None
+    """List of HTML tags to remove from output."""
     strip_newlines: bool = False
-    """Strip newlines from the output."""
+    """Remove newlines from HTML input before processing."""
     strong_em_symbol: Literal["*", "_"] = "*"
     """Symbol to use for strong/emphasis formatting."""
     sub_symbol: str = ""
     """Symbol to use for subscript text."""
     sup_symbol: str = ""
     """Symbol to use for superscript text."""
+    whitespace_mode: Literal["normalized", "strict"] = "normalized"
+    """Whitespace handling mode."""
     wrap: bool = False
     """Enable text wrapping."""
     wrap_width: int = 80
-    """Width for text wrapping when wrap is True."""
-    preprocess_html: bool = True
-    """Enable HTML preprocessing to clean up the input."""
-    preprocessing_preset: Literal["minimal", "standard", "aggressive"] = "aggressive"
-    """Preprocessing level for cleaning HTML."""
-    remove_navigation: bool = True
-    """Remove navigation elements from HTML."""
-    remove_forms: bool = True
-    """Remove form elements from HTML."""
+    """Width for text wrapping."""
 
     def to_dict(self) -> dict[str, Any]:
         result = msgspec.to_builtins(self, builtin_types=(type(None),), order="deterministic")

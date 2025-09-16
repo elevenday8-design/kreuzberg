@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -12,9 +13,6 @@ from kreuzberg._extractors._pandoc import PandocExtractor
 from kreuzberg._extractors._pdf import PDFExtractor
 from kreuzberg._extractors._presentation import PresentationExtractor
 from kreuzberg._types import ExtractedImage
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 @pytest.mark.anyio
@@ -45,7 +43,7 @@ class TestAllExtractorsImageIntegration:
         png_img = next(img for img in result.images if img.format == "png")
         assert png_img.description == "Red dot"
 
-    async def test_html_extractor_sync_with_ocr(self) -> None:
+    def test_html_extractor_sync_with_ocr(self) -> None:
         html_content = """
         <html>
         <body>
@@ -54,26 +52,33 @@ class TestAllExtractorsImageIntegration:
         </html>
         """
 
-        config = ExtractionConfig(extract_images=True, ocr_extracted_images=True, ocr_backend="tesseract")
+        config = ExtractionConfig(
+            extract_images=True, ocr_extracted_images=True, ocr_backend="tesseract", image_ocr_min_dimensions=(1, 1)
+        )
         extractor = HTMLExtractor(mime_type="text/html", config=config)
 
-        with patch("kreuzberg._utils._sync.run_sync") as mock_run_sync:
+        with patch.object(extractor, "_process_images_with_ocr") as mock_process_ocr:
             from kreuzberg._types import ExtractionResult, ImageOCRResult
 
-            mock_ocr_result = [
-                ImageOCRResult(
-                    image=MagicMock(),
-                    ocr_result=ExtractionResult(content="OCR text", mime_type="text/plain", metadata={}),
-                    confidence_score=0.9,
-                )
-            ]
-            mock_run_sync.return_value = mock_ocr_result
+            def mock_ocr_processing(images: list[ExtractedImage]) -> list[ImageOCRResult]:
+                if images:
+                    return [
+                        ImageOCRResult(
+                            image=images[0],
+                            ocr_result=ExtractionResult(content="OCR text", mime_type="text/plain", metadata={}),
+                            confidence_score=0.95,
+                            processing_time=0.1,
+                        )
+                    ]
+                return []
+
+            mock_process_ocr.side_effect = mock_ocr_processing
 
             result = extractor.extract_bytes_sync(html_content.encode())
 
         assert len(result.images) == 1
         assert len(result.image_ocr_results) == 1
-        assert result.image_ocr_results[0].confidence_score == 0.9
+        assert result.image_ocr_results[0].ocr_result.content == "OCR text"
 
     async def test_presentation_extractor_with_images(self) -> None:
         config = ExtractionConfig(extract_images=True)
@@ -115,13 +120,30 @@ class TestAllExtractorsImageIntegration:
         docx_path.write_bytes(b"fake_docx_content")
 
         with patch("kreuzberg._extractors._pandoc.run_process") as mock_run_process:
-            mock_result = MagicMock()
-            mock_result.stdout = b"pandoc 2.19\n"
-            mock_run_process.return_value = mock_result
+
+            async def mock_process_call(command: list[str], **kwargs: Any) -> Any:
+                mock_result = MagicMock()
+                if command[0] == "pandoc" and "--version" in command:
+                    mock_result.stdout = b"pandoc 2.19\n"
+                    mock_result.returncode = 0
+                else:
+                    mock_result.stdout = b"mocked output\n"
+                    mock_result.stderr = b""
+                    mock_result.returncode = 0
+                return mock_result
+
+            mock_run_process.side_effect = mock_process_call
 
             with patch("kreuzberg._extractors._pandoc.AsyncPath") as mock_async_path:
+
+                async def mock_read_text(encoding: str | None = None) -> str:
+                    path_str = str(mock_async_path.call_args[0][0])
+                    if path_str.endswith(".json"):
+                        return '{"title": "Test Document", "author": "Test Author"}'
+                    return "Document content"
+
                 mock_path_instance = MagicMock()
-                mock_path_instance.read_text = AsyncMock(return_value="Document content")
+                mock_path_instance.read_text = mock_read_text
                 mock_path_instance.read_bytes = AsyncMock(return_value=b"image_data")
                 mock_async_path.return_value = mock_path_instance
 
@@ -163,13 +185,12 @@ class TestAllExtractorsImageIntegration:
             result = await extractor.extract_bytes_async(b"fake_email_data")
 
         assert len(result.images) == 1
-        assert result.images[0].format == "jpeg"
+        assert result.images[0].format == "jpg"
         assert result.images[0].filename == "photo.jpg"
         assert result.images[0].data == b"fake_jpeg_data"
 
-    async def test_pdf_extractor_complete_pipeline(self, tmp_path: Path) -> None:
-        pdf_path = tmp_path / "test.pdf"
-        pdf_path.write_bytes(b"%PDF-1.4\n%%EOF")
+    async def test_pdf_extractor_complete_pipeline(self) -> None:
+        pdf_path = Path(__file__).parent.parent / "test_source_files" / "searchable.pdf"
 
         config = ExtractionConfig(
             extract_images=True,

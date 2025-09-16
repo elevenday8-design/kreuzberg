@@ -13,10 +13,13 @@ from kreuzberg.exceptions import ParsingError
 
 @pytest.mark.anyio
 async def test_extract_pdf_metadata_success() -> None:
-    """Test extract_pdf_metadata successfully extracts metadata."""
+    mock_page = Mock()
+    mock_page.width = 612.0
+    mock_page.height = 792.0
+
     mock_document = Mock()
     mock_document.info = [{"title": b"Test Document", "author": b"Test Author"}]
-    mock_document.pages = [Mock()]
+    mock_document.pages = [mock_page]
     mock_document.outline = None
     mock_document.structure = None
 
@@ -28,20 +31,22 @@ async def test_extract_pdf_metadata_success() -> None:
         result = await extract_pdf_metadata(b"fake pdf content", "password123")
 
     assert isinstance(result, dict)
-    # Should contain basic metadata processing results
-    assert "summary" in result  # Always generated
+    assert "summary" in result
 
 
 @pytest.mark.anyio
 async def test_extract_pdf_metadata_with_outline() -> None:
-    """Test extract_pdf_metadata includes outline when present."""
     mock_outline_entry = Mock()
     mock_outline_entry.title = "Chapter 1"
     mock_outline_entry.children = None
 
+    mock_page = Mock()
+    mock_page.width = 612.0
+    mock_page.height = 792.0
+
     mock_document = Mock()
     mock_document.info = [{}]
-    mock_document.pages = [Mock()]
+    mock_document.pages = [mock_page]
     mock_document.outline = [mock_outline_entry]
     mock_document.structure = None
 
@@ -58,7 +63,6 @@ async def test_extract_pdf_metadata_with_outline() -> None:
 
 @pytest.mark.anyio
 async def test_extract_pdf_metadata_parsing_error() -> None:
-    """Test extract_pdf_metadata handles parsing errors."""
     with patch("kreuzberg._playa.parse", side_effect=Exception("Parsing failed")):
         with pytest.raises(ParsingError) as exc_info:
             await extract_pdf_metadata(b"invalid pdf content")
@@ -69,12 +73,19 @@ async def test_extract_pdf_metadata_parsing_error() -> None:
 
 @pytest.mark.anyio
 async def test_extract_pdf_metadata_with_password() -> None:
-    """Test extract_pdf_metadata passes password correctly."""
     mock_document = Mock()
     mock_document.info = [{}]
     mock_document.pages = []
     mock_document.outline = None
     mock_document.structure = None
+    mock_document.status = None
+    mock_document.is_printable = None
+    mock_document.is_modifiable = None
+    mock_document.is_extractable = None
+    mock_document.is_encrypted = None
+    mock_document.encryption_method = None
+    mock_document.is_pdf_a = None
+    mock_document.pdf_a_level = None
 
     with (
         patch("kreuzberg._playa.parse", return_value=mock_document) as mock_parse,
@@ -87,7 +98,6 @@ async def test_extract_pdf_metadata_with_password() -> None:
 
 @pytest.mark.anyio
 async def test_extract_pdf_metadata_with_pages_for_dimensions() -> None:
-    """Test extract_pdf_metadata extracts dimensions when pages available."""
     mock_page = Mock()
     mock_page.width = 612.0
     mock_page.height = 792.0
@@ -97,6 +107,14 @@ async def test_extract_pdf_metadata_with_pages_for_dimensions() -> None:
     mock_document.pages = [mock_page]
     mock_document.outline = None
     mock_document.structure = None
+    mock_document.status = None
+    mock_document.is_printable = None
+    mock_document.is_modifiable = None
+    mock_document.is_extractable = None
+    mock_document.is_encrypted = None
+    mock_document.encryption_method = None
+    mock_document.is_pdf_a = None
+    mock_document.pdf_a_level = None
 
     with patch("kreuzberg._playa.parse", return_value=mock_document), patch("kreuzberg._playa.asobj", return_value={}):
         result = await extract_pdf_metadata(b"pdf with pages")
@@ -107,7 +125,6 @@ async def test_extract_pdf_metadata_with_pages_for_dimensions() -> None:
 
 @pytest.mark.anyio
 async def test_extract_pdf_metadata_with_structure() -> None:
-    """Test extract_pdf_metadata processes document structure."""
     mock_element = Mock()
     mock_element.language = "en"
     mock_element.role = "H1"
@@ -119,6 +136,14 @@ async def test_extract_pdf_metadata_with_structure() -> None:
     mock_document.pages = []
     mock_document.outline = None
     mock_document.structure = [mock_element]
+    mock_document.status = None
+    mock_document.is_printable = None
+    mock_document.is_modifiable = None
+    mock_document.is_extractable = None
+    mock_document.is_encrypted = None
+    mock_document.encryption_method = None
+    mock_document.is_pdf_a = None
+    mock_document.pdf_a_level = None
 
     with (
         patch("kreuzberg._playa.parse", return_value=mock_document),
@@ -132,12 +157,19 @@ async def test_extract_pdf_metadata_with_structure() -> None:
 
 
 def test_extract_pdf_metadata_sync_success() -> None:
-    """Test extract_pdf_metadata_sync successfully extracts metadata."""
     mock_document = Mock()
     mock_document.info = [{"title": b"Sync Test Document"}]
     mock_document.pages = []
     mock_document.outline = None
     mock_document.structure = None
+    mock_document.status = None
+    mock_document.is_printable = None
+    mock_document.is_modifiable = None
+    mock_document.is_extractable = None
+    mock_document.is_encrypted = None
+    mock_document.encryption_method = None
+    mock_document.is_pdf_a = None
+    mock_document.pdf_a_level = None
 
     with (
         patch("kreuzberg._playa.parse", return_value=mock_document),
@@ -151,12 +183,19 @@ def test_extract_pdf_metadata_sync_success() -> None:
 
 
 def test_extract_pdf_metadata_sync_with_password() -> None:
-    """Test extract_pdf_metadata_sync passes password correctly."""
     mock_document = Mock()
     mock_document.info = [{}]
     mock_document.pages = []
     mock_document.outline = None
     mock_document.structure = None
+    mock_document.status = None
+    mock_document.is_printable = None
+    mock_document.is_modifiable = None
+    mock_document.is_extractable = None
+    mock_document.is_encrypted = None
+    mock_document.encryption_method = None
+    mock_document.is_pdf_a = None
+    mock_document.pdf_a_level = None
 
     with (
         patch("kreuzberg._playa.parse", return_value=mock_document) as mock_parse,
@@ -168,7 +207,6 @@ def test_extract_pdf_metadata_sync_with_password() -> None:
 
 
 def test_extract_pdf_metadata_sync_parsing_error() -> None:
-    """Test extract_pdf_metadata_sync handles parsing errors."""
     with patch("kreuzberg._playa.parse", side_effect=Exception("Sync parsing failed")):
         with pytest.raises(ParsingError) as exc_info:
             extract_pdf_metadata_sync(b"invalid pdf content")
@@ -179,7 +217,6 @@ def test_extract_pdf_metadata_sync_parsing_error() -> None:
 
 @pytest.mark.anyio
 async def test_extract_pdf_metadata_complex_structure() -> None:
-    """Test extract_pdf_metadata with complex document structure."""
     mock_child = Mock()
     mock_child.language = "fr"
     mock_child.children = None
@@ -209,15 +246,19 @@ async def test_extract_pdf_metadata_complex_structure() -> None:
 
 @pytest.mark.anyio
 async def test_extract_pdf_metadata_document_permissions() -> None:
-    """Test extract_pdf_metadata includes document permissions in summary."""
     mock_document = Mock()
     mock_document.info = [{}]
     mock_document.pages = []
     mock_document.outline = None
     mock_document.structure = None
+    mock_document.status = None
     mock_document.is_printable = True
     mock_document.is_modifiable = False
     mock_document.is_extractable = True
+    mock_document.is_encrypted = None
+    mock_document.encryption_method = None
+    mock_document.is_pdf_a = None
+    mock_document.pdf_a_level = None
 
     with patch("kreuzberg._playa.parse", return_value=mock_document), patch("kreuzberg._playa.asobj", return_value={}):
         result = await extract_pdf_metadata(b"pdf with permissions")
@@ -229,14 +270,19 @@ async def test_extract_pdf_metadata_document_permissions() -> None:
 
 @pytest.mark.anyio
 async def test_extract_pdf_metadata_encrypted_document() -> None:
-    """Test extract_pdf_metadata handles encrypted documents in summary."""
     mock_document = Mock()
     mock_document.info = [{}]
     mock_document.pages = []
     mock_document.outline = None
     mock_document.structure = None
+    mock_document.status = None
+    mock_document.is_printable = None
+    mock_document.is_modifiable = None
+    mock_document.is_extractable = None
     mock_document.is_encrypted = True
     mock_document.encryption_method = "AES-256"
+    mock_document.is_pdf_a = None
+    mock_document.pdf_a_level = None
 
     with patch("kreuzberg._playa.parse", return_value=mock_document), patch("kreuzberg._playa.asobj", return_value={}):
         result = await extract_pdf_metadata(b"encrypted pdf")
@@ -248,12 +294,17 @@ async def test_extract_pdf_metadata_encrypted_document() -> None:
 
 @pytest.mark.anyio
 async def test_extract_pdf_metadata_pdf_a_compliant() -> None:
-    """Test extract_pdf_metadata handles PDF/A compliance in summary."""
     mock_document = Mock()
     mock_document.info = [{}]
     mock_document.pages = []
     mock_document.outline = None
     mock_document.structure = None
+    mock_document.status = None
+    mock_document.is_printable = None
+    mock_document.is_modifiable = None
+    mock_document.is_extractable = None
+    mock_document.is_encrypted = None
+    mock_document.encryption_method = None
     mock_document.is_pdf_a = True
     mock_document.pdf_a_level = "2b"
 
