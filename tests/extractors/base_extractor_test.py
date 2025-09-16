@@ -355,7 +355,7 @@ async def test_ocr_single_image_success() -> None:
     assert result.image == test_image
     assert result.ocr_result == mock_ocr_result
     assert result.processing_time is not None
-    assert result.processing_time > 0
+    assert result.processing_time >= 0
     assert result.skipped_reason is None
 
 

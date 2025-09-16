@@ -601,3 +601,29 @@ def test_find_default_config_none() -> None:
     with patch("kreuzberg._config.find_config_file", return_value=None):
         result = find_default_config()
     assert result is None
+
+
+def test_configure_gmft_with_cli_config() -> None:
+    # Test GMFT config from CLI args (covers line 125)
+    config_dict: dict[str, Any] = {"extract_tables": True}
+    file_config: dict[str, Any] = {}
+    cli_args: MutableMapping[str, Any] = {"gmft_config": {"verbosity": 2}}
+
+    _configure_gmft(config_dict, file_config, cli_args)
+
+    assert "gmft_config" in config_dict
+    assert isinstance(config_dict["gmft_config"], GMFTConfig)
+    assert config_dict["gmft_config"].verbosity == 2
+
+
+def test_configure_gmft_with_file_config() -> None:
+    # Test GMFT config from file (covers line 133)
+    config_dict: dict[str, Any] = {"extract_tables": True}
+    file_config = {"gmft": {"verbosity": 1}}
+    cli_args: MutableMapping[str, Any] = {}
+
+    _configure_gmft(config_dict, file_config, cli_args)
+
+    assert "gmft_config" in config_dict
+    assert isinstance(config_dict["gmft_config"], GMFTConfig)
+    assert config_dict["gmft_config"].verbosity == 1

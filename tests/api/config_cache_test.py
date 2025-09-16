@@ -60,12 +60,13 @@ def test_discover_config_cached_os_error_fallback(tmp_path: Path) -> None:
 
 def test_discover_config_cached_uses_current_dir_when_none() -> None:
     with patch("kreuzberg._api._config_cache.Path.cwd") as mock_cwd:
-        mock_cwd.return_value = Path("/fake/dir")
+        fake_dir = Path("/fake/dir")
+        mock_cwd.return_value = fake_dir
         with patch("kreuzberg._api._config_cache._cached_discover_config") as mock_cached:
             mock_cached.return_value = None
 
             result = discover_config_cached(None)
-            mock_cached.assert_called_with("/fake/dir", 0.0, 0)
+            mock_cached.assert_called_with(str(fake_dir), 0.0, 0)
             assert result is None
 
 
