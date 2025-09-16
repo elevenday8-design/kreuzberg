@@ -336,14 +336,10 @@ async def test_batch_extract_file_error_context_includes_index() -> None:
 
     assert result[0].metadata["error_context"]["index"] == 0
     assert result[0].metadata["error_context"]["operation"] == "batch_extract_file"
-    assert "file_path" in result[0].metadata["error_context"] or str(nonexistent_files[0]) in str(
-        result[0].metadata["error_context"]
-    )
+    assert "file_path" in result[0].metadata["error_context"] or "file1.txt" in str(result[0].metadata["error_context"])
     assert result[1].metadata["error_context"]["index"] == 1
     assert result[1].metadata["error_context"]["operation"] == "batch_extract_file"
-    assert "file_path" in result[1].metadata["error_context"] or str(nonexistent_files[1]) in str(
-        result[1].metadata["error_context"]
-    )
+    assert "file_path" in result[1].metadata["error_context"] or "file2.txt" in str(result[1].metadata["error_context"])
 
 
 def test_batch_extract_bytes_sync_error_context_preserves_ordering() -> None:

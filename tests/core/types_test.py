@@ -103,7 +103,7 @@ def test_spacy_entity_config_post_init_conversions() -> None:
     )
 
     assert isinstance(config.model_cache_dir, str)
-    assert config.model_cache_dir == "/tmp/cache"
+    assert config.model_cache_dir == str(Path("/tmp/cache"))
     assert isinstance(config.language_models, tuple)
     expected_tuple = (("en", "en_core_web_sm"), ("fr", "fr_core_news_sm"))
     assert config.language_models == expected_tuple
