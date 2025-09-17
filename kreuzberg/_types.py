@@ -1012,10 +1012,8 @@ class ExtractionConfig(ConfigDict):
     """Minimum DPI threshold when auto-adjusting DPI."""
     max_dpi: int = 600
     """Maximum DPI threshold when auto-adjusting DPI."""
-    token_reduction_mode: Literal["off", "light", "moderate"] = "off"  # noqa: S105
-    """Token reduction mode for reducing output size while preserving meaning."""
-    token_reduction_config: TokenReductionConfig | None = None
-    """Configuration for token reduction behavior."""
+    token_reduction: TokenReductionConfig | None = None
+    """Configuration for token reduction to optimize output size while preserving meaning."""
 
     def __post_init__(self) -> None:
         if self.custom_entity_patterns is not None and isinstance(self.custom_entity_patterns, dict):

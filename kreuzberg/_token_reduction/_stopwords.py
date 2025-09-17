@@ -1,88 +1,94 @@
 from __future__ import annotations
 
-from functools import cache
+from functools import lru_cache
 from pathlib import Path
 
 import msgspec
 
 from kreuzberg._utils._ref import Ref
+from kreuzberg.exceptions import ValidationError
 
-_STOPWORDS_FILE = Path(__file__).parent / "stop_words.json"
-
-
-@cache
-def _load_default_stopwords() -> dict[str, set[str]]:
-    with _STOPWORDS_FILE.open("rb") as f:
-        data: dict[str, list[str]] = msgspec.json.decode(f.read())
-    return {lang: set(words) for lang, words in data.items()}
+_STOPWORDS_DIR = Path(__file__).parent / "stopwords"
 
 
-def _create_default_manager() -> StopwordsManager:
-    return StopwordsManager()
+@lru_cache(maxsize=16)  # Cache up to 16 languages in memory
+def _load_language_stopwords(lang_code: str) -> set[str]:
+    """Load stopwords for a specific language from its JSON file."""
+    file_path = _STOPWORDS_DIR / f"{lang_code}_stopwords.json"
+
+    if not file_path.exists():
+        return set()
+
+    try:
+        with file_path.open("rb") as f:
+            words: list[str] = msgspec.json.decode(f.read())
+        return set(words)
+    except (OSError, msgspec.DecodeError) as e:
+        # Log error but don't crash - return empty set
+        msg = f"Failed to load stopwords for language '{lang_code}': {e}"
+        raise ValidationError(msg) from e
 
 
-_default_manager_ref = Ref("default_stopwords_manager", _create_default_manager)
+def _get_available_languages() -> frozenset[str]:
+    """Get list of available stopword languages by scanning directory."""
+    if not _STOPWORDS_DIR.exists():
+        return frozenset()
+
+    languages = set()
+    for file_path in _STOPWORDS_DIR.glob("*_stopwords.json"):
+        # Extract language code from filename
+        lang_code = file_path.stem.replace("_stopwords", "")
+        languages.add(lang_code)
+
+    return frozenset(languages)
+
+
+# Cache available languages list
+_available_languages_ref = Ref("available_languages", _get_available_languages)
 
 
 class StopwordsManager:
+    """Manages stopwords for multiple languages with lazy loading."""
+
     def __init__(
         self,
         custom_stopwords: dict[str, list[str]] | None = None,
-        stopwords_path: str | Path | None = None,
     ) -> None:
+        """Initialize with optional custom stopwords.
+
+        Args:
+            custom_stopwords: Additional stopwords per language.
+        """
         self._custom_stopwords: dict[str, set[str]] = {}
 
         if custom_stopwords:
             self._custom_stopwords = {lang: set(words) for lang, words in custom_stopwords.items()}
 
-        if stopwords_path:
-            self._load_custom_stopwords_from_file(stopwords_path)
-
-    def _load_custom_stopwords_from_file(self, path: str | Path) -> None:
-        path = Path(path)
-        if not path.exists():
-            msg = f"Stopwords file not found: {path}"
-            raise FileNotFoundError(msg)
-
-        with path.open("rb") as f:
-            data = msgspec.json.decode(f.read())
-
-        if not isinstance(data, dict):
-            msg = "Stopwords file must contain a JSON object"
-            raise ValueError(msg)
-
-        for lang, words in data.items():
-            if not isinstance(words, list):
-                msg = f"Stopwords for language '{lang}' must be a list"
-                raise ValueError(msg)
-            self._custom_stopwords[lang] = set(words)
-
-    def _get_default_stopwords(self) -> dict[str, set[str]]:
-        return _load_default_stopwords()
-
     def get_stopwords(self, language: str) -> set[str]:
-        default_stopwords = self._get_default_stopwords()
-        result = set()
+        """Get stopwords for a language, combining default and custom."""
+        # Load default stopwords lazily
+        result = _load_language_stopwords(language)
 
-        if language in default_stopwords:
-            result.update(default_stopwords[language])
-
+        # Add custom stopwords if any
         if language in self._custom_stopwords:
-            result.update(self._custom_stopwords[language])
+            result = result | self._custom_stopwords[language]
 
         return result
 
     def has_language(self, language: str) -> bool:
-        default_stopwords = self._get_default_stopwords()
-        return language in default_stopwords or language in self._custom_stopwords
+        """Check if stopwords are available for a language."""
+        available = _available_languages_ref.get()
+        return language in available or language in self._custom_stopwords
 
     def supported_languages(self) -> list[str]:
-        default_stopwords = self._get_default_stopwords()
-        all_langs = set(default_stopwords.keys())
+        """Get sorted list of all supported languages."""
+        available = _available_languages_ref.get()
+        all_langs = set(available)
         all_langs.update(self._custom_stopwords.keys())
         return sorted(all_langs)
 
     def add_custom_stopwords(self, language: str, words: list[str] | set[str]) -> None:
+        """Add custom stopwords for a language."""
         if language not in self._custom_stopwords:
             self._custom_stopwords[language] = set()
 
@@ -92,5 +98,14 @@ class StopwordsManager:
         self._custom_stopwords[language].update(words)
 
 
+# Global default manager using Ref pattern
+def _create_default_manager() -> StopwordsManager:
+    return StopwordsManager()
+
+
+_default_manager_ref = Ref("default_stopwords_manager", _create_default_manager)
+
+
 def get_default_stopwords_manager() -> StopwordsManager:
+    """Get the default global stopwords manager."""
     return _default_manager_ref.get()

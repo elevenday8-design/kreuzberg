@@ -93,21 +93,24 @@ def _validate_and_post_process_helper(
     if config.auto_detect_document_type:
         result = auto_detect_document_type(result, config, file_path=file_path)
 
-    if config.token_reduction_mode != "off" and config.token_reduction_config is not None:  # noqa: S105
+    if config.token_reduction is not None and config.token_reduction.mode != "off":
         original_content = result.content
 
+        # Use the best detected language if available
         language_hint = None
-        if result.detected_languages:
+        if result.detected_languages and len(result.detected_languages) > 0:
+            # Use the first (highest confidence) detected language
             language_hint = result.detected_languages[0]
 
         reduced_content = reduce_tokens(
             original_content,
-            config=config.token_reduction_config,
+            config=config.token_reduction,
             language=language_hint,
         )
         reduction_stats = get_reduction_stats(original_content, reduced_content)
 
         result.content = reduced_content
+        # Store reduction stats in metadata
         result.metadata["token_reduction"] = {
             "character_reduction_ratio": reduction_stats["character_reduction_ratio"],
             "token_reduction_ratio": reduction_stats["token_reduction_ratio"],

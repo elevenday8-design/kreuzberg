@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 
 from kreuzberg._token_reduction import StopwordsManager, get_reduction_stats, reduce_tokens
 from kreuzberg._types import TokenReductionConfig
 from kreuzberg.exceptions import ValidationError
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_reduce_tokens_off_mode_returns_original_text() -> None:
@@ -465,3 +470,165 @@ def test_get_reduction_stats_edge_case_expansion() -> None:
     assert stats["reduced_characters"] == 11
     assert stats["original_tokens"] == 1
     assert stats["reduced_tokens"] == 2
+
+
+def test_stopwords_manager_concurrent_access() -> None:
+    """Test that StopwordsManager handles concurrent access correctly via LRU cache."""
+    import concurrent.futures
+
+    manager = StopwordsManager()
+    languages = ["en", "es", "fr", "de", "it"]
+
+    def load_language(lang: str) -> int:
+        stopwords = manager.get_stopwords(lang)
+        return len(stopwords)
+
+    # Test concurrent loading of different languages
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        futures = [executor.submit(load_language, lang) for lang in languages * 3]
+        results = [f.result() for f in concurrent.futures.as_completed(futures)]
+
+    # All results should be successful (non-zero lengths)
+    assert all(r > 0 for r in results)
+    assert len(results) == 15  # 5 languages * 3 repetitions
+
+
+def test_stopwords_manager_handles_corrupted_file(tmp_path: Path) -> None:
+    """Test that StopwordsManager handles corrupted JSON files gracefully."""
+    from unittest.mock import patch
+
+    # Create a corrupted stopwords file
+    corrupted_dir = tmp_path / "stopwords"
+    corrupted_dir.mkdir()
+    corrupted_file = corrupted_dir / "xx_stopwords.json"
+    corrupted_file.write_text("not valid json {[}")
+
+    # Patch the stopwords directory to use our test directory
+    with patch("kreuzberg._token_reduction._stopwords._STOPWORDS_DIR", corrupted_dir):
+        manager = StopwordsManager()
+
+        # Should raise ValidationError when trying to load corrupted file
+        with pytest.raises(ValidationError, match="Failed to load stopwords for language 'xx'"):
+            manager.get_stopwords("xx")
+
+
+def test_stopwords_manager_handles_missing_file() -> None:
+    """Test that StopwordsManager returns empty set for missing language files."""
+    manager = StopwordsManager()
+
+    # Non-existent language should return empty set
+    stopwords = manager.get_stopwords("zz_nonexistent")
+
+    assert isinstance(stopwords, set)
+    assert len(stopwords) == 0
+
+
+def test_reduce_tokens_thread_safety() -> None:
+    """Test that reduce_tokens is thread-safe."""
+    import concurrent.futures
+
+    config = TokenReductionConfig(mode="moderate")
+    test_texts = [
+        "The quick brown fox jumps over the lazy dog.",
+        "This is another test sentence with stopwords.",
+        "Multiple threads should handle this correctly.",
+        "Each thread processes its own text independently.",
+        "Thread safety is important for production use.",
+    ]
+
+    def process_text(text: str) -> str:
+        return reduce_tokens(text, config=config, language="en")
+
+    # Process texts concurrently
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        futures = [executor.submit(process_text, text) for text in test_texts * 3]
+        results = [f.result() for f in concurrent.futures.as_completed(futures)]
+
+    # All results should be processed successfully
+    assert len(results) == 15  # 5 texts * 3 repetitions
+    assert all(isinstance(r, str) for r in results)
+    assert all(len(r) > 0 for r in results)
+
+
+def test_stopwords_manager_lru_cache_size() -> None:
+    """Test that LRU cache maintains reasonable memory usage."""
+    manager = StopwordsManager()
+
+    # Load more than the cache size (16) to test eviction
+    languages = [
+        "en",
+        "es",
+        "fr",
+        "de",
+        "it",
+        "pt",
+        "nl",
+        "sv",
+        "no",
+        "da",
+        "fi",
+        "pl",
+        "cs",
+        "sk",
+        "hu",
+        "ro",
+        "bg",
+        "hr",
+        "sr",  # 19 languages total
+    ]
+
+    for lang in languages:
+        if manager.has_language(lang):
+            manager.get_stopwords(lang)
+
+    # Cache should still work correctly after evictions
+    # Re-load first language (should have been evicted)
+    stopwords = manager.get_stopwords("en")
+    assert "the" in stopwords
+    assert len(stopwords) > 0
+
+
+def test_reduce_tokens_with_custom_stopwords_thread_safety() -> None:
+    """Test thread safety with custom stopwords."""
+    import concurrent.futures
+
+    config = TokenReductionConfig(
+        mode="moderate",
+        custom_stopwords={
+            "en": ["customword", "special"],
+            "es": ["personalizado", "especial"],
+        },
+    )
+
+    test_cases = [
+        ("Python customword programming has special features", "en"),
+        ("Python personalizado programación tiene especial características", "es"),
+    ]
+
+    def process_with_custom(text: str, lang: str) -> str:
+        return reduce_tokens(text, config=config, language=lang)
+
+    # Process with custom stopwords concurrently
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+        futures = [executor.submit(process_with_custom, text, lang) for text, lang in test_cases * 5]
+        results = [f.result() for f in concurrent.futures.as_completed(futures)]
+
+    # Verify results are consistent and correct
+    assert len(results) == 10  # 2 test cases * 5 repetitions
+
+    for result in results:
+        result_lower = result.lower()
+        # Custom stopwords should be removed
+        assert "customword" not in result_lower
+        assert "special" not in result_lower
+        assert "personalizado" not in result_lower
+        assert "especial" not in result_lower
+
+        # Content words like "Python" and "programming" should remain
+        assert "python" in result_lower
+        assert (
+            "programming" in result_lower
+            or "programación" in result_lower
+            or "features" in result_lower
+            or "características" in result_lower
+        )

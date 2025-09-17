@@ -22,21 +22,23 @@ class ReductionStats(TypedDict):
     reduced_tokens: int
 
 
+# Pre-compiled regex patterns for performance
 HTML_COMMENT_PATTERN = re.compile(r"<!--.*?-->", re.DOTALL)
 REPEATED_PUNCTUATION_PATTERNS = (
     re.compile(r"([!?.]){2,}"),
     re.compile(r"(,){2,}"),
 )
-WHITESPACE_PATTERNS = (
-    re.compile(r"\n{3,}"),
-    re.compile(r"[ \t]+"),
-)
-MARKDOWN_PATTERNS = (
-    re.compile(r"^\s*[-*+]\s"),
-    re.compile(r"^\s*\d+\.\s"),
+EXCESSIVE_NEWLINES_PATTERN = re.compile(r"\n{3,}")
+WHITESPACE_PATTERN = re.compile(r"[ \t]+")
+MARKDOWN_LIST_PATTERNS = (
+    re.compile(r"^\s*[-*+]\s"),  # Bullet lists
+    re.compile(r"^\s*\d+\.\s"),  # Numbered lists
 )
 WORD_CLEAN_PATTERN = re.compile(r"[^\w]")
-EXCESSIVE_NEWLINES_PATTERN = re.compile(r"\n{3,}")
+LANGUAGE_CODE_PATTERN = re.compile(r"^[a-zA-Z0-9-]+$")
+
+# Size limits
+MAX_TEXT_LENGTH = 10_000_000  # 10MB approximate limit
 
 
 def _normalize_newlines(text: str) -> str:
@@ -51,15 +53,16 @@ def _is_markdown_structural_line(line: str, in_code_block: bool) -> bool:
 
     stripped = line.strip()
     return (
-        stripped.startswith("#")
-        or "|" in line
-        or MARKDOWN_PATTERNS[0].match(line) is not None
-        or MARKDOWN_PATTERNS[1].match(line) is not None
+        stripped.startswith("#")  # Headers
+        or "|" in line  # Tables
+        or MARKDOWN_LIST_PATTERNS[0].match(line) is not None  # Bullet lists
+        or MARKDOWN_LIST_PATTERNS[1].match(line) is not None  # Numbered lists
     )
 
 
 @lru_cache(maxsize=128)
 def _get_cached_stopwords(language: str) -> set[str]:
+    """Get cached stopwords for a language."""
     return get_default_stopwords_manager().get_stopwords(language)
 
 
@@ -77,7 +80,20 @@ def reduce_tokens(
     config: TokenReductionConfig,
     language: str | None = None,
 ) -> str:
-    """Reduce tokens in text based on the specified configuration."""
+    """Reduce tokens in text based on the specified configuration.
+
+    Args:
+        text: The text to reduce.
+        config: Configuration for token reduction.
+        language: Optional language code for stopword selection.
+
+    Returns:
+        The reduced text.
+
+    Raises:
+        ValidationError: If inputs are invalid.
+    """
+    # Validate inputs
     if config is None:
         raise ValidationError("Config cannot be None")
 
@@ -93,20 +109,26 @@ def reduce_tokens(
     if language is not None and len(language.strip()) == 0:
         raise ValidationError("Language cannot be empty or whitespace-only")
 
-    if len(text) > 10_000_000:
-        raise ValidationError(f"Text too large: {len(text)} characters (max 10,000,000)")
-
-    if language is not None and not re.match(r"^[a-zA-Z0-9-]+$", language):
-        raise ValidationError(f"Invalid language code format: {language}")
-
+    # Early return for off mode
     if config.mode == "off":
         return text
 
-    if not text.strip():
+    # Check text size before processing (memory protection)
+    if len(text) > MAX_TEXT_LENGTH:
+        raise ValidationError(f"Text too large: {len(text)} characters (max {MAX_TEXT_LENGTH:,})")
+
+    # Validate language code format if provided
+    if language and not LANGUAGE_CODE_PATTERN.match(language):
+        raise ValidationError(f"Invalid language code format: {language}")
+
+    # Handle empty text
+    if not text or not text.strip():
         return ""
 
+    # Apply reduction based on mode
     if config.mode == "light":
         return _apply_light_reduction(text, preserve_markdown=config.preserve_markdown)
+
     if config.mode == "moderate":
         return _apply_moderate_reduction(
             text,
@@ -114,48 +136,59 @@ def reduce_tokens(
             language=language,
         )
 
+    # Should never reach here due to typing, but for safety
     return text
 
 
 def _apply_light_reduction(text: str, *, preserve_markdown: bool) -> str:
+    """Apply light reduction (formatting only)."""
     if preserve_markdown:
         return _apply_light_reduction_markdown_aware(text)
     return _apply_light_reduction_plain(text)
 
 
 def _apply_light_reduction_plain(text: str) -> str:
+    """Apply light reduction to plain text."""
+    # Remove HTML comments
     text = HTML_COMMENT_PATTERN.sub("", text)
 
+    # Compress repeated punctuation
     text = REPEATED_PUNCTUATION_PATTERNS[0].sub(r"\1", text)
     text = REPEATED_PUNCTUATION_PATTERNS[1].sub(r"\1", text)
 
-    text = WHITESPACE_PATTERNS[0].sub("\n\n", text)
-    text = WHITESPACE_PATTERNS[1].sub(" ", text)
+    # Normalize whitespace
+    text = EXCESSIVE_NEWLINES_PATTERN.sub("\n\n", text)
+    text = WHITESPACE_PATTERN.sub(" ", text)
 
     return text.strip()
 
 
 def _apply_light_reduction_markdown_aware(text: str) -> str:
+    """Apply light reduction preserving markdown structure."""
     lines = text.split("\n")
     processed_lines = []
     in_code_block = False
 
     for line in lines:
+        # Track code blocks
         if line.strip().startswith("```"):
             in_code_block = not in_code_block
             processed_lines.append(line)
             continue
 
+        # Preserve markdown structural elements
         if _is_markdown_structural_line(line, in_code_block):
             processed_lines.append(line)
             continue
 
+        # Apply light reduction to prose lines
         if line.strip():
             reduced = _apply_light_reduction_plain(line)
             processed_lines.append(reduced)
         else:
             processed_lines.append(line)
 
+    # Remove excessive empty lines and return
     result = "\n".join(processed_lines)
     return _normalize_newlines(result).strip()
 
@@ -166,40 +199,51 @@ def _apply_moderate_reduction(
     config: TokenReductionConfig,
     language: str | None = None,
 ) -> str:
+    """Apply moderate reduction (formatting + stopwords)."""
+    # First apply light reduction
     text = _apply_light_reduction(text, preserve_markdown=config.preserve_markdown)
 
+    # Determine language for stopword removal
     lang = language or config.language_hint or "en"
 
+    # Check if language is supported
     manager = get_default_stopwords_manager()
     if not manager.has_language(lang):
+        # Fallback to English if language not supported
         lang = "en"
 
     if not manager.has_language(lang):
+        # No stopwords available, return light reduction only
         return text
 
+    # Get stopwords (with custom if provided)
     if config.custom_stopwords and lang in config.custom_stopwords:
         custom_words_tuple = tuple(sorted(config.custom_stopwords[lang]))
         stopwords = _get_cached_custom_stopwords(lang, custom_words_tuple)
     else:
         stopwords = _get_cached_stopwords(lang)
 
+    # Apply stopword reduction
     if config.preserve_markdown:
         return _apply_stopword_reduction_markdown_aware(text, stopwords=stopwords)
     return _apply_stopword_reduction_plain(text, stopwords=stopwords)
 
 
 def _apply_stopword_reduction_plain(text: str, *, stopwords: set[str]) -> str:
+    """Apply stopword reduction to plain text."""
     words = text.split()
     filtered_words = []
 
     for word in words:
+        # Clean word for stopword checking
         clean_word = WORD_CLEAN_PATTERN.sub("", word.lower())
 
+        # Keep word if not a stopword or if it's important
         if (
             clean_word not in stopwords
-            or len(clean_word) <= 2
-            or word.isupper()
-            or any(char.isdigit() for char in word)
+            or len(clean_word) <= 2  # Keep short words
+            or word.isupper()  # Keep all-caps (likely acronyms)
+            or any(char.isdigit() for char in word)  # Keep words with numbers
         ):
             filtered_words.append(word)
 
@@ -207,32 +251,48 @@ def _apply_stopword_reduction_plain(text: str, *, stopwords: set[str]) -> str:
 
 
 def _apply_stopword_reduction_markdown_aware(text: str, *, stopwords: set[str]) -> str:
+    """Apply stopword reduction preserving markdown structure."""
     lines = text.split("\n")
     processed_lines = []
     in_code_block = False
 
     for line in lines:
+        # Track code blocks
         if line.strip().startswith("```"):
             in_code_block = not in_code_block
             processed_lines.append(line)
             continue
 
+        # Preserve markdown structural elements
         if _is_markdown_structural_line(line, in_code_block):
             processed_lines.append(line)
             continue
 
+        # Apply stopword reduction to prose lines
         if line.strip():
             reduced = _apply_stopword_reduction_plain(line, stopwords=stopwords)
             processed_lines.append(reduced)
         else:
             processed_lines.append(line)
 
+    # Remove excessive empty lines and return
     result = "\n".join(processed_lines)
     return _normalize_newlines(result).strip()
 
 
 def get_reduction_stats(original: str, reduced: str) -> ReductionStats:
-    """Get detailed statistics about the reduction."""
+    """Get detailed statistics about the reduction.
+
+    Args:
+        original: The original text.
+        reduced: The reduced text.
+
+    Returns:
+        Statistics about the reduction.
+
+    Raises:
+        ValidationError: If inputs are invalid.
+    """
     if original is None:
         raise ValidationError("Original text cannot be None")
 
@@ -247,17 +307,17 @@ def get_reduction_stats(original: str, reduced: str) -> ReductionStats:
 
     original_chars = len(original)
     reduced_chars = len(reduced)
-    original_tokens = len(original.split())
-    reduced_tokens = len(reduced.split())
+    original_tokens = len(original.split()) if original else 0
+    reduced_tokens = len(reduced.split()) if reduced else 0
 
     char_reduction = (original_chars - reduced_chars) / original_chars if original_chars > 0 else 0.0
     token_reduction = (original_tokens - reduced_tokens) / original_tokens if original_tokens > 0 else 0.0
 
-    return {
-        "character_reduction_ratio": char_reduction,
-        "token_reduction_ratio": token_reduction,
-        "original_characters": original_chars,
-        "reduced_characters": reduced_chars,
-        "original_tokens": original_tokens,
-        "reduced_tokens": reduced_tokens,
-    }
+    return ReductionStats(
+        character_reduction_ratio=char_reduction,
+        token_reduction_ratio=token_reduction,
+        original_characters=original_chars,
+        reduced_characters=reduced_chars,
+        original_tokens=original_tokens,
+        reduced_tokens=reduced_tokens,
+    )

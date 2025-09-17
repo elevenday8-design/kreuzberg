@@ -233,10 +233,7 @@ class TokenReductionCompressionBenchmark:
         pipeline_results: dict[str, Any] = {}
 
         for mode in self.modes:
-            config = ExtractionConfig(
-                token_reduction_mode=mode,
-                token_reduction_config=TokenReductionConfig(mode=mode),
-            )
+            config = ExtractionConfig(token_reduction=TokenReductionConfig(mode=mode))
 
             test_text = self.test_texts["formal_document"]
 

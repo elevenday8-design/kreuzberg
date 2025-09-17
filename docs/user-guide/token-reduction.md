@@ -15,6 +15,11 @@ Token reduction is controlled through the `ExtractionConfig` class with the `tok
 - `language_hint`: Language hint for stopword removal in moderate mode (default: `None`)
 - `custom_stopwords`: Additional stopwords per language (default: `None`)
 
+⚠️ **Important Limitations:**
+
+- Maximum text size: 10MB (10,000,000 characters)
+- Language codes must match format: alphanumeric and hyphens only (e.g., "en", "en-US")
+
 ## Reduction Modes
 
 ### Off Mode
@@ -217,12 +222,28 @@ search_index.add_document(doc_id, result.content)
 - **Consider downstream processing**: Balance reduction benefits against potential information loss
 - **Use custom stopwords judiciously**: Add domain-specific terms but avoid over-filtering
 
+## Error Handling
+
+```python
+from kreuzberg import extract_file, ExtractionConfig, TokenReductionConfig
+from kreuzberg.exceptions import ValidationError
+
+try:
+    config = ExtractionConfig(token_reduction=TokenReductionConfig(mode="moderate"))
+    result = await extract_file("large_document.pdf", config=config)
+except ValidationError as e:
+    # Handle validation errors (e.g., text too large, invalid language code)
+    print(f"Token reduction failed: {e}")
+```
+
 ## Technical Details
 
 The token reduction system uses:
 
+- **Lazy loading**: Stopwords are loaded only when needed for specific languages
 - **Pre-compiled regex patterns** for optimal performance
-- **LRU caching** for stopwords across 64+ languages
+- **LRU caching** for frequently used languages (up to 16 cached)
+- **Individual language files** for efficient memory usage
 - **Intelligent markdown parsing** to preserve document structure
 - **Security validation** including text size limits and language code validation
 - **Efficient stopword management** with support for custom additions
