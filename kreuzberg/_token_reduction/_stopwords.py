@@ -6,7 +6,6 @@ from pathlib import Path
 import msgspec
 
 from kreuzberg._utils._ref import Ref
-from kreuzberg.exceptions import ValidationError
 
 _STOPWORDS_DIR = Path(__file__).parent / "stopwords"
 
@@ -66,9 +65,6 @@ _available_languages_ref = Ref("available_languages", _get_available_languages)
 class StopwordsManager:
     """Manages stopwords for multiple languages with lazy loading."""
 
-    MAX_CUSTOM_LANGUAGES = 100
-    MAX_CUSTOM_WORDS_PER_LANGUAGE = 10000
-
     def __init__(
         self,
         custom_stopwords: dict[str, list[str]] | None = None,
@@ -81,19 +77,7 @@ class StopwordsManager:
         self._custom_stopwords: dict[str, set[str]] = {}
 
         if custom_stopwords:
-            # Validate size limits
-            if len(custom_stopwords) > self.MAX_CUSTOM_LANGUAGES:
-                raise ValidationError(
-                    f"Too many custom stopword languages: {len(custom_stopwords)} (max {self.MAX_CUSTOM_LANGUAGES})"
-                )
-
-            for lang, words in custom_stopwords.items():
-                if len(words) > self.MAX_CUSTOM_WORDS_PER_LANGUAGE:
-                    raise ValidationError(
-                        f"Too many custom stopwords for language '{lang}': {len(words)} "
-                        f"(max {self.MAX_CUSTOM_WORDS_PER_LANGUAGE})"
-                    )
-                self._custom_stopwords[lang] = set(words)
+            self._custom_stopwords = {lang: set(words) for lang, words in custom_stopwords.items()}
 
     def get_stopwords(self, language: str) -> set[str]:
         """Get stopwords for a language, combining default and custom."""
@@ -120,25 +104,11 @@ class StopwordsManager:
 
     def add_custom_stopwords(self, language: str, words: list[str] | set[str]) -> None:
         """Add custom stopwords for a language."""
-        # Check language count limit
         if language not in self._custom_stopwords:
-            if len(self._custom_stopwords) >= self.MAX_CUSTOM_LANGUAGES:
-                raise ValidationError(
-                    f"Cannot add more custom stopword languages: already have {len(self._custom_stopwords)} "
-                    f"(max {self.MAX_CUSTOM_LANGUAGES})"
-                )
             self._custom_stopwords[language] = set()
 
         if isinstance(words, list):
             words = set(words)
-
-        # Check word count limit
-        new_total = len(self._custom_stopwords[language]) + len(words)
-        if new_total > self.MAX_CUSTOM_WORDS_PER_LANGUAGE:
-            raise ValidationError(
-                f"Too many custom stopwords for language '{language}': would have {new_total} "
-                f"(max {self.MAX_CUSTOM_WORDS_PER_LANGUAGE})"
-            )
 
         self._custom_stopwords[language].update(words)
 

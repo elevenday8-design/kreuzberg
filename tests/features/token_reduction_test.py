@@ -306,12 +306,17 @@ def test_get_reduction_stats_validation_raises_error_on_invalid_reduced_type() -
         get_reduction_stats("test", ["test"])  # type: ignore[arg-type]
 
 
-def test_reduce_tokens_security_raises_error_on_excessive_text_length() -> None:
+def test_reduce_tokens_handles_large_text_with_streaming() -> None:
+    """Test that large texts are processed successfully using streaming."""
     config = TokenReductionConfig(mode="light")
-    large_text = "x" * 10_000_001
+    # Create text larger than streaming threshold (1MB)
+    large_text = "Hello world. " * 100_000  # ~1.3MB
 
-    with pytest.raises(ValidationError, match="Text too large"):
-        reduce_tokens(large_text, config=config)
+    # Should not raise an error, should process successfully
+    result = reduce_tokens(large_text, config=config)
+    assert isinstance(result, str)
+    assert len(result) > 0
+    assert "Hello world" in result
 
 
 def test_reduce_tokens_security_raises_error_on_invalid_language_format() -> None:
@@ -717,42 +722,6 @@ def test_path_traversal_protection() -> None:
         assert stopwords == set()
 
 
-def test_custom_stopwords_size_limits() -> None:
-    """Test that custom stopwords have size limits."""
-    # Test too many languages
-    too_many_langs = {f"lang{i}": ["word"] for i in range(101)}
-
-    with pytest.raises(ValidationError, match="Too many custom stopword languages"):
-        StopwordsManager(custom_stopwords=too_many_langs)
-
-    # Test too many words per language
-    too_many_words = {"en": [f"word{i}" for i in range(10001)]}
-
-    with pytest.raises(ValidationError, match="Too many custom stopwords for language"):
-        StopwordsManager(custom_stopwords=too_many_words)
-
-
-def test_add_custom_stopwords_limits() -> None:
-    """Test that add_custom_stopwords enforces limits."""
-    manager = StopwordsManager()
-
-    # Add languages up to the limit
-    for i in range(100):
-        manager.add_custom_stopwords(f"lang{i}", ["word"])
-
-    # Should fail when adding 101st language
-    with pytest.raises(ValidationError, match="Cannot add more custom stopword languages"):
-        manager.add_custom_stopwords("lang100", ["word"])
-
-    # Test word limit per language
-    manager2 = StopwordsManager()
-    manager2.add_custom_stopwords("en", [f"word{i}" for i in range(9999)])
-
-    # Should fail when exceeding word limit
-    with pytest.raises(ValidationError, match="Too many custom stopwords for language"):
-        manager2.add_custom_stopwords("en", ["word9999", "word10000"])
-
-
 def test_empty_result_handling() -> None:
     """Test that completely filtered text returns empty string."""
     config = TokenReductionConfig(mode="moderate", custom_stopwords={"en": ["everything", "removed"]})
@@ -795,3 +764,117 @@ def test_thread_safe_ref_initialization() -> None:
 
     # Cleanup
     ref.clear()
+
+
+def test_language_normalization_in_config() -> None:
+    """Test that language hints are normalized in TokenReductionConfig."""
+    from kreuzberg._types import TokenReductionConfig
+
+    # Test ISO 639-2/3 to ISO 639-1 conversion
+    config = TokenReductionConfig(language_hint="eng")
+    assert config.language_hint == "en"
+
+    config = TokenReductionConfig(language_hint="fra")
+    assert config.language_hint == "fr"
+
+    config = TokenReductionConfig(language_hint="deu")
+    assert config.language_hint == "de"
+
+    # Test BCP 47 normalization
+    config = TokenReductionConfig(language_hint="en-US")
+    assert config.language_hint == "en"
+
+    config = TokenReductionConfig(language_hint="en_GB")
+    assert config.language_hint == "en"
+
+    config = TokenReductionConfig(language_hint="zh-Hans-CN")
+    assert config.language_hint == "zh"
+
+    # Test case insensitive
+    config = TokenReductionConfig(language_hint="EN")
+    assert config.language_hint == "en"
+
+    config = TokenReductionConfig(language_hint="ENG")
+    assert config.language_hint == "en"
+
+    # Test that already normalized codes stay the same
+    config = TokenReductionConfig(language_hint="en")
+    assert config.language_hint == "en"
+
+    config = TokenReductionConfig(language_hint="fr")
+    assert config.language_hint == "fr"
+
+
+def test_unicode_normalization() -> None:
+    """Test that Unicode text is normalized correctly."""
+    from kreuzberg._types import TokenReductionConfig
+
+    # Test with combining characters
+    # café written with combining acute accent
+    text_combining = "cafe\u0301"  # e + combining acute accent
+    # café written with precomposed character
+    text_precomposed = "café"
+
+    config = TokenReductionConfig(mode="light")
+
+    result1 = reduce_tokens(text_combining, config=config)
+    result2 = reduce_tokens(text_precomposed, config=config)
+
+    # Should normalize to the same result
+    assert result1 == result2
+
+
+def test_punctuation_preservation_with_stopwords() -> None:
+    """Test that punctuation is correctly preserved when removing stopwords."""
+    from kreuzberg._types import TokenReductionConfig
+
+    config = TokenReductionConfig(mode="moderate")
+
+    # Test sentence-ending punctuation preservation
+    text = "The cat is on the mat."
+    result = reduce_tokens(text, config=config, language="en")
+    assert result.endswith(".")
+    assert "cat" in result
+    assert "mat" in result
+    assert "the" not in result.lower()  # stopword removed
+
+    # Test with question mark
+    text = "Is the cat on the mat?"
+    result = reduce_tokens(text, config=config, language="en")
+    assert result.endswith("?")
+
+    # Test with exclamation
+    text = "The cat is amazing!"
+    result = reduce_tokens(text, config=config, language="en")
+    assert result.endswith("!")
+
+    # Test comma preservation (when meaningful)
+    text = "The cat, the dog, and the bird."
+    result = reduce_tokens(text, config=config, language="en")
+    assert "cat" in result
+    assert "dog" in result
+    assert "bird" in result
+
+
+def test_performance_pre_lowercase_stopwords() -> None:
+    """Test that stopwords are pre-lowercased for performance."""
+    import time
+
+    from kreuzberg._types import TokenReductionConfig
+
+    config = TokenReductionConfig(mode="moderate")
+
+    # Generate a large text with many repeated stopwords
+    text = " ".join(["The quick brown fox jumps over the lazy dog"] * 1000)
+
+    # Time the operation
+    start = time.perf_counter()
+    result = reduce_tokens(text, config=config, language="en")
+    elapsed = time.perf_counter() - start
+
+    # Should be fast (under 1 second for 9000 words)
+    assert elapsed < 1.0
+    assert "quick" in result
+    assert "brown" in result
+    assert "fox" in result
+    assert "the" not in result.lower()
