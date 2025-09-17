@@ -695,6 +695,8 @@ class Metadata(TypedDict, total=False):
     """Message or communication content."""
     attributes: NotRequired[dict[str, Any]]
     """Additional attributes extracted from structured data (e.g., custom text fields with dotted keys)."""
+    token_reduction: NotRequired[dict[str, float]]
+    """Token reduction statistics including reduction ratios and counts."""
 
 
 _VALID_METADATA_KEYS = {
@@ -749,6 +751,7 @@ _VALID_METADATA_KEYS = {
     "text",
     "message",
     "attributes",
+    "token_reduction",
 }
 
 
@@ -1009,6 +1012,10 @@ class ExtractionConfig(ConfigDict):
     """Minimum DPI threshold when auto-adjusting DPI."""
     max_dpi: int = 600
     """Maximum DPI threshold when auto-adjusting DPI."""
+    token_reduction_mode: Literal["off", "light", "moderate"] = "off"  # noqa: S105
+    """Token reduction mode for reducing output size while preserving meaning."""
+    token_reduction_config: TokenReductionConfig | None = None
+    """Configuration for token reduction behavior."""
 
     def __post_init__(self) -> None:
         if self.custom_entity_patterns is not None and isinstance(self.custom_entity_patterns, dict):
@@ -1199,3 +1206,11 @@ class HTMLToMarkdownConfig:
     def to_dict(self) -> dict[str, Any]:
         result = msgspec.to_builtins(self, builtin_types=(type(None),), order="deterministic")
         return {k: v for k, v in result.items() if v is not None}
+
+
+@dataclass(unsafe_hash=True, frozen=True, slots=True)
+class TokenReductionConfig:
+    mode: Literal["off", "light", "moderate"] = "off"
+    preserve_markdown: bool = True
+    custom_stopwords: dict[str, list[str]] | None = field(default=None, compare=False, hash=False)
+    language_hint: str | None = None

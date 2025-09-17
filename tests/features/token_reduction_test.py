@@ -1,0 +1,467 @@
+from __future__ import annotations
+
+import pytest
+
+from kreuzberg._token_reduction import StopwordsManager, get_reduction_stats, reduce_tokens
+from kreuzberg._types import TokenReductionConfig
+from kreuzberg.exceptions import ValidationError
+
+
+def test_reduce_tokens_off_mode_returns_original_text() -> None:
+    config = TokenReductionConfig(mode="off")
+    text = "This is a test with some stopwords and extra    spaces."
+
+    result = reduce_tokens(text, config=config)
+
+    assert result == text
+
+
+def test_reduce_tokens_light_mode_normalizes_whitespace() -> None:
+    config = TokenReductionConfig(mode="light", preserve_markdown=False)
+    text = "This   has    multiple     spaces."
+
+    result = reduce_tokens(text, config=config)
+
+    assert result == "This has multiple spaces."
+
+
+def test_reduce_tokens_light_mode_removes_html_comments() -> None:
+    config = TokenReductionConfig(mode="light", preserve_markdown=False)
+    text = "Text before <!-- comment --> text after."
+
+    result = reduce_tokens(text, config=config)
+
+    assert result == "Text before text after."
+
+
+def test_reduce_tokens_light_mode_compresses_repeated_punctuation() -> None:
+    config = TokenReductionConfig(mode="light", preserve_markdown=False)
+    text = "Wait!!! What??? No way... Really,,,"
+
+    result = reduce_tokens(text, config=config)
+
+    assert result == "Wait! What? No way. Really,"
+
+
+def test_reduce_tokens_light_mode_removes_excessive_newlines() -> None:
+    config = TokenReductionConfig(mode="light", preserve_markdown=False)
+    text = "Line 1\n\n\n\nLine 2\n\n\n\n\nLine 3"
+
+    result = reduce_tokens(text, config=config)
+
+    assert result == "Line 1\n\nLine 2\n\nLine 3"
+
+
+def test_reduce_tokens_light_mode_preserves_markdown_when_enabled() -> None:
+    config = TokenReductionConfig(mode="light", preserve_markdown=True)
+    text = "# Header\n\nSome   text   with   spaces.\n\n```\ncode   block\n```"
+
+    result = reduce_tokens(text, config=config)
+
+    assert "# Header" in result
+    assert "```\ncode   block\n```" in result
+    assert "Some text with spaces." in result
+
+
+def test_reduce_tokens_moderate_mode_removes_stopwords() -> None:
+    config = TokenReductionConfig(mode="moderate", preserve_markdown=False)
+    text = "The quick brown fox jumps over the lazy dog."
+
+    result = reduce_tokens(text, config=config, language="en")
+
+    assert "the" not in result.lower().split()
+    assert "over" not in result.lower().split()
+    assert "quick" in result.lower()
+    assert "brown" in result.lower()
+    assert "fox" in result.lower()
+
+
+def test_reduce_tokens_moderate_mode_preserves_important_words() -> None:
+    config = TokenReductionConfig(mode="moderate", preserve_markdown=False)
+    text = "The API key is ABC123 and the URL is https://example.com"
+
+    result = reduce_tokens(text, config=config, language="en")
+
+    assert "API" in result
+    assert "ABC123" in result
+    assert "URL" in result
+
+
+def test_reduce_tokens_moderate_mode_with_markdown_preservation() -> None:
+    config = TokenReductionConfig(mode="moderate", preserve_markdown=True)
+    text = """# Title
+
+The quick brown fox jumps over the lazy dog.
+
+- The first item
+- The second item
+
+```python
+def the_function():
+    pass
+```"""
+
+    result = reduce_tokens(text, config=config, language="en")
+
+    assert "# Title" in result
+    assert "- " in result
+    assert "```python" in result
+    assert "def the_function():" in result
+    lines = result.split("\n")
+    prose_line = next(line for line in lines if "fox" in line)
+    assert "the" not in prose_line.lower().split()
+
+
+def test_reduce_tokens_with_unsupported_language_falls_back_to_english() -> None:
+    config = TokenReductionConfig(mode="moderate")
+    text = "The quick brown fox jumps over the lazy dog."
+
+    result = reduce_tokens(text, config=config, language="unsupported-lang")
+
+    assert "the" not in result.lower().split()
+    assert "quick" in result.lower()
+
+
+def test_reduce_tokens_with_no_language_uses_english() -> None:
+    config = TokenReductionConfig(mode="moderate")
+    text = "The quick brown fox jumps over the lazy dog."
+
+    result = reduce_tokens(text, config=config)
+
+    assert "the" not in result.lower().split()
+    assert "quick" in result.lower()
+
+
+def test_get_reduction_stats_calculates_correctly() -> None:
+    original = "The quick brown fox jumps over the lazy dog."
+    reduced = "quick brown fox jumps lazy dog."
+
+    stats = get_reduction_stats(original, reduced)
+
+    assert stats["original_characters"] == len(original)
+    assert stats["reduced_characters"] == len(reduced)
+    assert stats["original_tokens"] == len(original.split())
+    assert stats["reduced_tokens"] == len(reduced.split())
+    assert stats["character_reduction_ratio"] > 0
+    assert stats["token_reduction_ratio"] > 0
+
+
+def test_get_reduction_stats_with_no_reduction() -> None:
+    text = "Same text for both."
+
+    stats = get_reduction_stats(text, text)
+
+    assert stats["character_reduction_ratio"] == 0.0
+    assert stats["token_reduction_ratio"] == 0.0
+    assert stats["original_characters"] == stats["reduced_characters"]
+    assert stats["original_tokens"] == stats["reduced_tokens"]
+
+
+def test_get_reduction_stats_with_empty_original() -> None:
+    stats = get_reduction_stats("", "")
+
+    assert stats["character_reduction_ratio"] == 0.0
+    assert stats["token_reduction_ratio"] == 0.0
+    assert stats["original_characters"] == 0
+    assert stats["reduced_characters"] == 0
+
+
+def test_stopwords_manager_loads_english_stopwords() -> None:
+    manager = StopwordsManager()
+
+    stopwords = manager.get_stopwords("en")
+
+    assert len(stopwords) > 0
+    assert "the" in stopwords
+    assert "and" in stopwords
+    assert "is" in stopwords
+
+
+def test_stopwords_manager_has_language_check() -> None:
+    manager = StopwordsManager()
+
+    assert manager.has_language("en") is True
+    assert manager.has_language("nonexistent") is False
+
+
+def test_stopwords_manager_supported_languages() -> None:
+    manager = StopwordsManager()
+
+    languages = manager.supported_languages()
+
+    assert len(languages) > 0
+    assert "en" in languages
+    assert isinstance(languages, list)
+    assert languages == sorted(languages)
+
+
+def test_stopwords_manager_custom_stopwords() -> None:
+    custom_stopwords = {"test": ["custom", "words"]}
+    manager = StopwordsManager(custom_stopwords=custom_stopwords)
+
+    stopwords = manager.get_stopwords("test")
+
+    assert "custom" in stopwords
+    assert "words" in stopwords
+
+
+def test_reduce_tokens_empty_text_returns_empty() -> None:
+    config = TokenReductionConfig(mode="light")
+
+    result = reduce_tokens("", config=config)
+
+    assert result == ""
+
+
+def test_reduce_tokens_whitespace_only_text() -> None:
+    config = TokenReductionConfig(mode="light")
+
+    result = reduce_tokens("   \n\n   \t  ", config=config)
+
+    assert result == ""
+
+
+def test_reduce_tokens_moderate_mode_with_mixed_case() -> None:
+    config = TokenReductionConfig(mode="moderate")
+    text = "THE Quick BROWN fox"
+
+    result = reduce_tokens(text, config=config, language="en")
+
+    assert "Quick" in result
+    assert "BROWN" in result
+    assert "THE" in result.split()
+
+
+def test_reduce_tokens_validation_raises_error_on_none_text() -> None:
+    config = TokenReductionConfig(mode="light")
+
+    with pytest.raises(ValidationError, match="Text cannot be None"):
+        reduce_tokens(None, config=config)  # type: ignore[arg-type]
+
+
+def test_reduce_tokens_validation_raises_error_on_none_config() -> None:
+    with pytest.raises(ValidationError, match="Config cannot be None"):
+        reduce_tokens("test", config=None)  # type: ignore[arg-type]
+
+
+def test_reduce_tokens_validation_raises_error_on_invalid_text_type() -> None:
+    config = TokenReductionConfig(mode="light")
+
+    with pytest.raises(ValidationError, match="Text must be a string, got int"):
+        reduce_tokens(123, config=config)  # type: ignore[arg-type]
+
+
+def test_reduce_tokens_validation_raises_error_on_invalid_language_type() -> None:
+    config = TokenReductionConfig(mode="moderate")
+
+    with pytest.raises(ValidationError, match="Language must be a string or None, got int"):
+        reduce_tokens("test", config=config, language=123)  # type: ignore[arg-type]
+
+
+def test_reduce_tokens_validation_raises_error_on_empty_language() -> None:
+    config = TokenReductionConfig(mode="moderate")
+
+    with pytest.raises(ValidationError, match="Language cannot be empty or whitespace-only"):
+        reduce_tokens("test", config=config, language="  ")
+
+
+def test_reduce_tokens_handles_empty_text_gracefully() -> None:
+    config = TokenReductionConfig(mode="light")
+
+    result = reduce_tokens("", config=config)
+
+    assert result == ""
+
+
+def test_reduce_tokens_handles_whitespace_only_text_gracefully() -> None:
+    config = TokenReductionConfig(mode="off")
+
+    result = reduce_tokens("   \n\t  ", config=config)
+
+    assert result == "   \n\t  "
+
+
+def test_get_reduction_stats_validation_raises_error_on_none_original() -> None:
+    with pytest.raises(ValidationError, match="Original text cannot be None"):
+        get_reduction_stats(None, "test")  # type: ignore[arg-type]
+
+
+def test_get_reduction_stats_validation_raises_error_on_none_reduced() -> None:
+    with pytest.raises(ValidationError, match="Reduced text cannot be None"):
+        get_reduction_stats("test", None)  # type: ignore[arg-type]
+
+
+def test_get_reduction_stats_validation_raises_error_on_invalid_original_type() -> None:
+    with pytest.raises(ValidationError, match="Original text must be a string, got int"):
+        get_reduction_stats(123, "test")  # type: ignore[arg-type]
+
+
+def test_get_reduction_stats_validation_raises_error_on_invalid_reduced_type() -> None:
+    with pytest.raises(ValidationError, match="Reduced text must be a string, got list"):
+        get_reduction_stats("test", ["test"])  # type: ignore[arg-type]
+
+
+def test_reduce_tokens_security_raises_error_on_excessive_text_length() -> None:
+    config = TokenReductionConfig(mode="light")
+    large_text = "x" * 10_000_001
+
+    with pytest.raises(ValidationError, match="Text too large"):
+        reduce_tokens(large_text, config=config)
+
+
+def test_reduce_tokens_security_raises_error_on_invalid_language_format() -> None:
+    config = TokenReductionConfig(mode="moderate")
+
+    with pytest.raises(ValidationError, match="Invalid language code format"):
+        reduce_tokens("test", config=config, language="invalid/lang$code")
+
+
+def test_reduce_tokens_security_accepts_valid_language_codes() -> None:
+    config = TokenReductionConfig(mode="off")
+
+    reduce_tokens("test", config=config, language="en")
+    reduce_tokens("test", config=config, language="es")
+    reduce_tokens("test", config=config, language="en-US")
+    reduce_tokens("test", config=config, language="pt-BR")
+
+
+def test_reduce_tokens_edge_case_unicode_characters() -> None:
+    config = TokenReductionConfig(mode="light")
+    text = "Hello 世界 🌍 café naïve résumé"
+
+    result = reduce_tokens(text, config=config)
+
+    assert "世界" in result
+    assert "🌍" in result
+    assert "café" in result
+
+
+def test_reduce_tokens_edge_case_very_long_words() -> None:
+    config = TokenReductionConfig(mode="moderate")
+    long_word = "supercalifragilisticexpialidocious" * 10
+    text = f"The {long_word} was amazing"
+
+    result = reduce_tokens(text, config=config, language="en")
+
+    assert long_word in result
+    assert "the" not in result.lower()
+
+
+def test_reduce_tokens_edge_case_numbers_and_symbols() -> None:
+    config = TokenReductionConfig(mode="moderate")
+    text = "The price is $123.45 and the date is 2024-01-01"
+
+    result = reduce_tokens(text, config=config, language="en")
+
+    assert "$123.45" in result
+    assert "2024-01-01" in result
+    assert "price" in result
+    assert "the" not in result.lower()
+
+
+def test_reduce_tokens_edge_case_mixed_languages() -> None:
+    config = TokenReductionConfig(mode="moderate")
+    text = "Hey mundo 世界 bonjour"
+
+    result = reduce_tokens(text, config=config, language="en")
+
+    assert "Hey" in result
+    assert "mundo" in result
+    assert "世界" in result
+    assert "bonjour" in result
+
+
+def test_reduce_tokens_edge_case_markdown_with_complex_nesting() -> None:
+    config = TokenReductionConfig(mode="moderate", preserve_markdown=True)
+    text = """# Header with the word the
+
+This is a paragraph with the word the that should be reduced.
+
+## Sub-header the
+
+- Item the first
+- Item the second
+  - Nested item the third
+
+```python
+def the_function():
+    # This the should be preserved
+    return "the value"
+```
+
+| Column the | Another the |
+|------------|-------------|
+| Value the  | Data the    |
+"""
+
+    result = reduce_tokens(text, config=config, language="en")
+
+    assert "# Header with the word the" in result
+    assert "## Sub-header the" in result
+
+    assert "def the_function():" in result
+    assert "# This the should be preserved" in result
+
+    assert "| Column the | Another the |" in result
+
+    assert "- Item the first" in result
+
+    lines = result.split("\n")
+    prose_lines = [
+        line
+        for line in lines
+        if line.strip() and not line.strip().startswith(("#", "-", "|", "```")) and "def " not in line
+    ]
+    for line in prose_lines:
+        if "paragraph" in line.lower():
+            assert "the" not in line.lower().split()
+
+
+def test_reduce_tokens_edge_case_only_stopwords() -> None:
+    config = TokenReductionConfig(mode="moderate")
+    text = "the and or but"
+
+    result = reduce_tokens(text, config=config, language="en")
+
+    assert len(result.strip()) == 0 or result.strip() in ["", "and", "or", "but"]
+
+
+def test_reduce_tokens_edge_case_repeated_punctuation_edge_cases() -> None:
+    config = TokenReductionConfig(mode="light")
+    text = "What?!?!?! No way.... Really,,, Wow!!! Amazing..."
+
+    result = reduce_tokens(text, config=config)
+
+    assert "?!?!?!" not in result
+    assert "...." not in result
+    assert ",,," not in result
+    assert "!!!" not in result
+
+    assert "What?" in result or "What!" in result
+    assert "way." in result
+    assert "Really," in result
+
+
+def test_get_reduction_stats_edge_case_empty_strings() -> None:
+    stats = get_reduction_stats("", "")
+
+    assert stats["character_reduction_ratio"] == 0.0
+    assert stats["token_reduction_ratio"] == 0.0
+    assert stats["original_characters"] == 0
+    assert stats["reduced_characters"] == 0
+    assert stats["original_tokens"] == 0
+    assert stats["reduced_tokens"] == 0
+
+
+def test_get_reduction_stats_edge_case_expansion() -> None:
+    original = "Hi"
+    reduced = "Hello there"
+
+    stats = get_reduction_stats(original, reduced)
+
+    assert stats["character_reduction_ratio"] < 0
+    assert stats["token_reduction_ratio"] < 0
+    assert stats["original_characters"] == 2
+    assert stats["reduced_characters"] == 11
+    assert stats["original_tokens"] == 1
+    assert stats["reduced_tokens"] == 2

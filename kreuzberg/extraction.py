@@ -15,6 +15,7 @@ from kreuzberg._mime_types import (
     validate_mime_type,
 )
 from kreuzberg._registry import ExtractorRegistry
+from kreuzberg._token_reduction import get_reduction_stats, reduce_tokens
 from kreuzberg._types import ExtractionConfig, ExtractionResult
 from kreuzberg._utils._document_cache import get_document_cache
 from kreuzberg._utils._errors import create_error_context
@@ -91,6 +92,30 @@ def _validate_and_post_process_helper(
 
     if config.auto_detect_document_type:
         result = auto_detect_document_type(result, config, file_path=file_path)
+
+    if config.token_reduction_mode != "off" and config.token_reduction_config is not None:  # noqa: S105
+        original_content = result.content
+
+        language_hint = None
+        if result.detected_languages:
+            language_hint = result.detected_languages[0]
+
+        reduced_content = reduce_tokens(
+            original_content,
+            config=config.token_reduction_config,
+            language=language_hint,
+        )
+        reduction_stats = get_reduction_stats(original_content, reduced_content)
+
+        result.content = reduced_content
+        result.metadata["token_reduction"] = {
+            "character_reduction_ratio": reduction_stats["character_reduction_ratio"],
+            "token_reduction_ratio": reduction_stats["token_reduction_ratio"],
+            "original_characters": reduction_stats["original_characters"],
+            "reduced_characters": reduction_stats["reduced_characters"],
+            "original_tokens": reduction_stats["original_tokens"],
+            "reduced_tokens": reduction_stats["reduced_tokens"],
+        }
 
     return result
 
