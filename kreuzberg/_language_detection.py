@@ -11,13 +11,12 @@ if TYPE_CHECKING:
 
 try:
     from fast_langdetect import LangDetectConfig as FastLangDetectConfig
-    from fast_langdetect import detect, detect_multilingual
+    from fast_langdetect import detect
 
     HAS_FAST_LANGDETECT = True
 except ImportError:  # pragma: no cover
     HAS_FAST_LANGDETECT = False
     detect = None
-    detect_multilingual = None
     FastLangDetectConfig = None
 
 _CACHE_SIZE = 128
@@ -48,7 +47,7 @@ def detect_languages(text: str, config: LanguageDetectionConfig | None = None) -
 
     try:
         if config.multilingual:
-            results = detect_multilingual(text, low_memory=config.low_memory, k=config.top_k)
+            results = detect(text, low_memory=config.low_memory, k=config.top_k)
 
             return [result["lang"].lower() for result in results if result.get("lang")]
 
