@@ -219,7 +219,7 @@ jobs:
 
   coverage-pr:
     needs: test-pr
-    if: github.event_name == 'pull_request' && always()
+    if: github.event_name == 'pull_request' && needs.test-pr.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
