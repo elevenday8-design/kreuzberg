@@ -320,22 +320,20 @@ async def batch_extract_file(
                     config,
                 )
                 results[index] = result
-            except Exception as e:  # noqa: BLE001
-                error_result = ExtractionResult(
-                    content=f"Error: {type(e).__name__}: {e!s}",
-                    mime_type="text/plain",
-                    metadata={
-                        "error": f"{type(e).__name__}: {e!s}",
-                        "error_context": create_error_context(
-                            operation="batch_extract_file",
-                            file_path=str(path),
-                            error=e,
-                            index=index,
-                        ),
-                    },
-                    chunks=[],
+            except Exception as e:
+                # Only handle specific exceptions that should not break batch processing
+                if should_exception_bubble_up(e, "batch_processing"):
+                    raise
+
+                # For exceptions that should be handled gracefully in batch context
+                basic_result = _attempt_basic_extraction(
+                    None,  # content not available for files
+                    None,  # mime_type will be detected
+                    e,
+                    index,
+                    file_path=str(path),
                 )
-                results[index] = error_result
+                results[index] = basic_result
 
     async with anyio.create_task_group() as tg:
         for i, path in enumerate(file_paths):
@@ -386,7 +384,7 @@ async def batch_extract_bytes(
 
 
 def _attempt_basic_extraction(
-    content: bytes, mime_type: str, original_error: Exception, index: int
+    content: bytes | None, mime_type: str | None, original_error: Exception, index: int, *, file_path: str | None = None
 ) -> ExtractionResult:
     """Attempt basic extraction when full extraction fails, preserving as much as possible.
 
@@ -394,10 +392,11 @@ def _attempt_basic_extraction(
     features like OCR, entity extraction, etc. fail.
 
     Args:
-        content: The raw content bytes
-        mime_type: The MIME type of the content
+        content: The raw content bytes (None for file extractions)
+        mime_type: The MIME type of the content (None if unknown)
         original_error: The exception that caused the main extraction to fail
         index: Index of this content in the batch
+        file_path: Optional file path for file-based extractions
 
     Returns:
         A basic ExtractionResult with whatever could be extracted
@@ -414,11 +413,12 @@ def _attempt_basic_extraction(
             metadata={
                 "error": f"{type(original_error).__name__}: {original_error!s}",
                 "error_context": create_error_context(
-                    operation="batch_extract_bytes",
+                    operation="batch_extract_file" if file_path else "batch_extract_bytes",
                     error=original_error,
                     index=index,
                     mime_type=mime_type,
-                    content_size=len(content),
+                    content_size=len(content) if content else 0,
+                    file_path=file_path,
                 ),
             },
             chunks=[],
@@ -431,6 +431,29 @@ def _attempt_basic_extraction(
         )
 
     try:
+        # If we don't have content (file extraction), create a minimal error result
+        if content is None:
+            return ExtractionResult(
+                content=f"Error: {type(original_error).__name__}: {original_error!s}",
+                mime_type="text/plain",
+                metadata={
+                    "error": f"{type(original_error).__name__}: {original_error!s}",
+                    "error_context": create_error_context(
+                        operation="batch_extract_file",
+                        error=original_error,
+                        index=index,
+                        file_path=file_path,
+                    ),
+                },
+                chunks=[],
+                entities=[],
+                keywords=[],
+                detected_languages=[],
+                tables=[],
+                images=[],
+                image_ocr_results=[],
+            )
+
         # Try to get a basic extractor and extract just the content
         mime_type = validate_mime_type(mime_type=mime_type)
         if extractor := ExtractorRegistry.get_extractor(mime_type=mime_type, config=ExtractionConfig()):
@@ -446,11 +469,12 @@ def _attempt_basic_extraction(
                 "error_message": str(original_error),
                 "traceback": traceback.format_exc(),
                 "context": create_error_context(
-                    operation="batch_extract_bytes",
+                    operation="batch_extract_file" if file_path else "batch_extract_bytes",
                     error=original_error,
                     index=index,
                     mime_type=mime_type,
                     content_size=len(content),
+                    file_path=file_path,
                 ),
                 "recovery_mode": "basic_extraction",
             }
@@ -469,11 +493,12 @@ def _attempt_basic_extraction(
         metadata={
             "error": f"{type(original_error).__name__}: {original_error!s}",
             "error_context": create_error_context(
-                operation="batch_extract_bytes",
+                operation="batch_extract_file" if file_path else "batch_extract_bytes",
                 error=original_error,
                 index=index,
                 mime_type=mime_type,
-                content_size=len(content),
+                content_size=len(content) if content else 0,
+                file_path=file_path,
             ),
         },
         chunks=[],
@@ -596,21 +621,20 @@ def batch_extract_file_sync(
                 index,
                 extract_file_sync(file_path=Path(file_path), mime_type=None, config=config),
             )
-        except Exception as e:  # noqa: BLE001
-            error_result = ExtractionResult(
-                content=f"Error: {type(e).__name__}: {e!s}",
-                mime_type="text/plain",
-                metadata={
-                    "error": f"{type(e).__name__}: {e!s}",
-                    "error_context": create_error_context(
-                        operation="batch_extract_file_sync",
-                        file_path=str(file_path),
-                        error=e,
-                    ),
-                },
-                chunks=[],
+        except Exception as e:
+            # Only handle specific exceptions that should not break batch processing
+            if should_exception_bubble_up(e, "batch_processing"):
+                raise
+
+            # For exceptions that should be handled gracefully in batch context
+            basic_result = _attempt_basic_extraction(
+                None,  # content not available for files
+                None,  # mime_type will be detected
+                e,
+                index,
+                file_path=str(file_path),
             )
-            return (index, error_result)
+            return (index, basic_result)
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_index = {executor.submit(extract_single, i, fp): i for i, fp in enumerate(file_paths)}
@@ -646,23 +670,14 @@ def batch_extract_bytes_sync(
         """Extract single content with index for ordering."""
         try:
             return (index, extract_bytes_sync(content=content, mime_type=mime_type, config=config))
-        except Exception as e:  # noqa: BLE001
-            error_result = ExtractionResult(
-                content=f"Error: {type(e).__name__}: {e!s}",
-                mime_type="text/plain",
-                metadata={
-                    "error": f"{type(e).__name__}: {e!s}",
-                    "error_context": create_error_context(
-                        operation="batch_extract_bytes_sync",
-                        error=e,
-                        index=index,
-                        mime_type=mime_type,
-                        content_size=len(content),
-                    ),
-                },
-                chunks=[],
-            )
-            return (index, error_result)
+        except Exception as e:
+            # Only handle specific exceptions that should not break batch processing
+            if should_exception_bubble_up(e, "batch_processing"):
+                raise
+
+            # For exceptions that should be handled gracefully in batch context
+            basic_result = _attempt_basic_extraction(content, mime_type, e, index)
+            return (index, basic_result)
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_index = {
