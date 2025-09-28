@@ -21,10 +21,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-try:
-    from typing import Self
-except ImportError:
-    from typing_extensions import Self
+from typing_extensions import Self
 
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
@@ -316,9 +313,6 @@ class ComprehensiveBenchmarkRunner:
                     error_message=extraction_result.error_message,
                     extracted_text=extraction_result.extracted_text,
                     extracted_metadata=extraction_result.extracted_metadata,
-                    metadata_field_count=len(extraction_result.extracted_metadata)
-                    if extraction_result.extracted_metadata
-                    else None,
                     attempts=attempt + 1,
                 )
 
@@ -387,8 +381,8 @@ class ComprehensiveBenchmarkRunner:
             extractor = get_extractor(framework)
 
             if asyncio.iscoroutinefunction(extractor.extract_text):
-                return await self._run_async_extraction(extractor, file_path, framework)
-            return await self._run_sync_extraction(extractor, file_path, framework)
+                return await self._run_async_extraction(extractor, file_path, framework)  # type: ignore[arg-type]
+            return await self._run_sync_extraction(extractor, file_path, framework)  # type: ignore[arg-type]
 
         except (RuntimeError, OSError, ValueError, ImportError, AttributeError) as e:
             return ExtractionResult(
@@ -646,13 +640,19 @@ class ComprehensiveBenchmarkRunner:
                 avg_chars = statistics.mean(char_counts) if char_counts else None
                 avg_words = statistics.mean(word_counts) if word_counts else None
 
-                quality_stats = self._calculate_quality_statistics(successful)
+                self._calculate_quality_statistics(successful)
             else:
-                avg_time = median_time = min_time = max_time = std_time = None
-                avg_peak_memory = avg_cpu = None
-                files_per_second = mb_per_second = None
-                avg_chars = avg_words = None
-                quality_stats = None
+                avg_time = None
+                median_time = None
+                min_time = None
+                max_time = None
+                std_time = None
+                avg_peak_memory = None
+                avg_cpu = None
+                files_per_second = None
+                mb_per_second = None
+                avg_chars = None
+                avg_words = None
 
             summary = BenchmarkSummary(
                 framework=framework,
@@ -674,12 +674,6 @@ class ComprehensiveBenchmarkRunner:
                 success_rate=len(successful) / len(results) if results else 0,
                 avg_character_count=int(avg_chars) if avg_chars else None,
                 avg_word_count=int(avg_words) if avg_words else None,
-                avg_quality_score=quality_stats["avg"] if quality_stats else None,
-                min_quality_score=quality_stats["min"] if quality_stats else None,
-                max_quality_score=quality_stats["max"] if quality_stats else None,
-                avg_completeness=quality_stats["completeness"] if quality_stats else None,
-                avg_coherence=quality_stats["coherence"] if quality_stats else None,
-                avg_readability=quality_stats["readability"] if quality_stats else None,
             )
 
             summaries.append(summary)
@@ -708,7 +702,7 @@ class ComprehensiveBenchmarkRunner:
             "avg": statistics.mean(quality_scores),
             "min": min(quality_scores),
             "max": max(quality_scores),
-            "completeness": statistics.mean(completeness_scores) if completeness_scores else None,
-            "coherence": statistics.mean(coherence_scores) if coherence_scores else None,
-            "readability": statistics.mean(readability_scores) if readability_scores else None,
+            "completeness": statistics.mean(completeness_scores) if completeness_scores else 0.0,
+            "coherence": statistics.mean(coherence_scores) if coherence_scores else 0.0,
+            "readability": statistics.mean(readability_scores) if readability_scores else 0.0,
         }
