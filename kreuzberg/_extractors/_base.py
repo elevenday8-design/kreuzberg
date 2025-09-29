@@ -230,13 +230,13 @@ class Extractor(ABC):
                 confidence_score=None,
                 processing_time=duration,
             )
-        except (OSError, ValueError) as e:  # pragma: no cover
+        except ValueError as e:  # pragma: no cover
             return ImageOCRResult(
                 image=target,
                 ocr_result=ExtractionResult(content="", mime_type="text/plain", metadata={}),
                 skipped_reason=f"OCR failed: {type(e).__name__}: {e}",
             )
-        except (RuntimeError, TypeError) as e:  # pragma: no cover
+        except TypeError as e:  # pragma: no cover
             return ImageOCRResult(
                 image=target,
                 ocr_result=ExtractionResult(content="", mime_type="text/plain", metadata={}),

@@ -4,14 +4,14 @@ import time
 import pytest
 from src.profiler import (
     AsyncPerformanceProfiler,
-    EnhancedResourceMonitor,
     PerformanceMetrics,
+    ResourceMonitor,
     profile_performance,
 )
 
 
-def test_enhanced_resource_monitor_initialization() -> None:
-    monitor = EnhancedResourceMonitor(sampling_interval_ms=100)
+def test_resource_monitor_initialization() -> None:
+    monitor = ResourceMonitor(sampling_interval_ms=100)
 
     assert monitor.sampling_interval == 0.1
     assert monitor.metrics_buffer == []
@@ -20,8 +20,8 @@ def test_enhanced_resource_monitor_initialization() -> None:
 
 
 @pytest.mark.asyncio
-async def test_enhanced_resource_monitor_async_context() -> None:
-    monitor = EnhancedResourceMonitor(sampling_interval_ms=50)
+async def test_resource_monitor_async_context() -> None:
+    monitor = ResourceMonitor(sampling_interval_ms=50)
 
     await monitor.start()
     await asyncio.sleep(0.1)
@@ -29,8 +29,8 @@ async def test_enhanced_resource_monitor_async_context() -> None:
 
     assert isinstance(metrics, PerformanceMetrics)
     assert metrics.extraction_time >= 0
-    assert metrics.peak_memory_mb >= 0  # May be 0 for short tasks
-    assert metrics.avg_memory_mb >= 0  # May be 0 for short tasks
+    assert metrics.peak_memory_mb >= 0
+    assert metrics.avg_memory_mb >= 0
 
 
 def test_profile_performance_context_manager() -> None:
@@ -44,7 +44,7 @@ def test_profile_performance_context_manager() -> None:
     assert result == "completed"
     assert isinstance(metrics, PerformanceMetrics)
     assert metrics.extraction_time >= 0.1
-    assert metrics.peak_memory_mb >= 0  # May be 0 for short tasks
+    assert metrics.peak_memory_mb >= 0
     assert len(metrics.samples) > 0
 
 
@@ -60,7 +60,7 @@ async def test_async_performance_profiler() -> None:
     assert result == "completed"
     assert isinstance(metrics, PerformanceMetrics)
     assert metrics.extraction_time >= 0.001
-    assert metrics.peak_memory_mb >= 0  # May be 0 for short tasks
+    assert metrics.peak_memory_mb >= 0
     assert len(metrics.samples) >= 0
 
 
@@ -91,13 +91,13 @@ def test_profile_performance_memory_tracking() -> None:
         result = memory_task()
 
     assert len(result) == 1000
-    assert metrics.peak_memory_mb >= 0  # May be 0 for short tasks
-    assert metrics.avg_memory_mb >= 0  # May be 0 for short tasks
+    assert metrics.peak_memory_mb >= 0
+    assert metrics.avg_memory_mb >= 0
     assert len(metrics.samples) >= 1
 
 
-def test_enhanced_resource_monitor_psutil_error() -> None:
-    monitor = EnhancedResourceMonitor()
+def test_resource_monitor_psutil_error() -> None:
+    monitor = ResourceMonitor()
     assert monitor is not None
     assert monitor.process is not None
 
@@ -117,16 +117,16 @@ def test_profile_performance_fast_operation() -> None:
 
 
 @pytest.mark.asyncio
-async def test_enhanced_resource_monitor_no_samples() -> None:
-    monitor = EnhancedResourceMonitor(sampling_interval_ms=1000)
+async def test_resource_monitor_no_samples() -> None:
+    monitor = ResourceMonitor(sampling_interval_ms=1000)
 
     await monitor.start()
     metrics = await monitor.stop()
 
     assert isinstance(metrics, PerformanceMetrics)
     assert metrics.extraction_time >= 0
-    assert metrics.peak_memory_mb >= 0  # May be 0 for short tasks
-    assert metrics.avg_memory_mb >= 0  # May be 0 for short tasks
+    assert metrics.peak_memory_mb >= 0
+    assert metrics.avg_memory_mb >= 0
 
 
 def test_profile_performance_exception_handling() -> None:
@@ -205,8 +205,8 @@ def test_performance_metrics_with_io_data() -> None:
 
 
 @pytest.mark.asyncio
-async def test_enhanced_resource_monitor_start_stop_multiple() -> None:
-    monitor = EnhancedResourceMonitor(sampling_interval_ms=50)
+async def test_resource_monitor_start_stop_multiple() -> None:
+    monitor = ResourceMonitor(sampling_interval_ms=50)
 
     await monitor.start()
     await asyncio.sleep(0.05)

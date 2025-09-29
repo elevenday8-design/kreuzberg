@@ -69,8 +69,17 @@ choco install -y tesseract
     For local installations requiring additional languages, you must install the appropriate language data files:
 
     - **Ubuntu/Debian**: `sudo apt-get install tesseract-ocr-deu` (for German)
-    - **macOS**: `brew install tesseract-lang`
-    - **Windows**: See the [Tesseract documentation](https://tesseract-ocr.github.io/tessdoc/Installation.html#windows)
+    - **macOS**: `brew install tesseract-lang` (includes all languages)
+    - **Windows**: Download language files manually to the Tesseract `tessdata` directory:
+
+    ```powershell
+    # For German language support on Windows
+    $tessDataDir = "C:\Program Files\Tesseract-OCR\tessdata"
+    Invoke-WebRequest -Uri "https://github.com/tesseract-ocr/tessdata/raw/main/deu.traineddata" -OutFile "$tessDataDir\deu.traineddata"
+
+    # Verify installation
+    tesseract --list-langs
+    ```
 
     For more details on language installation and configuration, refer to the [Tesseract documentation](https://tesseract-ocr.github.io/tessdoc/Installation.html).
 
@@ -151,4 +160,37 @@ This is equivalent to:
 
 ```shell
 pip install "kreuzberg[api,chunking,cli,crypto,document-classification,easyocr,entity-extraction,gmft,langdetect,paddleocr,additional-extensions]"
+```
+
+## Development Setup
+
+For development and testing, additional system dependencies and language packs are required:
+
+### Required System Dependencies
+
+```shell
+# Ubuntu/Debian
+sudo apt-get install tesseract-ocr tesseract-ocr-deu pandoc
+
+# macOS
+brew install tesseract tesseract-lang pandoc
+
+# Windows
+choco install -y tesseract pandoc
+# Then install German language pack as shown above
+```
+
+### Testing Requirements
+
+The test suite includes OCR tests with German language documents that require the `deu` (German) language pack for Tesseract. Ensure the German language pack is installed as described in the Language Support section above.
+
+To verify your development setup:
+
+```shell
+# Verify Tesseract has German support
+tesseract --list-langs | grep deu
+
+# Run the test suite
+uv sync --all-extras --all-groups
+uv run pytest
 ```

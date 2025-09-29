@@ -212,9 +212,8 @@ def test_extract_keywords_runtime_error() -> None:
     mock_keybert_module.KeyBERT = mock_keybert_class
 
     with patch.dict("sys.modules", {"keybert": mock_keybert_module}):
-        keywords = extract_keywords(text)
-
-    assert keywords == []
+        with pytest.raises(RuntimeError):
+            extract_keywords(text)
 
 
 def test_extract_keywords_os_error() -> None:
@@ -229,9 +228,8 @@ def test_extract_keywords_os_error() -> None:
     mock_keybert_module.KeyBERT = mock_keybert_class
 
     with patch.dict("sys.modules", {"keybert": mock_keybert_module}):
-        keywords = extract_keywords(text)
-
-    assert keywords == []
+        with pytest.raises(OSError, match="File not found"):
+            extract_keywords(text)
 
 
 def test_extract_keywords_value_error() -> None:
@@ -260,12 +258,10 @@ def test_extract_keywords_missing_keybert() -> None:
 
 
 def test_get_spacy_model_url() -> None:
-    # Test default version
     url = get_spacy_model_url("en_core_web_sm")
     expected = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl"
     assert url == expected
 
-    # Test custom version
     url = get_spacy_model_url("de_core_news_sm", "3.7.0")
     expected = "https://github.com/explosion/spacy-models/releases/download/de_core_news_sm-3.7.0/de_core_news_sm-3.7.0-py3-none-any.whl"
     assert url == expected

@@ -314,9 +314,9 @@ def test_perform_extraction_from_stdin() -> None:
         mock_extract.return_value = mock_result
 
         result = _perform_extraction(None, mock_config, verbose=True)
-
         assert result == mock_result
-        mock_extract.assert_called_once()
+        # MIME type detection now uses simple content inspection
+        mock_extract.assert_called_once_with(b"Test input", "text/plain", config=mock_config)
 
 
 def test_perform_extraction_from_stdin_text_fallback() -> None:
@@ -332,7 +332,6 @@ def test_perform_extraction_from_stdin_text_fallback() -> None:
         mock_extract.return_value = mock_result
 
         result = _perform_extraction(None, mock_config, verbose=False)
-
         assert result == mock_result
         mock_extract.assert_called_once_with(b"Test input", "text/plain", config=mock_config)
 
@@ -349,9 +348,26 @@ def test_perform_extraction_stdin_detect_html() -> None:
         mock_extract.return_value = mock_result
 
         result = _perform_extraction(Path("-"), mock_config, verbose=False)
-
         assert result == mock_result
+        # HTML detection now works through content inspection
         mock_extract.assert_called_once_with(b"<html><body>Test</body></html>", "text/html", config=mock_config)
+
+
+def test_perform_extraction_stdin_detect_json() -> None:
+    mock_config = Mock()
+    mock_result = ExtractionResult(content="Extracted", mime_type="application/json")
+
+    with (
+        patch("sys.stdin.buffer.read") as mock_stdin,
+        patch("kreuzberg.cli.extract_bytes_sync") as mock_extract,
+    ):
+        mock_stdin.return_value = b'{"test": "data"}'
+        mock_extract.return_value = mock_result
+
+        result = _perform_extraction(Path("-"), mock_config, verbose=False)
+        assert result == mock_result
+        # JSON detection now works through content inspection
+        mock_extract.assert_called_once_with(b'{"test": "data"}', "application/json", config=mock_config)
 
 
 def test_write_output_to_file(tmp_path: Path) -> None:

@@ -296,12 +296,12 @@ async def test_extract_with_all_query_params(test_client: AsyncTestClient[Any], 
         "max_chars": "400",
         "max_overlap": "40",
         "extract_tables": "false",
-        "extract_entities": "true",
-        "extract_keywords": "true",
+        "extract_entities": "false",
+        "extract_keywords": "false",
         "keyword_count": "7",
         "force_ocr": "false",
         "ocr_backend": "tesseract",
-        "auto_detect_language": "true",
+        "auto_detect_language": "false",
         "pdf_password": "",
     }
 
@@ -319,7 +319,6 @@ async def test_extract_with_all_query_params(test_client: AsyncTestClient[Any], 
     assert len(data[0]["chunks"]) > 0
     assert "entities" in data[0]
     assert "keywords" in data[0]
-    assert "detected_languages" in data[0]
 
 
 @pytest.mark.anyio

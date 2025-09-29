@@ -1,4 +1,4 @@
-"""Enhanced benchmark runner with comprehensive testing capabilities.
+"""Benchmark runner with testing capabilities.
 
 ~keep Core benchmarking logic that:
 - Runs multiple iterations with warmup/cooldown for statistical significance
@@ -21,7 +21,6 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from typing_extensions import Self
 
@@ -41,13 +40,15 @@ from src.types import (
     Framework,
 )
 
+from .logger import _get_console
+
 if TYPE_CHECKING:
     import types
 
     from src.types import AsyncExtractorProtocol, ExtractorProtocol
 
 
-class ComprehensiveBenchmarkRunner:
+class BenchmarkRunner:
     """~keep Orchestrates multi-iteration benchmarks with resource monitoring.
 
     Key responsibilities:
@@ -60,7 +61,7 @@ class ComprehensiveBenchmarkRunner:
 
     def __init__(self, config: BenchmarkConfig) -> None:
         self.config = config
-        self.console = Console()
+        self.console = _get_console()
         self.categorizer = DocumentCategorizer()
         self.executor = ThreadPoolExecutor(max_workers=4)
         self.results: list[BenchmarkResult] = []
@@ -111,7 +112,7 @@ class ComprehensiveBenchmarkRunner:
         max_duration_seconds = self.config.max_run_duration_minutes * 60
 
         self.console.print(
-            f"[bold blue]Starting comprehensive benchmark suite[/bold blue]\n"
+            f"[bold blue]Starting benchmark suite[/bold blue]\n"
             f"Iterations: {self.config.iterations}\n"
             f"Frameworks: {', '.join(f.value for f in self.config.frameworks)}\n"
             f"Categories: ALL (testing all file sizes and types)\n"

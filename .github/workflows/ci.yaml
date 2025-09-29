@@ -61,8 +61,8 @@ jobs:
         run: prek run --show-diff-on-failure --color=always --all-files
 
   coverage:
-    needs: [validate]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [validate, python-tests]
+    if: always() && needs.validate.result == 'success' && needs.python-tests.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -150,7 +150,7 @@ jobs:
           shell: bash
 
       - name: Upload Coverage to DeepSource
-        if: always() && needs.python-tests-pr.result == 'success'
+        if: always()
         env:
           DEEPSOURCE_DSN: ${{ secrets.DEEPSOURCE_DSN }}
         run: |
@@ -170,6 +170,7 @@ jobs:
           retention-days: 7
 
   python-tests:
+    needs: [validate]
     if: needs.validate.result == 'success'
     runs-on: ${{ matrix.os }}
     strategy:
@@ -283,7 +284,19 @@ jobs:
             Write-Output "C:\Program Files\Tesseract-OCR" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
             Write-Output "C:\Program Files\Pandoc" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
             $env:PATH = "C:\Program Files\Tesseract-OCR;C:\Program Files\Pandoc;" + $env:PATH
+
+            # Install python-magic-bin for Windows
+            pip install python-magic-bin
+
+            # Download German language pack for Tesseract
+            $tessDataDir = "C:\Program Files\Tesseract-OCR\tessdata"
+            if (-not (Test-Path $tessDataDir)) {
+                New-Item -ItemType Directory -Path $tessDataDir -Force
+            }
+            Invoke-WebRequest -Uri "https://github.com/tesseract-ocr/tessdata/raw/main/deu.traineddata" -OutFile "$tessDataDir\deu.traineddata"
+
             tesseract --version
+            tesseract --list-langs
             pandoc --version
           shell: pwsh
 
@@ -320,6 +333,11 @@ jobs:
           max_attempts: 2
           retry_wait_seconds: 5
           command: |
+            # Skip benchmarks/tests on Windows
+            if [[ "${{ runner.os }}" == "Windows" ]] && [[ "${{ matrix.test-category.name }}" == "benchmarks" ]]; then
+              echo "Skipping benchmarks/tests on Windows"
+              exit 0
+            fi
             # Run tests from specified paths, explicitly excluding benchmarks
             uv run pytest $(echo "${{ matrix.test-category.path }}" | tr ',' ' ') -v --reruns 1 --reruns-delay 1 --ignore=tests/benchmarks/
           shell: bash

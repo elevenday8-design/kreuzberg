@@ -92,9 +92,9 @@ async def test_batch_extract_file_concurrency_limits() -> None:
             max_concurrent = max(max_concurrent, current_concurrent)
             call_count += 1
 
-            import asyncio
+            import anyio
 
-            await asyncio.sleep(0.01)
+            await anyio.sleep(0.01)
 
             current_concurrent -= 1
             return ExtractionResult(content=f"Content {call_count}", mime_type="text/plain", metadata={}, chunks=[])
@@ -311,7 +311,7 @@ def test_batch_extract_bytes_sync_worker_count() -> None:
 @pytest.mark.anyio
 async def test_batch_extract_bytes_error_context_includes_index() -> None:
     with patch("kreuzberg.extraction.extract_bytes") as mock_extract:
-        mock_extract.side_effect = RuntimeError("Test extraction error")
+        mock_extract.side_effect = ValueError("Test extraction error")
 
         contents = [(b"Content 1", "text/plain"), (b"Content 2", "text/plain")]
         result = await batch_extract_bytes(contents)
