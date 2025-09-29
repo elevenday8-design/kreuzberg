@@ -301,8 +301,15 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
             "OFF",
         ]
 
-        if run_config["tesseract_format"] != "text":
-            command.append(run_config["tesseract_format"])
+        # Handle output format - use config option for HOCR to ensure Windows compatibility
+        # Windows Tesseract 5.5.0 doesn't respect 'hocr' configfile, needs explicit config
+        tesseract_format = run_config["tesseract_format"]
+        if tesseract_format == "hocr":
+            command.extend(["-c", "tessedit_create_hocr=1"])
+        elif tesseract_format == "tsv":
+            command.append("tsv")
+        elif tesseract_format != "text":
+            command.append(tesseract_format)
 
         for kwarg, value in run_config["remaining_kwargs"].items():
             if kwarg.startswith("table_"):
@@ -1162,7 +1169,13 @@ class TesseractBackend(OCRBackend[TesseractConfig]):
             "OFF",
         ]
 
-        if output_format != "text":
+        # Handle output format - use config option for HOCR to ensure Windows compatibility
+        # Windows Tesseract 5.5.0 doesn't respect 'hocr' configfile, needs explicit config
+        if output_format == "hocr":
+            command.extend(["-c", "tessedit_create_hocr=1"])
+        elif output_format == "tsv":
+            command.append("tsv")
+        elif output_format != "text":
             command.append(output_format)
 
         for kwarg, value in kwargs.items():
