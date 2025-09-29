@@ -284,7 +284,16 @@ jobs:
             Write-Output "C:\Program Files\Tesseract-OCR" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
             Write-Output "C:\Program Files\Pandoc" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
             $env:PATH = "C:\Program Files\Tesseract-OCR;C:\Program Files\Pandoc;" + $env:PATH
+
+            # Download German language pack for Tesseract
+            $tessDataDir = "C:\Program Files\Tesseract-OCR\tessdata"
+            if (-not (Test-Path $tessDataDir)) {
+                New-Item -ItemType Directory -Path $tessDataDir -Force
+            }
+            Invoke-WebRequest -Uri "https://github.com/tesseract-ocr/tessdata/raw/main/deu.traineddata" -OutFile "$tessDataDir\deu.traineddata"
+
             tesseract --version
+            tesseract --list-langs
             pandoc --version
           shell: pwsh
 
