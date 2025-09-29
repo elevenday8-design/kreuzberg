@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from enum import Enum
+from functools import cache
 from typing import Any
 
 from rich.console import Console
@@ -16,9 +17,15 @@ class LogLevel(str, Enum):
     CRITICAL = "critical"
 
 
+@cache
+def _get_console() -> Console:
+    """Get or create the console instance lazily."""
+    return Console()
+
+
 class BenchmarkLogger:
     def __init__(self, name: str = "benchmark", level: LogLevel = LogLevel.INFO) -> None:
-        self.console = Console()
+        self.console = _get_console()
         self.logger = logging.getLogger(name)
         self.logger.setLevel(getattr(logging, level.upper()))
 
@@ -46,9 +53,6 @@ class BenchmarkLogger:
             message = f"{message} [{extra_info}]"
 
         getattr(self.logger, level.value)(message)
-
-
-logger = BenchmarkLogger()
 
 
 def get_logger(name: str | None = None, level: LogLevel = LogLevel.INFO) -> BenchmarkLogger:

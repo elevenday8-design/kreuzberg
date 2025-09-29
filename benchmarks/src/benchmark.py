@@ -21,7 +21,6 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from typing_extensions import Self
 
@@ -40,6 +39,8 @@ from src.types import (
     ExtractionStatus,
     Framework,
 )
+
+from .logger import _get_console
 
 if TYPE_CHECKING:
     import types
@@ -60,7 +61,7 @@ class ComprehensiveBenchmarkRunner:
 
     def __init__(self, config: BenchmarkConfig) -> None:
         self.config = config
-        self.console = Console()
+        self.console = _get_console()
         self.categorizer = DocumentCategorizer()
         self.executor = ThreadPoolExecutor(max_workers=4)
         self.results: list[BenchmarkResult] = []
