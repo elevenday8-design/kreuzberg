@@ -268,7 +268,9 @@ def test_all_generators_create_parent_directories(tmp_path: Path) -> None:
     assert result_path.parent.exists()
 
 
-def test_generate_index_page_with_multiple_frameworks_orders_by_speed(tmp_path: Path) -> None:
+def test_generate_index_page_with_multiple_frameworks_orders_by_speed(
+    tmp_path: Path,
+) -> None:
     df = pl.DataFrame(
         {
             "framework": ["slow_framework", "kreuzberg_sync", "medium_framework"],
@@ -321,7 +323,9 @@ def test_generate_detailed_results_page_with_empty_format_df(tmp_path: Path) -> 
     )
 
     output_path = tmp_path / "detailed_empty_format.md"
-    result_path = generate_detailed_results_page(summary_df, empty_format_df, output_path)
+    result_path = generate_detailed_results_page(
+        summary_df, empty_format_df, output_path
+    )
 
     assert result_path.exists()
 

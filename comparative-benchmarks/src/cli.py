@@ -78,7 +78,9 @@ def cli() -> None:
     default="results/aggregated.json",
     help="Output file for aggregated results",
 )
-def benchmark(iterations: int, timeout: int, framework: str | None, output: Path) -> None:
+def benchmark(
+    iterations: int, timeout: int, framework: str | None, output: Path
+) -> None:
     """Run benchmarks for all frameworks."""
     console = get_console()
     console.print("[bold]Starting Benchmark Suite[/bold]")
@@ -168,7 +170,9 @@ def visualize(input_file: Path, output_dir: Path) -> None:
 
     console.print("📈 Creating performance comparison chart...")
     summary_df = aggregate_by_framework(df)
-    create_performance_comparison_chart(summary_df, output_dir / "performance_comparison.html")
+    create_performance_comparison_chart(
+        summary_df, output_dir / "performance_comparison.html"
+    )
 
     console.print("💾 Creating memory usage chart...")
     create_memory_usage_chart(summary_df, output_dir / "memory_usage.html")
@@ -241,10 +245,14 @@ def generate_docs(input_file: Path, output_dir: Path, charts_dir: Path | None) -
     generate_index_page(summary_df, output_dir / "index.md", config)
 
     console.print("📋 Generating detailed results...")
-    generate_detailed_results_page(summary_df, format_df, output_dir / "latest-results.md", config)
+    generate_detailed_results_page(
+        summary_df, format_df, output_dir / "latest-results.md", config
+    )
 
     console.print("⚖️  Generating framework comparison...")
-    generate_framework_comparison_page(summary_df, output_dir / "framework-comparison.md", config)
+    generate_framework_comparison_page(
+        summary_df, output_dir / "framework-comparison.md", config
+    )
 
     console.print("🔬 Generating methodology...")
     generate_methodology_page(output_dir / "methodology.md")

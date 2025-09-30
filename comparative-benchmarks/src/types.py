@@ -77,13 +77,17 @@ class ExtractionStatus(str, Enum):
 class ExtractorProtocol(Protocol):
     def extract_text(self, file_path: str | Path) -> str: ...
 
-    def extract_with_metadata(self, file_path: str | Path) -> tuple[str, dict[str, Any]]: ...
+    def extract_with_metadata(
+        self, file_path: str | Path
+    ) -> tuple[str, dict[str, Any]]: ...
 
 
 class AsyncExtractorProtocol(Protocol):
     async def extract_text(self, file_path: str | Path) -> str: ...
 
-    async def extract_with_metadata(self, file_path: str | Path) -> tuple[str, dict[str, Any]]: ...
+    async def extract_with_metadata(
+        self, file_path: str | Path
+    ) -> tuple[str, dict[str, Any]]: ...
 
 
 class ResourceMetrics(msgspec.Struct):
@@ -145,8 +149,12 @@ class BenchmarkResult(msgspec.Struct, kw_only=True):
 
     attempts: int = 1
     timestamp: float = msgspec.field(default_factory=lambda: __import__("time").time())
-    platform: str = msgspec.field(default_factory=lambda: __import__("platform").system())
-    python_version: str = msgspec.field(default_factory=lambda: __import__("platform").python_version())
+    platform: str = msgspec.field(
+        default_factory=lambda: __import__("platform").system()
+    )
+    python_version: str = msgspec.field(
+        default_factory=lambda: __import__("platform").python_version()
+    )
 
 
 class BenchmarkSummary(msgspec.Struct, kw_only=True):

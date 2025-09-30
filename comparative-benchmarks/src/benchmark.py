@@ -72,7 +72,9 @@ class BenchmarkRunner:
             max_cpu_percent=float(config.max_cpu_percent),
             max_execution_time=float(config.timeout_seconds),
         )
-        self.subprocess_runner = SubprocessRunner(timeout=config.timeout_seconds, resource_limits=resource_limits)
+        self.subprocess_runner = SubprocessRunner(
+            timeout=config.timeout_seconds, resource_limits=resource_limits
+        )
         self.use_subprocess_isolation = True
 
     def __del__(self) -> None:
@@ -104,7 +106,9 @@ class BenchmarkRunner:
                     shutil.rmtree(cache_path)
                     self.console.print(f"[yellow]Cleared cache: {cache_path}[/yellow]")
                 except OSError as e:
-                    self.console.print(f"[red]Failed to clear cache {cache_path}: {e}[/red]")
+                    self.console.print(
+                        f"[red]Failed to clear cache {cache_path}: {e}[/red]"
+                    )
 
     async def run_benchmark_suite(self) -> list[BenchmarkResult]:
         """~keep Main entry point: run multi-iteration benchmark with warmup/cooldown."""
@@ -122,15 +126,21 @@ class BenchmarkRunner:
 
         try:
             return await asyncio.wait_for(
-                self._run_benchmark_with_timeout_check(start_time, max_duration_seconds),
+                self._run_benchmark_with_timeout_check(
+                    start_time, max_duration_seconds
+                ),
                 timeout=max_duration_seconds,
             )
         except TimeoutError:
             elapsed_minutes = (time.time() - start_time) / 60
-            self.console.print(f"[red]❌ Benchmark suite timed out after {elapsed_minutes:.1f} minutes[/red]")
+            self.console.print(
+                f"[red]❌ Benchmark suite timed out after {elapsed_minutes:.1f} minutes[/red]"
+            )
             if self.results:
                 await self._save_results()
-                self.console.print(f"[yellow]⚠️ Saved {len(self.results)} partial results before timeout[/yellow]")
+                self.console.print(
+                    f"[yellow]⚠️ Saved {len(self.results)} partial results before timeout[/yellow]"
+                )
             return self.results
 
     async def _run_benchmark_with_timeout_check(
@@ -162,11 +172,15 @@ class BenchmarkRunner:
             self.results.extend(iteration_results)
 
             if time.time() - start_time > max_duration_seconds:
-                self.console.print("[red]❌ Timeout reached after completing iteration[/red]")
+                self.console.print(
+                    "[red]❌ Timeout reached after completing iteration[/red]"
+                )
                 break
 
             if iteration < self.config.iterations - 1:
-                self.console.print(f"[dim]Cooling down for {self.config.cooldown_seconds} seconds...[/dim]")
+                self.console.print(
+                    f"[dim]Cooling down for {self.config.cooldown_seconds} seconds...[/dim]"
+                )
                 await asyncio.sleep(self.config.cooldown_seconds)
 
         await self._save_results()
@@ -198,7 +212,9 @@ class BenchmarkRunner:
             DocumentCategory.PDF_STANDARD,
             DocumentCategory.OFFICE,
         ]:
-            files = self.categorizer.get_files_for_category(test_dir, category, self.config.table_extraction_only)
+            files = self.categorizer.get_files_for_category(
+                test_dir, category, self.config.table_extraction_only
+            )
             if files:
                 warmup_files.append(files[0][0])
 
@@ -217,7 +233,9 @@ class BenchmarkRunner:
                 if "kreuzberg" in framework.value.lower():
                     self._clear_kreuzberg_cache()
 
-                framework_task = progress.add_task(f"[cyan]Testing {framework.value}...[/cyan]", total=None)
+                framework_task = progress.add_task(
+                    f"[cyan]Testing {framework.value}...[/cyan]", total=None
+                )
 
                 for category in self.config.categories:
                     progress.update(
@@ -231,7 +249,9 @@ class BenchmarkRunner:
                         if self._should_skip_file(str(file_path)):
                             continue
 
-                        result = await self._benchmark_single_file(framework, file_path, metadata, iteration, category)
+                        result = await self._benchmark_single_file(
+                            framework, file_path, metadata, iteration, category
+                        )
 
                         if result:
                             iteration_results.append(result)
@@ -244,7 +264,9 @@ class BenchmarkRunner:
         self, category: DocumentCategory, framework: Framework | None = None
     ) -> list[tuple[Path, dict[str, Any]]]:
         test_dir = Path(__file__).parent.parent.parent / "test_documents"
-        files = self.categorizer.get_files_for_category(test_dir, category, self.config.table_extraction_only)
+        files = self.categorizer.get_files_for_category(
+            test_dir, category, self.config.table_extraction_only
+        )
 
         if framework:
             filtered_files = []
@@ -290,10 +312,13 @@ class BenchmarkRunner:
                     framework=framework,
                     iteration=iteration,
                     extraction_time=extraction_result.extraction_time or 0,
-                    peak_memory_mb=extraction_result.resource_metrics[-1].memory_rss / (1024 * 1024)
+                    peak_memory_mb=extraction_result.resource_metrics[-1].memory_rss
+                    / (1024 * 1024)
                     if extraction_result.resource_metrics
                     else 0,
-                    avg_memory_mb=sum(m.memory_rss for m in extraction_result.resource_metrics)
+                    avg_memory_mb=sum(
+                        m.memory_rss for m in extraction_result.resource_metrics
+                    )
                     / len(extraction_result.resource_metrics)
                     / (1024 * 1024)
                     if extraction_result.resource_metrics
@@ -302,7 +327,9 @@ class BenchmarkRunner:
                         (m.cpu_percent for m in extraction_result.resource_metrics),
                         default=0,
                     ),
-                    avg_cpu_percent=sum(m.cpu_percent for m in extraction_result.resource_metrics)
+                    avg_cpu_percent=sum(
+                        m.cpu_percent for m in extraction_result.resource_metrics
+                    )
                     / len(extraction_result.resource_metrics)
                     if extraction_result.resource_metrics
                     else 0,
@@ -323,7 +350,9 @@ class BenchmarkRunner:
 
             except TimeoutError:
                 if attempt == self.config.max_retries - 1:
-                    self.failed_files[str(file_path)] = self.failed_files.get(str(file_path), 0) + 1
+                    self.failed_files[str(file_path)] = (
+                        self.failed_files.get(str(file_path), 0) + 1
+                    )
                     return BenchmarkResult(
                         file_path=str(file_path),
                         file_size=metadata["file_size"],
@@ -342,9 +371,17 @@ class BenchmarkRunner:
                         attempts=attempt + 1,
                     )
 
-            except (RuntimeError, OSError, ValueError, ImportError, AttributeError) as e:
+            except (
+                RuntimeError,
+                OSError,
+                ValueError,
+                ImportError,
+                AttributeError,
+            ) as e:
                 if attempt == self.config.max_retries - 1:
-                    self.failed_files[str(file_path)] = self.failed_files.get(str(file_path), 0) + 1
+                    self.failed_files[str(file_path)] = (
+                        self.failed_files.get(str(file_path), 0) + 1
+                    )
 
                     if not self.config.continue_on_error:
                         raise
@@ -363,7 +400,9 @@ class BenchmarkRunner:
                         avg_cpu_percent=0,
                         status=ExtractionStatus.FAILED,
                         error_type=type(e).__name__,
-                        error_message=str(e) if self.config.detailed_errors else "Extraction failed",
+                        error_message=str(e)
+                        if self.config.detailed_errors
+                        else "Extraction failed",
                         extracted_text=None,
                         attempts=attempt + 1,
                     )
@@ -373,7 +412,9 @@ class BenchmarkRunner:
 
         return None
 
-    async def _run_extraction(self, framework: Framework, file_path: Path) -> ExtractionResult:
+    async def _run_extraction(
+        self, framework: Framework, file_path: Path
+    ) -> ExtractionResult:
         if self.use_subprocess_isolation and "kreuzberg" in framework.value.lower():
             return await self._run_subprocess_extraction(framework, file_path)
 
@@ -394,7 +435,9 @@ class BenchmarkRunner:
                 error_message=str(e),
             )
 
-    async def _run_subprocess_extraction(self, framework: Framework, file_path: Path) -> ExtractionResult:
+    async def _run_subprocess_extraction(
+        self, framework: Framework, file_path: Path
+    ) -> ExtractionResult:
         loop = asyncio.get_event_loop()
 
         self.console.print(
@@ -441,8 +484,12 @@ class BenchmarkRunner:
                     crash_log_dir = self.config.output_dir / "crash_logs"
                     crash_log_dir.mkdir(exist_ok=True)
 
-                    timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d_%H%M%S")
-                    crash_file = crash_log_dir / f"segfault_{framework.value}_{timestamp}.log"
+                    timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
+                        "%Y%m%d_%H%M%S"
+                    )
+                    crash_file = (
+                        crash_log_dir / f"segfault_{framework.value}_{timestamp}.log"
+                    )
 
                     with crash_file.open("w") as f:
                         f.write("SEGMENTATION FAULT REPORT\n")
@@ -459,7 +506,9 @@ class BenchmarkRunner:
                         f.write(f"\nStderr:\n{result.crash_info.stderr or 'None'}\n")
                         f.write(f"\nStdout:\n{result.crash_info.stdout or 'None'}\n")
 
-                    self.console.print(f"[yellow]  Crash details saved to: {crash_file}[/yellow]")
+                    self.console.print(
+                        f"[yellow]  Crash details saved to: {crash_file}[/yellow]"
+                    )
 
             return ExtractionResult(
                 file_path=str(file_path),
@@ -468,7 +517,8 @@ class BenchmarkRunner:
                 status=ExtractionStatus.FAILED,
                 extraction_time=result.extraction_time,
                 error_type=result.error_type or "ProcessCrash",
-                error_message=result.error_message or f"Crashed with signal {result.crash_info.signal_name}",
+                error_message=result.error_message
+                or f"Crashed with signal {result.crash_info.signal_name}",
             )
 
         if result.success:
@@ -497,13 +547,17 @@ class BenchmarkRunner:
     async def _run_async_extraction(
         self, extractor: AsyncExtractorProtocol, file_path: Path, framework: Framework
     ) -> ExtractionResult:
-        async with AsyncPerformanceProfiler(self.config.sampling_interval_ms) as metrics:
+        async with AsyncPerformanceProfiler(
+            self.config.sampling_interval_ms
+        ) as metrics:
             start_time = time.time()
 
             try:
                 metadata = None
                 if hasattr(extractor, "extract_with_metadata"):
-                    text, metadata = await extractor.extract_with_metadata(str(file_path))
+                    text, metadata = await extractor.extract_with_metadata(
+                        str(file_path)
+                    )
                 else:
                     text = await extractor.extract_text(str(file_path))
 
@@ -520,7 +574,13 @@ class BenchmarkRunner:
                     extracted_metadata=metadata,
                 )
 
-            except (RuntimeError, OSError, ValueError, ImportError, AttributeError) as e:
+            except (
+                RuntimeError,
+                OSError,
+                ValueError,
+                ImportError,
+                AttributeError,
+            ) as e:
                 return ExtractionResult(
                     file_path=str(file_path),
                     file_size=file_path.stat().st_size if file_path.exists() else 0,
@@ -552,7 +612,9 @@ class BenchmarkRunner:
                         framework=framework,
                         status=ExtractionStatus.SUCCESS,
                         extraction_time=time.time() - start_time,
-                        extracted_text=text if self.config.save_extracted_text else None,
+                        extracted_text=text
+                        if self.config.save_extracted_text
+                        else None,
                         character_count=len(text),
                         word_count=len(text.split()),
                         resource_metrics=metrics.samples,
@@ -592,14 +654,18 @@ class BenchmarkRunner:
         with summaries_path.open("wb") as f:
             f.write(msgspec.json.encode(summaries))
 
-        self.console.print(f"\n[green]Results saved to {self.config.output_dir}[/green]")
+        self.console.print(
+            f"\n[green]Results saved to {self.config.output_dir}[/green]"
+        )
 
     async def _save_results(self) -> None:
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, self._save_results_sync)
 
     def _generate_summaries(self) -> list[BenchmarkSummary]:
-        grouped: dict[tuple[Framework, DocumentCategory], list[BenchmarkResult]] = defaultdict(list)
+        grouped: dict[tuple[Framework, DocumentCategory], list[BenchmarkResult]] = (
+            defaultdict(list)
+        )
 
         for result in self.results:
             key = (result.framework, result.category)
@@ -634,7 +700,9 @@ class BenchmarkRunner:
                 files_per_second = total_files / total_time if total_time > 0 else 0
                 mb_per_second = total_mb / total_time if total_time > 0 else 0
 
-                char_counts = [r.character_count for r in successful if r.character_count]
+                char_counts = [
+                    r.character_count for r in successful if r.character_count
+                ]
                 word_counts = [r.word_count for r in successful if r.word_count]
 
                 avg_chars = statistics.mean(char_counts) if char_counts else None
@@ -680,8 +748,14 @@ class BenchmarkRunner:
 
         return summaries
 
-    def _calculate_quality_statistics(self, successful_results: list[BenchmarkResult]) -> dict[str, float] | None:
-        quality_scores = [r.overall_quality_score for r in successful_results if r.overall_quality_score is not None]
+    def _calculate_quality_statistics(
+        self, successful_results: list[BenchmarkResult]
+    ) -> dict[str, float] | None:
+        quality_scores = [
+            r.overall_quality_score
+            for r in successful_results
+            if r.overall_quality_score is not None
+        ]
         if not quality_scores:
             return None
 
@@ -692,7 +766,9 @@ class BenchmarkRunner:
         for r in successful_results:
             if r.quality_metrics:
                 if "extraction_completeness" in r.quality_metrics:
-                    completeness_scores.append(r.quality_metrics["extraction_completeness"])
+                    completeness_scores.append(
+                        r.quality_metrics["extraction_completeness"]
+                    )
                 if "text_coherence" in r.quality_metrics:
                     coherence_scores.append(r.quality_metrics["text_coherence"])
                 if "character_accuracy" in r.quality_metrics:
@@ -702,7 +778,11 @@ class BenchmarkRunner:
             "avg": statistics.mean(quality_scores),
             "min": min(quality_scores),
             "max": max(quality_scores),
-            "completeness": statistics.mean(completeness_scores) if completeness_scores else 0.0,
+            "completeness": statistics.mean(completeness_scores)
+            if completeness_scores
+            else 0.0,
             "coherence": statistics.mean(coherence_scores) if coherence_scores else 0.0,
-            "readability": statistics.mean(readability_scores) if readability_scores else 0.0,
+            "readability": statistics.mean(readability_scores)
+            if readability_scores
+            else 0.0,
         }

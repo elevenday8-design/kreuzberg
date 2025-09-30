@@ -24,7 +24,9 @@ def _get_console() -> Console:
 
 
 class BenchmarkLogger:
-    def __init__(self, name: str = "benchmark", level: LogLevel = LogLevel.INFO) -> None:
+    def __init__(
+        self, name: str = "benchmark", level: LogLevel = LogLevel.INFO
+    ) -> None:
         self.console = _get_console()
         self.logger = logging.getLogger(name)
         self.logger.setLevel(getattr(logging, level.upper()))
@@ -55,7 +57,9 @@ class BenchmarkLogger:
         getattr(self.logger, level.value)(message)
 
 
-def get_logger(name: str | None = None, level: LogLevel = LogLevel.INFO) -> BenchmarkLogger:
+def get_logger(
+    name: str | None = None, level: LogLevel = LogLevel.INFO
+) -> BenchmarkLogger:
     if name is None:
         import inspect
 

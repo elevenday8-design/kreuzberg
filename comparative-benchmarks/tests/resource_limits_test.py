@@ -8,7 +8,12 @@ def test_resource_limits_structure() -> None:
     assert limits.max_open_files is None
     assert limits.max_execution_time is None
 
-    limits = ResourceLimits(max_memory_mb=512, max_cpu_percent=80.0, max_open_files=100, max_execution_time=60.0)
+    limits = ResourceLimits(
+        max_memory_mb=512,
+        max_cpu_percent=80.0,
+        max_open_files=100,
+        max_execution_time=60.0,
+    )
     assert limits.max_memory_mb == 512
     assert limits.max_cpu_percent == 80.0
     assert limits.max_open_files == 100

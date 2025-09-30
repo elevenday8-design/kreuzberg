@@ -27,7 +27,9 @@ class FrameworkConfigurationManager:
         self._configs[Framework.KREUZBERG_SYNC] = FrameworkConfig(
             framework=Framework.KREUZBERG_SYNC,
             environment_vars={
-                "PYTHONPATH": os.pathsep.join([str(Path.cwd()), str(Path.cwd().parent)]),
+                "PYTHONPATH": os.pathsep.join(
+                    [str(Path.cwd()), str(Path.cwd().parent)]
+                ),
             },
             config_overrides={
                 "ocr_backend": "tesseract",
@@ -40,7 +42,9 @@ class FrameworkConfigurationManager:
         self._configs[Framework.KREUZBERG_ASYNC] = FrameworkConfig(
             framework=Framework.KREUZBERG_ASYNC,
             environment_vars={
-                "PYTHONPATH": os.pathsep.join([str(Path.cwd()), str(Path.cwd().parent)]),
+                "PYTHONPATH": os.pathsep.join(
+                    [str(Path.cwd()), str(Path.cwd().parent)]
+                ),
             },
             config_overrides={
                 "ocr_backend": "tesseract",

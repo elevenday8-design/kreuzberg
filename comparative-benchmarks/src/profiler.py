@@ -68,7 +68,10 @@ class ResourceMonitor:
             return 0
 
     async def _establish_baseline(self, duration_seconds: float = 1.0) -> None:
-        logger.debug("Establishing baseline measurements", duration_seconds=f"{duration_seconds:.1f}s")
+        logger.debug(
+            "Establishing baseline measurements",
+            duration_seconds=f"{duration_seconds:.1f}s",
+        )
 
         self.process.cpu_percent(interval=None)
         await asyncio.sleep(0.1)
@@ -81,7 +84,13 @@ class ResourceMonitor:
                 cpu_percent = self.process.cpu_percent(interval=self.sampling_interval)
                 memory_mb = self.process.memory_info().rss / (1024 * 1024)
 
-                baseline_samples.append({"cpu_percent": cpu_percent, "memory_mb": memory_mb, "timestamp": time.time()})
+                baseline_samples.append(
+                    {
+                        "cpu_percent": cpu_percent,
+                        "memory_mb": memory_mb,
+                        "timestamp": time.time(),
+                    }
+                )
 
                 await asyncio.sleep(0.001)
 
@@ -97,7 +106,10 @@ class ResourceMonitor:
 
             if len(cpu_values) > 1:
                 cpu_std = (
-                    sum((x - sum(cpu_values) / len(cpu_values)) ** 2 for x in cpu_values) / (len(cpu_values) - 1)
+                    sum(
+                        (x - sum(cpu_values) / len(cpu_values)) ** 2 for x in cpu_values
+                    )
+                    / (len(cpu_values) - 1)
                 ) ** 0.5
                 cpu_mean = sum(cpu_values) / len(cpu_values)
                 cpu_cv = cpu_std / cpu_mean if cpu_mean > 0 else 0
@@ -132,10 +144,14 @@ class ResourceMonitor:
                 io_metrics = {}
                 if io_counters and self._baseline_io:
                     io_metrics = {
-                        "io_read_bytes": io_counters["read_bytes"] - self._baseline_io["read_bytes"],
-                        "io_write_bytes": io_counters["write_bytes"] - self._baseline_io["write_bytes"],
-                        "io_read_count": io_counters["read_count"] - self._baseline_io["read_count"],
-                        "io_write_count": io_counters["write_count"] - self._baseline_io["write_count"],
+                        "io_read_bytes": io_counters["read_bytes"]
+                        - self._baseline_io["read_bytes"],
+                        "io_write_bytes": io_counters["write_bytes"]
+                        - self._baseline_io["write_bytes"],
+                        "io_read_count": io_counters["read_count"]
+                        - self._baseline_io["read_count"],
+                        "io_write_count": io_counters["write_count"]
+                        - self._baseline_io["write_count"],
                     }
 
                 metric = ResourceMetrics(
@@ -294,10 +310,14 @@ def profile_performance(sampling_interval_ms: int = 50) -> Iterator[PerformanceM
                     if io_counters:
                         current_io = io_counters._asdict()
                         io_metrics = {
-                            "io_read_bytes": current_io["read_bytes"] - baseline_io["read_bytes"],
-                            "io_write_bytes": current_io["write_bytes"] - baseline_io["write_bytes"],
-                            "io_read_count": current_io["read_count"] - baseline_io["read_count"],
-                            "io_write_count": current_io["write_count"] - baseline_io["write_count"],
+                            "io_read_bytes": current_io["read_bytes"]
+                            - baseline_io["read_bytes"],
+                            "io_write_bytes": current_io["write_bytes"]
+                            - baseline_io["write_bytes"],
+                            "io_read_count": current_io["read_count"]
+                            - baseline_io["read_count"],
+                            "io_write_count": current_io["write_count"]
+                            - baseline_io["write_count"],
                         }
                 except (AttributeError, psutil.AccessDenied):
                     pass
@@ -354,7 +374,9 @@ def profile_performance(sampling_interval_ms: int = 50) -> Iterator[PerformanceM
             metrics.peak_memory_mb = max(memory_samples)
             metrics.avg_memory_mb = sum(memory_samples) / len(memory_samples)
             metrics.peak_cpu_percent = max(cpu_samples) if cpu_samples else 0
-            metrics.avg_cpu_percent = sum(cpu_samples) / len(cpu_samples) if cpu_samples else 0
+            metrics.avg_cpu_percent = (
+                sum(cpu_samples) / len(cpu_samples) if cpu_samples else 0
+            )
 
             if samples and samples[-1].io_read_bytes is not None:
                 metrics.total_io_read_mb = samples[-1].io_read_bytes / (1024 * 1024)
@@ -365,7 +387,9 @@ def profile_performance(sampling_interval_ms: int = 50) -> Iterator[PerformanceM
                 final_memory = process.memory_info().rss
                 metrics.extraction_time = end_time - start_time
                 metrics.peak_memory_mb = final_memory / (1024 * 1024)
-                metrics.avg_memory_mb = (baseline_memory + final_memory) / 2 / (1024 * 1024)
+                metrics.avg_memory_mb = (
+                    (baseline_memory + final_memory) / 2 / (1024 * 1024)
+                )
                 fallback_sample = collect_sample()
                 if fallback_sample:
                     samples.append(fallback_sample)

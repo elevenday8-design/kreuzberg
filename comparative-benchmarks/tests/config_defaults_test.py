@@ -105,8 +105,12 @@ class TestLanguageMapper:
             mapping = LanguageMapper.get_mapping(backend_name)
 
             for input_lang, output_lang in mapping.items():
-                assert isinstance(input_lang, str), f"Input language {input_lang} is not string"
-                assert isinstance(output_lang, str), f"Output language {output_lang} is not string"
+                assert isinstance(input_lang, str), (
+                    f"Input language {input_lang} is not string"
+                )
+                assert isinstance(output_lang, str), (
+                    f"Output language {output_lang} is not string"
+                )
                 assert len(output_lang) > 0, f"Empty output language for {input_lang}"
 
     def test_hebrew_fallback_in_paddleocr(self) -> None:
@@ -118,7 +122,9 @@ class TestLanguageMapper:
             mapping = LanguageMapper.get_mapping(backend_name)
 
             input_langs = list(mapping.keys())
-            assert len(input_langs) == len(set(input_langs)), f"Duplicate keys in {backend_name} mapping"
+            assert len(input_langs) == len(set(input_langs)), (
+                f"Duplicate keys in {backend_name} mapping"
+            )
 
 
 class TestConfigurationIntegration:

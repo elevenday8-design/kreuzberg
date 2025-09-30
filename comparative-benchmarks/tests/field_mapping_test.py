@@ -72,7 +72,9 @@ class TestFieldMapping:
             "max_time_seconds": lambda s: s.max_extraction_time,
             "average_memory_mb": lambda s: s.avg_peak_memory_mb,
             "average_cpu_percent": lambda s: s.avg_cpu_percent,
-            "total_time_seconds": lambda s: s.avg_extraction_time * s.successful_files if s.avg_extraction_time else 0,
+            "total_time_seconds": lambda s: s.avg_extraction_time * s.successful_files
+            if s.avg_extraction_time
+            else 0,
         }
 
         result_transformations = {

@@ -12,7 +12,9 @@ from src.types import (
 )
 
 
-def create_test_result(status: ExtractionStatus = ExtractionStatus.SUCCESS, **kwargs: Any) -> BenchmarkResult:
+def create_test_result(
+    status: ExtractionStatus = ExtractionStatus.SUCCESS, **kwargs: Any
+) -> BenchmarkResult:
     defaults = {
         "file_path": "test.pdf",
         "file_size": 1000,

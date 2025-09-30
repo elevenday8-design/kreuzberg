@@ -108,7 +108,9 @@ def _extract_in_subprocess(
         extractor = get_extractor(framework_enum)
 
         if config_overrides_json and "kreuzberg" in framework.lower():
-            config_overrides = msgspec.json.decode(config_overrides_json.encode(), type=dict)
+            config_overrides = msgspec.json.decode(
+                config_overrides_json.encode(), type=dict
+            )
             if hasattr(extractor, "_apply_config_overrides"):
                 extractor._apply_config_overrides(config_overrides)
             elif hasattr(extractor, "_get_optimized_config"):
@@ -135,7 +137,9 @@ def _extract_in_subprocess(
                 text, metadata = metadata_call
         else:
             text_call = extractor.extract_text(file_path)
-            text = asyncio.run(text_call) if asyncio.iscoroutine(text_call) else text_call
+            text = (
+                asyncio.run(text_call) if asyncio.iscoroutine(text_call) else text_call
+            )
             metadata = None
 
         extraction_time = time.time() - start_time
@@ -172,7 +176,9 @@ def _apply_resource_limits(limits: ResourceLimits) -> None:
         resource.setrlimit(resource.RLIMIT_AS, (memory_limit_bytes, memory_limit_bytes))
 
     if limits.max_open_files:
-        resource.setrlimit(resource.RLIMIT_NOFILE, (limits.max_open_files, limits.max_open_files))
+        resource.setrlimit(
+            resource.RLIMIT_NOFILE, (limits.max_open_files, limits.max_open_files)
+        )
 
 
 class ResourceLimits(msgspec.Struct):
@@ -184,7 +190,10 @@ class ResourceLimits(msgspec.Struct):
 
 class SubprocessRunner:
     def __init__(
-        self, timeout: float = 300.0, monitoring_interval_ms: int = 50, resource_limits: ResourceLimits | None = None
+        self,
+        timeout: float = 300.0,
+        monitoring_interval_ms: int = 50,
+        resource_limits: ResourceLimits | None = None,
     ) -> None:
         self.timeout = timeout
         self.python_executable = sys.executable
@@ -203,11 +212,15 @@ class SubprocessRunner:
         start_time = time.time()
         while time.time() - start_time < duration_seconds:
             try:
-                cpu_percent = current_process.cpu_percent(interval=self.monitoring_interval)
+                cpu_percent = current_process.cpu_percent(
+                    interval=self.monitoring_interval
+                )
                 memory_mb = current_process.memory_info().rss / (1024 * 1024)
                 baseline_samples.append({"cpu": cpu_percent, "memory": memory_mb})
             except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
-                raise RuntimeError(f"Failed to establish baseline: process access denied or not found: {e}") from e
+                raise RuntimeError(
+                    f"Failed to establish baseline: process access denied or not found: {e}"
+                ) from e
 
         if not baseline_samples:
             raise RuntimeError("Failed to collect any baseline samples")
@@ -217,7 +230,9 @@ class SubprocessRunner:
         self._baseline_cpu_percent = sum(cpu_values) / len(cpu_values)
         self._baseline_memory_mb = sum(memory_values) / len(memory_values)
 
-    def _monitor_subprocess_resources(self, process: subprocess.Popen[bytes]) -> ProcessResourceMetrics:
+    def _monitor_subprocess_resources(
+        self, process: subprocess.Popen[bytes]
+    ) -> ProcessResourceMetrics:
         if process.pid is None:
             raise RuntimeError("Cannot monitor process: subprocess PID is None")
 
@@ -227,13 +242,17 @@ class SubprocessRunner:
         try:
             ps_process = psutil.Process(process.pid)
         except psutil.NoSuchProcess as e:
-            raise RuntimeError(f"Subprocess with PID {process.pid} not found for monitoring") from e
+            raise RuntimeError(
+                f"Subprocess with PID {process.pid} not found for monitoring"
+            ) from e
 
         try:
             ps_process.cpu_percent(interval=None)
             time.sleep(0.05)
         except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
-            raise RuntimeError(f"Failed to initialize CPU monitoring for process {process.pid}") from e
+            raise RuntimeError(
+                f"Failed to initialize CPU monitoring for process {process.pid}"
+            ) from e
 
         while process.poll() is None:
             try:
@@ -251,7 +270,10 @@ class SubprocessRunner:
                 except (AttributeError, psutil.AccessDenied):
                     pass
 
-                if self.resource_limits.max_memory_mb and memory_mb > self.resource_limits.max_memory_mb:
+                if (
+                    self.resource_limits.max_memory_mb
+                    and memory_mb > self.resource_limits.max_memory_mb
+                ):
                     process.terminate()
                     process.wait(timeout=5)
                     break
@@ -271,15 +293,21 @@ class SubprocessRunner:
             except psutil.NoSuchProcess:
                 break
             except psutil.AccessDenied as e:
-                raise RuntimeError(f"Access denied while monitoring process {process.pid}") from e
+                raise RuntimeError(
+                    f"Access denied while monitoring process {process.pid}"
+                ) from e
 
         monitoring_duration = time.time() - start_time
 
         if not resource_samples:
-            raise RuntimeError(f"No resource samples collected during {monitoring_duration:.2f}s monitoring period")
+            raise RuntimeError(
+                f"No resource samples collected during {monitoring_duration:.2f}s monitoring period"
+            )
 
         memory_values = [s["memory_mb"] for s in resource_samples]
-        cpu_values = [s["cpu_percent"] for s in resource_samples if s["cpu_percent"] > 0]
+        cpu_values = [
+            s["cpu_percent"] for s in resource_samples if s["cpu_percent"] > 0
+        ]
 
         if not memory_values:
             raise RuntimeError("No valid memory measurements collected")
@@ -323,15 +351,25 @@ class SubprocessRunner:
     ) -> SubprocessExtractionResult:
         self._establish_system_baseline(duration_seconds=0.5)
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp_file:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False
+        ) as tmp_file:
             result_file = tmp_file.name
 
         try:
             benchmarks_dir = Path(__file__).parent.parent
             main_kreuzberg_dir = benchmarks_dir.parent
 
-            resource_limits_json = msgspec.json.encode(self.resource_limits).decode() if self.resource_limits else None
-            config_overrides_json = msgspec.json.encode(config_overrides).decode() if config_overrides else None
+            resource_limits_json = (
+                msgspec.json.encode(self.resource_limits).decode()
+                if self.resource_limits
+                else None
+            )
+            config_overrides_json = (
+                msgspec.json.encode(config_overrides).decode()
+                if config_overrides
+                else None
+            )
 
             code = f"""
 import sys
@@ -366,7 +404,11 @@ _extract_in_subprocess({framework!r}, {file_path!r}, {result_file!r}, {resource_
                         env["PATH"] = f"{path}:{current_path}"
 
             if "TESSDATA_PREFIX" not in env:
-                tessdata_paths = ["/opt/homebrew/share/tessdata", "/usr/local/share/tessdata", "/usr/share/tessdata"]
+                tessdata_paths = [
+                    "/opt/homebrew/share/tessdata",
+                    "/usr/local/share/tessdata",
+                    "/usr/share/tessdata",
+                ]
                 for tessdata_path in tessdata_paths:
                     if Path(tessdata_path).exists():
                         env["TESSDATA_PREFIX"] = tessdata_path
@@ -386,7 +428,9 @@ _extract_in_subprocess({framework!r}, {file_path!r}, {result_file!r}, {resource_
 
                 resource_queue: queue.Queue[ProcessResourceMetrics] = queue.Queue()
                 monitor_thread = threading.Thread(
-                    target=lambda: resource_queue.put(self._monitor_subprocess_resources(process))
+                    target=lambda: resource_queue.put(
+                        self._monitor_subprocess_resources(process)
+                    )
                 )
                 monitor_thread.start()
 
@@ -410,8 +454,12 @@ _extract_in_subprocess({framework!r}, {file_path!r}, {result_file!r}, {resource_
                         signal_number=None,
                         signal_name="TIMEOUT",
                         error_message="Process killed due to timeout",
-                        stdout=stdout.decode("utf-8", errors="replace") if stdout else None,
-                        stderr=stderr.decode("utf-8", errors="replace") if stderr else None,
+                        stdout=stdout.decode("utf-8", errors="replace")
+                        if stdout
+                        else None,
+                        stderr=stderr.decode("utf-8", errors="replace")
+                        if stderr
+                        else None,
                     ),
                     resource_metrics=resource_metrics,
                 )
@@ -422,7 +470,9 @@ _extract_in_subprocess({framework!r}, {file_path!r}, {result_file!r}, {resource_
                     with result_path.open("rb") as f:
                         content = f.read()
                         if content:
-                            result = msgspec.json.decode(content, type=SubprocessExtractionResult)
+                            result = msgspec.json.decode(
+                                content, type=SubprocessExtractionResult
+                            )
                         else:
                             result = SubprocessExtractionResult(
                                 success=False,
@@ -444,8 +494,12 @@ _extract_in_subprocess({framework!r}, {file_path!r}, {result_file!r}, {resource_
                         signal_number=result.crash_info.signal_number,
                         signal_name=result.crash_info.signal_name,
                         error_message=result.crash_info.error_message,
-                        stdout=stdout.decode("utf-8", errors="replace") if stdout else result.crash_info.stdout,
-                        stderr=stderr.decode("utf-8", errors="replace") if stderr else result.crash_info.stderr,
+                        stdout=stdout.decode("utf-8", errors="replace")
+                        if stdout
+                        else result.crash_info.stdout,
+                        stderr=stderr.decode("utf-8", errors="replace")
+                        if stderr
+                        else result.crash_info.stderr,
                         core_dumped=result.crash_info.core_dumped,
                     )
 
@@ -490,8 +544,12 @@ _extract_in_subprocess({framework!r}, {file_path!r}, {result_file!r}, {resource_
                         signal_number=signal_num,
                         signal_name=signal_name,
                         error_message="Process terminated abnormally",
-                        stdout=stdout.decode("utf-8", errors="replace") if stdout else None,
-                        stderr=stderr.decode("utf-8", errors="replace") if stderr else None,
+                        stdout=stdout.decode("utf-8", errors="replace")
+                        if stdout
+                        else None,
+                        stderr=stderr.decode("utf-8", errors="replace")
+                        if stderr
+                        else None,
                         core_dumped=signal_num == signal.SIGSEGV,
                     ),
                     resource_metrics=resource_metrics,
@@ -525,7 +583,11 @@ _extract_in_subprocess({framework!r}, {file_path!r}, {result_file!r}, {resource_
             result = self.extract_with_crash_detection(framework, file_path)
             results[file_path] = result
 
-            if result.crash_info and result.crash_info.signal_number == signal.SIGSEGV and result.crash_info.stderr:
+            if (
+                result.crash_info
+                and result.crash_info.signal_number == signal.SIGSEGV
+                and result.crash_info.stderr
+            ):
                 pass
 
         return results

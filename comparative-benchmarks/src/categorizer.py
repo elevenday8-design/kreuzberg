@@ -226,4 +226,7 @@ class DocumentCategorizer:
         if file_type == FileType.DOCX and "table" in file_name:
             return True
 
-        return bool(file_type == FileType.PDF and any(keyword in file_name for keyword in ["table", "embedded"]))
+        return bool(
+            file_type == FileType.PDF
+            and any(keyword in file_name for keyword in ["table", "embedded"])
+        )

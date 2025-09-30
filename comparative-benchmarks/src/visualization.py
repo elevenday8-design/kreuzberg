@@ -379,7 +379,10 @@ def create_per_format_heatmap(
     z_data = []
     for framework in frameworks:
         row_data = pivot.filter(pl.col("framework") == framework)
-        row_values = [row_data.get_column(ft).item() if ft in row_data.columns else None for ft in file_types]
+        row_values = [
+            row_data.get_column(ft).item() if ft in row_data.columns else None
+            for ft in file_types
+        ]
         z_data.append(row_values)
 
     fig = go.Figure(
@@ -388,7 +391,10 @@ def create_per_format_heatmap(
             x=file_types,
             y=frameworks,
             colorscale="RdYlGn",
-            text=[[f"{val:.2f}" if val is not None else "N/A" for val in row] for row in z_data],
+            text=[
+                [f"{val:.2f}" if val is not None else "N/A" for val in row]
+                for row in z_data
+            ],
             texttemplate="%{text}",
             textfont={"size": 10},
             colorbar={"title": metric.replace("_", " ").title()},

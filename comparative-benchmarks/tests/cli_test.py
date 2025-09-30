@@ -55,7 +55,16 @@ def test_cli_custom_options() -> None:
         mock_aggregator.aggregate_results.return_value = {}
 
         result = runner.invoke(
-            cli, ["benchmark", "--iterations", "5", "--timeout", "600", "--output", "custom/output.json"]
+            cli,
+            [
+                "benchmark",
+                "--iterations",
+                "5",
+                "--timeout",
+                "600",
+                "--output",
+                "custom/output.json",
+            ],
         )
 
         assert result.exit_code == 0

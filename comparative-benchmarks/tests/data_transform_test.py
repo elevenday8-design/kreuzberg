@@ -21,7 +21,14 @@ from src.data_transform import (
     results_to_dataframe,
     summaries_to_dataframe,
 )
-from src.types import BenchmarkResult, BenchmarkSummary, DocumentCategory, ExtractionStatus, FileType, Framework
+from src.types import (
+    BenchmarkResult,
+    BenchmarkSummary,
+    DocumentCategory,
+    ExtractionStatus,
+    FileType,
+    Framework,
+)
 
 
 def test_results_to_dataframe_converts_empty_list_to_empty_dataframe() -> None:
@@ -79,7 +86,11 @@ def test_results_to_dataframe_converts_multiple_results_correctly() -> None:
     df = results_to_dataframe(results)
 
     assert len(df) == 3
-    assert df.get_column("file_path").to_list() == ["/test/file1.pdf", "/test/file2.pdf", "/test/file3.pdf"]
+    assert df.get_column("file_path").to_list() == [
+        "/test/file1.pdf",
+        "/test/file2.pdf",
+        "/test/file3.pdf",
+    ]
 
 
 def test_summaries_to_dataframe_converts_empty_list_to_empty_dataframe() -> None:

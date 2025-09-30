@@ -10,7 +10,9 @@ from src.logger import get_logger
 logger = get_logger(__name__)
 
 
-def get_package_size(package_name: str, extra_deps: list[str] | None = None) -> dict[str, Any]:
+def get_package_size(
+    package_name: str, extra_deps: list[str] | None = None
+) -> dict[str, Any]:
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
         venv_path = temp_path / "test_env"
@@ -33,19 +35,26 @@ def get_package_size(package_name: str, extra_deps: list[str] | None = None) -> 
             if extra_deps:
                 install_cmd.extend(extra_deps)
 
-            result = subprocess.run(install_cmd, check=False, capture_output=True, text=True)
+            result = subprocess.run(
+                install_cmd, check=False, capture_output=True, text=True
+            )
 
             if result.returncode != 0:
                 return {"error": result.stderr}
 
             site_packages = (
-                venv_path / "lib" / f"python{sys.version_info.major}.{sys.version_info.minor}" / "site-packages"
+                venv_path
+                / "lib"
+                / f"python{sys.version_info.major}.{sys.version_info.minor}"
+                / "site-packages"
             )
             if not site_packages.exists():
                 site_packages = venv_path / "Lib" / "site-packages"
 
             if site_packages.exists():
-                total_size = sum(f.stat().st_size for f in site_packages.rglob("*") if f.is_file())
+                total_size = sum(
+                    f.stat().st_size for f in site_packages.rglob("*") if f.is_file()
+                )
                 size_mb = total_size / (1024 * 1024)
 
                 list_result = subprocess.run(
@@ -54,7 +63,11 @@ def get_package_size(package_name: str, extra_deps: list[str] | None = None) -> 
                     capture_output=True,
                     text=True,
                 )
-                packages = json.loads(list_result.stdout) if list_result.returncode == 0 else []
+                packages = (
+                    json.loads(list_result.stdout)
+                    if list_result.returncode == 0
+                    else []
+                )
 
                 return {
                     "size_bytes": total_size,

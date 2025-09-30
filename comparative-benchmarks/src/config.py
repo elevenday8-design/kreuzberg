@@ -186,7 +186,9 @@ def get_supported_formats(framework: Framework | str) -> set[str]:
         try:
             framework = Framework(framework)
         except ValueError as e:
-            raise ValueError(f"Unknown framework: {framework}. Valid frameworks: {[f.value for f in Framework]}") from e
+            raise ValueError(
+                f"Unknown framework: {framework}. Valid frameworks: {[f.value for f in Framework]}"
+            ) from e
 
     return FRAMEWORK_SUPPORTED_FORMATS.get(framework, set())
 

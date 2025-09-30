@@ -62,7 +62,9 @@ def test_create_performance_comparison_chart_with_custom_config(tmp_path: Path) 
     )
 
     output_path = tmp_path / "performance_custom.html"
-    config = cast("VisualizationConfig", {"width": 1600, "height": 900, "template": "plotly"})
+    config = cast(
+        "VisualizationConfig", {"width": 1600, "height": 900, "template": "plotly"}
+    )
     result_path = create_performance_comparison_chart(df, output_path, config)
 
     assert result_path.exists()
@@ -121,7 +123,12 @@ def test_create_throughput_chart_handles_missing_columns(tmp_path: Path) -> None
 def test_create_time_distribution_chart_creates_file(tmp_path: Path) -> None:
     df = pl.DataFrame(
         {
-            "framework": ["kreuzberg_sync", "kreuzberg_sync", "extractous", "extractous"],
+            "framework": [
+                "kreuzberg_sync",
+                "kreuzberg_sync",
+                "extractous",
+                "extractous",
+            ],
             "extraction_time": [0.5, 0.6, 0.8, 0.9],
             "file_path": ["/test/1.pdf", "/test/2.pdf", "/test/3.pdf", "/test/4.pdf"],
         }
@@ -169,7 +176,9 @@ def test_create_interactive_dashboard_creates_file(tmp_path: Path) -> None:
     assert result_path.stat().st_size > 0
 
 
-def test_create_interactive_dashboard_content_includes_all_charts(tmp_path: Path) -> None:
+def test_create_interactive_dashboard_content_includes_all_charts(
+    tmp_path: Path,
+) -> None:
     df = pl.DataFrame(
         {
             "framework": ["kreuzberg_sync", "extractous"],
@@ -191,7 +200,12 @@ def test_create_interactive_dashboard_content_includes_all_charts(tmp_path: Path
 def test_create_per_format_heatmap_creates_file(tmp_path: Path) -> None:
     df = pl.DataFrame(
         {
-            "framework": ["kreuzberg_sync", "kreuzberg_sync", "extractous", "extractous"],
+            "framework": [
+                "kreuzberg_sync",
+                "kreuzberg_sync",
+                "extractous",
+                "extractous",
+            ],
             "file_type": ["pdf", "docx", "pdf", "docx"],
             "success_rate": [0.95, 0.93, 0.90, 0.88],
         }
@@ -218,7 +232,11 @@ def test_create_per_format_heatmap_with_multiple_formats(tmp_path: Path) -> None
 
     assert result_path.exists()
     content = result_path.read_text()
-    assert "pdf" in content.lower() or "docx" in content.lower() or "xlsx" in content.lower()
+    assert (
+        "pdf" in content.lower()
+        or "docx" in content.lower()
+        or "xlsx" in content.lower()
+    )
 
 
 def test_all_charts_create_parent_directories(tmp_path: Path) -> None:
@@ -241,7 +259,11 @@ def test_all_charts_create_parent_directories(tmp_path: Path) -> None:
 def test_charts_handle_special_characters_in_framework_names(tmp_path: Path) -> None:
     df = pl.DataFrame(
         {
-            "framework": ["kreuzberg_sync", "framework-with-dashes", "framework_with_underscores"],
+            "framework": [
+                "kreuzberg_sync",
+                "framework-with-dashes",
+                "framework_with_underscores",
+            ],
             "avg_extraction_time": [0.5, 0.6, 0.7],
             "success_rate": [0.95, 0.93, 0.91],
             "total_files": [100, 100, 100],

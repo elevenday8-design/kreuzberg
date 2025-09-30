@@ -241,5 +241,7 @@ def sample_docx_path(test_documents_dir: Path) -> Path:
 
 
 def pytest_configure(config: Any) -> None:
-    config.addinivalue_line("markers", "benchmark_pandoc: mark test as pandoc benchmark")
+    config.addinivalue_line(
+        "markers", "benchmark_pandoc: mark test as pandoc benchmark"
+    )
     config.addinivalue_line("markers", "memory_profile: mark test for memory profiling")

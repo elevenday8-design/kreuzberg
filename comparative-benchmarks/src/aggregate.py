@@ -66,10 +66,14 @@ class ResultAggregator:
                     return []
                 return msgspec.json.decode(data, type=list[BenchmarkResult])
         except Exception as e:
-            logger.error("Failed to load results file", file=str(results_file), error=str(e))
+            logger.error(
+                "Failed to load results file", file=str(results_file), error=str(e)
+            )
             return []
 
-    def _calculate_aggregated_metrics(self, results: list[BenchmarkResult]) -> AggregatedResults:
+    def _calculate_aggregated_metrics(
+        self, results: list[BenchmarkResult]
+    ) -> AggregatedResults:
         """~keep Core aggregation: transform raw results into statistical summaries."""
         if not results:
             return self._empty_aggregated_results()
@@ -79,7 +83,9 @@ class ResultAggregator:
         framework_category_matrix = self._create_matrix(results)
 
         failure_patterns = self._analyze_failures(results)
-        timeout_files = [r.file_path for r in results if r.status == ExtractionStatus.TIMEOUT]
+        timeout_files = [
+            r.file_path for r in results if r.status == ExtractionStatus.TIMEOUT
+        ]
 
         performance_trends = self._calculate_performance_trends(results)
 
@@ -102,40 +108,54 @@ class ResultAggregator:
             platform_results=platform_results,
         )
 
-    def _group_by_framework(self, results: list[BenchmarkResult]) -> dict[Framework, list[BenchmarkSummary]]:
+    def _group_by_framework(
+        self, results: list[BenchmarkResult]
+    ) -> dict[Framework, list[BenchmarkSummary]]:
         grouped = defaultdict(list)
 
         for framework in Framework:
             framework_results = [r for r in results if r.framework == framework]
             if framework_results:
                 for category in DocumentCategory:
-                    cat_results = [r for r in framework_results if r.category == category]
+                    cat_results = [
+                        r for r in framework_results if r.category == category
+                    ]
                     if cat_results:
                         summary = self._create_summary(framework, category, cat_results)
                         grouped[framework].append(summary)
 
         return dict(grouped)
 
-    def _group_by_category(self, results: list[BenchmarkResult]) -> dict[DocumentCategory, list[BenchmarkSummary]]:
+    def _group_by_category(
+        self, results: list[BenchmarkResult]
+    ) -> dict[DocumentCategory, list[BenchmarkSummary]]:
         grouped = defaultdict(list)
 
         for category in DocumentCategory:
             category_results = [r for r in results if r.category == category]
             if category_results:
                 for framework in Framework:
-                    fw_results = [r for r in category_results if r.framework == framework]
+                    fw_results = [
+                        r for r in category_results if r.framework == framework
+                    ]
                     if fw_results:
                         summary = self._create_summary(framework, category, fw_results)
                         grouped[category].append(summary)
 
         return dict(grouped)
 
-    def _create_matrix(self, results: list[BenchmarkResult]) -> dict[str, BenchmarkSummary]:
+    def _create_matrix(
+        self, results: list[BenchmarkResult]
+    ) -> dict[str, BenchmarkSummary]:
         matrix = {}
 
         for framework in Framework:
             for category in DocumentCategory:
-                cell_results = [r for r in results if r.framework == framework and r.category == category]
+                cell_results = [
+                    r
+                    for r in results
+                    if r.framework == framework and r.category == category
+                ]
                 if cell_results:
                     summary = self._create_summary(framework, category, cell_results)
                     key = f"{framework.value}_{category.value}"
@@ -224,12 +244,18 @@ class ResultAggregator:
 
         return dict(failures)
 
-    def _calculate_performance_trends(self, results: list[BenchmarkResult]) -> dict[Framework, list[float]]:
-        trends: dict[Framework, dict[int, list[float]]] = defaultdict(lambda: defaultdict(list))
+    def _calculate_performance_trends(
+        self, results: list[BenchmarkResult]
+    ) -> dict[Framework, list[float]]:
+        trends: dict[Framework, dict[int, list[float]]] = defaultdict(
+            lambda: defaultdict(list)
+        )
 
         for result in results:
             if result.status == ExtractionStatus.SUCCESS:
-                trends[result.framework][result.iteration].append(result.extraction_time)
+                trends[result.framework][result.iteration].append(
+                    result.extraction_time
+                )
 
         performance_trends = {}
         for framework, iterations in trends.items():
@@ -241,7 +267,9 @@ class ResultAggregator:
 
         return dict(performance_trends)
 
-    def _group_by_platform(self, results: list[BenchmarkResult]) -> dict[str, dict[Framework, BenchmarkSummary]]:
+    def _group_by_platform(
+        self, results: list[BenchmarkResult]
+    ) -> dict[str, dict[Framework, BenchmarkSummary]]:
         platform_groups = defaultdict(list)
 
         for result in results:
@@ -259,7 +287,9 @@ class ResultAggregator:
 
         return platform_results
 
-    def _create_platform_summary(self, framework: Framework, results: list[BenchmarkResult]) -> BenchmarkSummary:
+    def _create_platform_summary(
+        self, framework: Framework, results: list[BenchmarkResult]
+    ) -> BenchmarkSummary:
         return self._create_summary(framework, DocumentCategory.TINY, results)
 
     def _empty_aggregated_results(self) -> AggregatedResults:
@@ -277,7 +307,10 @@ class ResultAggregator:
         )
 
     def save_results(
-        self, aggregated: AggregatedResults, output_dir: Path, filename: str = "aggregated_results.json"
+        self,
+        aggregated: AggregatedResults,
+        output_dir: Path,
+        filename: str = "aggregated_results.json",
     ) -> None:
         output_dir.mkdir(parents=True, exist_ok=True)
 

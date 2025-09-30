@@ -261,7 +261,8 @@ exclude_lines = [
 ]
 
 [tool.mypy]
-packages = [ "kreuzberg", "tests", "benchmarks" ]
+packages = [ "kreuzberg", "tests" ]
+exclude = [ "comparative-benchmarks" ]
 python_version = "3.10"
 implicit_reexport = false
 show_error_codes = true

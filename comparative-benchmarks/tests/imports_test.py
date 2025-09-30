@@ -10,7 +10,9 @@ def test_kreuzberg_import() -> None:
         raise ImportError("kreuzberg not installed") from None
 
 
-@pytest.mark.xfail(reason="Docling requires newer transformers version with AutoModelForImageTextToText")
+@pytest.mark.xfail(
+    reason="Docling requires newer transformers version with AutoModelForImageTextToText"
+)
 def test_docling_import() -> None:
     try:
         from docling.document_converter import DocumentConverter
@@ -39,7 +41,8 @@ def test_unstructured_import() -> None:
 
 
 @pytest.mark.skipif(
-    __import__("sys").platform == "win32", reason="Extractor imports cause magic library access violations on Windows"
+    __import__("sys").platform == "win32",
+    reason="Extractor imports cause magic library access violations on Windows",
 )
 def test_extractors_import() -> None:
     from src.extractors import (

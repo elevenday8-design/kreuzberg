@@ -215,7 +215,10 @@ def test_benchmark_summary_consistency() -> None:
     )
 
     assert summary.total_files == (
-        summary.successful_files + summary.failed_files + summary.partial_files + summary.timeout_files
+        summary.successful_files
+        + summary.failed_files
+        + summary.partial_files
+        + summary.timeout_files
     )
 
     expected_success_rate = summary.successful_files / summary.total_files * 100
@@ -443,7 +446,9 @@ def test_nested_structure_serialization() -> None:
         total_time_seconds=6.0,
         framework_summaries={Framework.KREUZBERG_SYNC: summaries},
         category_summaries={DocumentCategory.SMALL: summaries},
-        framework_category_matrix={f"kreuzberg_sync_small_{i}": summary for i, summary in enumerate(summaries)},
+        framework_category_matrix={
+            f"kreuzberg_sync_small_{i}": summary for i, summary in enumerate(summaries)
+        },
         failure_patterns={},
         timeout_files=[],
         performance_over_iterations={Framework.KREUZBERG_SYNC: [1.5, 2.0, 2.5]},

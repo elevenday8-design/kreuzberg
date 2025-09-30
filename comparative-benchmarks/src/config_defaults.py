@@ -61,7 +61,9 @@ class LanguageMapper:
 
     @classmethod
     def get_mapping(cls, ocr_backend: str) -> dict[str, str]:
+        from typing import cast
+
         mapping_name = f"{ocr_backend.upper()}_MAPPING"
         if not hasattr(cls, mapping_name):
             return cls.TESSERACT_MAPPING
-        return getattr(cls, mapping_name)
+        return cast(dict[str, str], getattr(cls, mapping_name))

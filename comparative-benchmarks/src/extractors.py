@@ -90,7 +90,9 @@ def get_language_config(file_path: str | Path) -> str:
         return "heb"
     if any(x in filename for x in ["german", "germany", "berlin", "deu", "de_"]):
         return "deu"
-    if any(x in filename for x in ["chinese", "china", "beijing", "chi_sim", "zh_", "cn_"]):
+    if any(
+        x in filename for x in ["chinese", "china", "beijing", "chi_sim", "zh_", "cn_"]
+    ):
         return "chi_sim"
     if any(x in filename for x in ["japanese", "japan", "jpn", "jp_", "ja_", "vert"]):
         return "jpn"
@@ -134,7 +136,9 @@ class KreuzbergSyncExtractor:
             output_format="text",
         )
 
-        return ExtractionConfig(ocr_backend="tesseract", ocr_config=tesseract_config, use_cache=False)
+        return ExtractionConfig(
+            ocr_backend="tesseract", ocr_config=tesseract_config, use_cache=False
+        )
 
 
 class KreuzbergAsyncExtractor:
@@ -172,20 +176,23 @@ class KreuzbergAsyncExtractor:
             output_format="text",
         )
 
-        return ExtractionConfig(ocr_backend="tesseract", ocr_config=tesseract_config, use_cache=False)
+        return ExtractionConfig(
+            ocr_backend="tesseract", ocr_config=tesseract_config, use_cache=False
+        )
 
 
 class DoclingExtractor:
-    def __init__(self) -> None:
-        """~keep Initialize Docling with optimized configuration.
+    """~keep Initialize Docling with optimized configuration.
 
-        Configuration follows Docling best practices:
-        - EasyOCR for multilingual support (better than Tesseract for Asian languages)
-        - Comprehensive language support: Latin scripts + CJK + Arabic
-        - Table structure detection with cell matching enabled
-        - Optimized batch sizes for performance/memory balance
-        - Layout analysis for preserving document structure
-        """
+    Configuration follows Docling best practices:
+    - EasyOCR for multilingual support (better than Tesseract for Asian languages)
+    - Comprehensive language support: Latin scripts + CJK + Arabic
+    - Table structure detection with cell matching enabled
+    - Optimized batch sizes for performance/memory balance
+    - Layout analysis for preserving document structure
+    """
+
+    def __init__(self) -> None:
         if DocumentConverter is None:
             msg = "Docling is not installed"
             raise ImportError(msg)
@@ -203,16 +210,31 @@ class DoclingExtractor:
             # Language codes: en=English, de=German, fr=French, es=Spanish,
             #                 ch_sim=Chinese Simplified, ja=Japanese, ko=Korean, ar=Arabic
             ocr_options = EasyOcrOptions(
-                lang=["en", "de", "fr", "es", "ch_sim", "ja", "ko", "ar"],  # Comprehensive language support
+                lang=[
+                    "en",
+                    "de",
+                    "fr",
+                    "es",
+                    "ch_sim",
+                    "ja",
+                    "ko",
+                    "ar",
+                ],  # Comprehensive language support
                 confidence_threshold=0.3,  # Balance between recall and precision
                 suppress_mps_warnings=True,
             )
 
             # Accurate table detection with cell matching
-            table_options = TableStructureOptions(do_cell_matching=True, mode="accurate")  # type: ignore[arg-type]
+            from docling.datamodel.pipeline_options import TableFormerMode
+
+            table_options = TableStructureOptions(
+                do_cell_matching=True, mode=TableFormerMode.ACCURATE
+            )
 
             # Layout options for preserving document structure
-            layout_options = LayoutOptions(create_orphan_clusters=True, keep_empty_clusters=False)
+            layout_options = LayoutOptions(
+                create_orphan_clusters=True, keep_empty_clusters=False
+            )
 
             # Threaded pipeline with optimized batch sizes
             # Batch sizes balance throughput and memory usage
@@ -451,16 +473,22 @@ class UnstructuredExtractor:
             # Use "auto" to intelligently choose between fast/hi_res
             # This is fair and represents real-world usage
             config["strategy"] = "auto"
-            config["extract_images_in_pdf"] = False  # Disable for speed (text extraction focus)
+            config["extract_images_in_pdf"] = (
+                False  # Disable for speed (text extraction focus)
+            )
         elif file_ext in [".docx", ".pptx", ".xlsx"]:
             config["strategy"] = "fast"  # Office docs have good text extraction
         elif file_ext in [".html", ".htm"]:
             config["strategy"] = "fast"
-            config["skip_infer_table_types"] = True  # HTML tables are already structured
+            config["skip_infer_table_types"] = (
+                True  # HTML tables are already structured
+            )
 
         return config
 
-    def _extract_with_strategy(self, file_path: str, config: dict[str, Any], attempt: int = 1) -> Any:
+    def _extract_with_strategy(
+        self, file_path: str, config: dict[str, Any], attempt: int = 1
+    ) -> Any:
         try:
             return partition(filename=file_path, **config)
         except Exception as e:
@@ -469,13 +497,17 @@ class UnstructuredExtractor:
                     fallback_config = config.copy()
                     fallback_config["strategy"] = "fast"
                     fallback_config.pop("chunking_strategy", None)
-                    return self._extract_with_strategy(file_path, fallback_config, attempt + 1)
+                    return self._extract_with_strategy(
+                        file_path, fallback_config, attempt + 1
+                    )
                 if attempt == 2:
                     minimal_config = {
                         "languages": config["languages"],
                         "strategy": "auto",
                     }
-                    return self._extract_with_strategy(file_path, minimal_config, attempt + 1)
+                    return self._extract_with_strategy(
+                        file_path, minimal_config, attempt + 1
+                    )
             raise e
 
     def extract_text(self, file_path: str) -> str:
@@ -519,7 +551,11 @@ class UnstructuredExtractor:
                     if hasattr(elem_meta, "file_directory"):
                         metadata["file_directory"] = elem_meta.file_directory
                     if hasattr(elem_meta, "last_modified"):
-                        metadata["last_modified"] = str(elem_meta.last_modified) if elem_meta.last_modified else None
+                        metadata["last_modified"] = (
+                            str(elem_meta.last_modified)
+                            if elem_meta.last_modified
+                            else None
+                        )
                     if hasattr(elem_meta, "filetype"):
                         metadata["filetype"] = elem_meta.filetype
                     if hasattr(elem_meta, "page_number"):
@@ -624,8 +660,12 @@ class ExtractousExtractor:
                 metadata = {}
 
             metadata["file_size_mb"] = round(characteristics["size"] / 1024 / 1024, 2)
-            metadata["extraction_strategy"] = "large_file" if characteristics["is_large"] else "standard"
-            metadata["ocr_enabled"] = characteristics["is_image"] or characteristics["is_pdf"]
+            metadata["extraction_strategy"] = (
+                "large_file" if characteristics["is_large"] else "standard"
+            )
+            metadata["ocr_enabled"] = (
+                characteristics["is_image"] or characteristics["is_pdf"]
+            )
 
             return text, metadata
         except Exception as e:
@@ -635,10 +675,14 @@ class ExtractousExtractor:
             }
 
 
-def get_extractor(framework: Framework | str) -> ExtractorProtocol | AsyncExtractorProtocol:
+def get_extractor(
+    framework: Framework | str,
+) -> ExtractorProtocol | AsyncExtractorProtocol:
     from .types import Framework as FrameworkEnum
 
-    framework_str = framework.value if isinstance(framework, FrameworkEnum) else framework
+    framework_str = (
+        framework.value if isinstance(framework, FrameworkEnum) else framework
+    )
 
     extractors = {
         "kreuzberg_sync": KreuzbergSyncExtractor,

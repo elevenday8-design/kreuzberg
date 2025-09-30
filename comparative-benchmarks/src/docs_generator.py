@@ -83,7 +83,11 @@ def generate_index_page(
     cfg = {**DEFAULT_DOC_CONFIG, **(config or {})}
     charts_dir: Path | None = cfg.get("charts_dir")  # type: ignore[assignment]
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC") if cfg["include_timestamp"] else ""
+    timestamp = (
+        datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        if cfg["include_timestamp"]
+        else ""
+    )
 
     best_speed = summary_df.sort("avg_extraction_time").head(1)
     best_memory = summary_df.sort("avg_peak_memory_mb").head(1)
@@ -172,7 +176,11 @@ def generate_detailed_results_page(
     cfg = {**DEFAULT_DOC_CONFIG, **(config or {})}
     charts_dir: Path | None = cfg.get("charts_dir")  # type: ignore[assignment]
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC") if cfg["include_timestamp"] else ""
+    timestamp = (
+        datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        if cfg["include_timestamp"]
+        else ""
+    )
 
     content = f"""# Latest Benchmark Results
 
@@ -188,9 +196,7 @@ def generate_detailed_results_page(
 """
 
     if charts_dir and (charts_dir / "performance_comparison.html").exists():
-        content += (
-            '<iframe src="charts/performance_comparison.html" width="100%" height="550" frameborder="0"></iframe>\n\n'
-        )
+        content += '<iframe src="charts/performance_comparison.html" width="100%" height="550" frameborder="0"></iframe>\n\n'
 
     content += """### Detailed Metrics
 
@@ -217,16 +223,18 @@ def generate_detailed_results_page(
 
 """
         if charts_dir and (charts_dir / "format_heatmap.html").exists():
-            content += (
-                '<iframe src="charts/format_heatmap.html" width="100%" height="550" frameborder="0"></iframe>\n\n'
-            )
+            content += '<iframe src="charts/format_heatmap.html" width="100%" height="550" frameborder="0"></iframe>\n\n'
 
         for file_type in by_format_df.get_column("file_type").unique().sort():
             format_data = by_format_df.filter(pl.col("file_type") == file_type)
 
             content += f"### {file_type.upper()} Files\n\n"
-            content += "| Framework | Files | Success Rate | Median Time | Avg Memory |\n"
-            content += "|-----------|-------|--------------|-------------|------------|\n"
+            content += (
+                "| Framework | Files | Success Rate | Median Time | Avg Memory |\n"
+            )
+            content += (
+                "|-----------|-------|--------------|-------------|------------|\n"
+            )
 
             for row in format_data.iter_rows(named=True):
                 content += f"| {row['framework']} | "
@@ -431,12 +439,26 @@ def generate_framework_comparison_page(
         emoji = _get_framework_emoji(row["framework"])
 
         speed_rating = (
-            "⚡⚡⚡" if row["avg_extraction_time"] < 0.5 else "⚡⚡" if row["avg_extraction_time"] < 2 else "⚡"
+            "⚡⚡⚡"
+            if row["avg_extraction_time"] < 0.5
+            else "⚡⚡"
+            if row["avg_extraction_time"] < 2
+            else "⚡"
         )
         memory_rating = (
-            "💾💾💾" if row["avg_peak_memory_mb"] < 500 else "💾💾" if row["avg_peak_memory_mb"] < 1500 else "💾"
+            "💾💾💾"
+            if row["avg_peak_memory_mb"] < 500
+            else "💾💾"
+            if row["avg_peak_memory_mb"] < 1500
+            else "💾"
         )
-        reliability_rating = "✅✅✅" if row["success_rate"] > 0.98 else "✅✅" if row["success_rate"] > 0.95 else "✅"
+        reliability_rating = (
+            "✅✅✅"
+            if row["success_rate"] > 0.98
+            else "✅✅"
+            if row["success_rate"] > 0.95
+            else "✅"
+        )
 
         best_for = (
             "Speed & efficiency"

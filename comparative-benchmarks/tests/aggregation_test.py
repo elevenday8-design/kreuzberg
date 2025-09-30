@@ -120,7 +120,9 @@ class TestResultAggregator:
         assert aggregated.total_files_processed == len(sample_results)
         assert aggregated.total_runs > 0
 
-    def test_framework_category_matrix_string_keys(self, temp_results_dirs: list[Path]) -> None:
+    def test_framework_category_matrix_string_keys(
+        self, temp_results_dirs: list[Path]
+    ) -> None:
         aggregator = ResultAggregator()
 
         aggregated = aggregator.aggregate_results(temp_results_dirs)
@@ -130,7 +132,9 @@ class TestResultAggregator:
 
         for key in matrix:
             assert isinstance(key, str), f"Matrix key {key} is not a string"
-            assert "_" in key, f"Matrix key {key} doesn't follow 'framework_category' format"
+            assert "_" in key, (
+                f"Matrix key {key} doesn't follow 'framework_category' format"
+            )
 
         expected_keys = {
             "kreuzberg_sync_tiny",
@@ -139,7 +143,9 @@ class TestResultAggregator:
         }
 
         for expected_key in expected_keys:
-            assert expected_key in matrix, f"Expected key {expected_key} not found in matrix"
+            assert expected_key in matrix, (
+                f"Expected key {expected_key} not found in matrix"
+            )
 
     def test_msgspec_serialization(self, temp_results_dirs: list[Path]) -> None:
         aggregator = ResultAggregator()
@@ -248,7 +254,9 @@ class TestResultAggregator:
             category_part = parts[-1]
             assert any(cat.value == category_part for cat in DocumentCategory)
 
-    def test_cli_report_generation_integration(self, temp_results_dirs: list[Path]) -> None:
+    def test_cli_report_generation_integration(
+        self, temp_results_dirs: list[Path]
+    ) -> None:
         aggregator = ResultAggregator()
 
         aggregated = aggregator.aggregate_results(temp_results_dirs)
@@ -279,7 +287,9 @@ class TestResultAggregator:
             for category in loaded_results.category_summaries:
                 assert isinstance(category, DocumentCategory)
 
-    def test_msgspec_type_loading_consistency(self, temp_results_dirs: list[Path]) -> None:
+    def test_msgspec_type_loading_consistency(
+        self, temp_results_dirs: list[Path]
+    ) -> None:
         aggregator = ResultAggregator()
         aggregated = aggregator.aggregate_results(temp_results_dirs)
 
@@ -303,7 +313,9 @@ class TestResultAggregator:
     @pytest.mark.xfail(
         reason="CLI report command requires actual benchmark data files which may not be available in test environment"
     )
-    def test_cli_report_command_integration(self, temp_results_dirs: list[Path]) -> None:
+    def test_cli_report_command_integration(
+        self, temp_results_dirs: list[Path]
+    ) -> None:
         import sys
         from unittest.mock import patch
 
@@ -336,7 +348,9 @@ class TestResultAggregator:
                         raise
 
             report_files = list(report_dir.glob("*.json"))
-            assert len(report_files) > 0, f"No JSON reports found in {report_dir}. Files: {list(report_dir.iterdir())}"
+            assert len(report_files) > 0, (
+                f"No JSON reports found in {report_dir}. Files: {list(report_dir.iterdir())}"
+            )
 
             expected_files = ["benchmark_metrics.json"]
             for expected_file in expected_files:
