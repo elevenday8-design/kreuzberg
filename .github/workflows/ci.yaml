@@ -61,8 +61,6 @@ jobs:
         run: prek run --show-diff-on-failure --color=always --all-files
 
   coverage:
-    needs: [validate, python-tests]
-    if: always() && needs.validate.result == 'success' && needs.python-tests.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -170,8 +168,6 @@ jobs:
           retention-days: 7
 
   python-tests:
-    needs: [validate]
-    if: needs.validate.result == 'success'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false

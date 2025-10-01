@@ -15,7 +15,7 @@ tasks:
     desc: "Update the dependencies"
     cmds:
       - uv run uv-bump
-      - cd benchmarks && uv run uv-bump && cd -
+      - cd comparative-benchmarks && uv run uv-bump && cd -
       - uv sync --all-packages --all-extras --all-groups --upgrade
       - prek autoupdate
 

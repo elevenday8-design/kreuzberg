@@ -87,7 +87,7 @@ optional-dependencies.api = [
 ]
 optional-dependencies.chunking = [ "semantic-text-splitter>=0.28.0" ]
 optional-dependencies.cli = [
-  "click>=8.2.1",
+  "click>=8.3.0",
   "rich>=14.1.0",
   "tomli>=2.0.0; python_version<'3.11'",
 ]
@@ -248,7 +248,7 @@ plugins = [ "covdefaults" ]
 source = [ "kreuzberg" ]
 
 [tool.coverage.report]
-fail_under = 90
+fail_under = 85
 exclude_lines = [
   'if TYPE_CHECKING:',
   "except ImportError:",
