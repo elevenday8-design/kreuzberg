@@ -175,7 +175,9 @@ jobs:
           # Run aggregation using ResultAggregator
           uv run python -c "
           from pathlib import Path
+          import msgspec
           from src.aggregate import ResultAggregator
+          from src.types import BenchmarkResult
 
           # Collect all framework result directories
           result_dirs = []
@@ -192,7 +194,9 @@ jobs:
 
           if not result_dirs:
               print('WARNING: No benchmark_results.json files found in individual-results/')
-              print('Creating empty aggregated results')
+              # Create an empty list for raw results
+              raw_results = []
+              # Create empty aggregated results
               from src.types import AggregatedResults
               aggregated = AggregatedResults(
                   total_runs=0,
@@ -209,11 +213,26 @@ jobs:
           else:
               print(f'Aggregating results from {len(result_dirs)} frameworks...')
               aggregator = ResultAggregator()
+              # Get all raw results
+              all_results = []
+              for result_dir in result_dirs:
+                  results_file = result_dir / 'benchmark_results.json'
+                  if results_file.exists():
+                      with results_file.open('rb') as f:
+                          data = f.read()
+                          if data:
+                              all_results.extend(msgspec.json.decode(data, type=list[BenchmarkResult]))
+              raw_results = all_results
               aggregated = aggregator.aggregate_results(result_dirs)
 
-          # Save aggregated results
+          # Save raw results
           output_dir = Path('aggregated-results')
           output_dir.mkdir(parents=True, exist_ok=True)
+          raw_results_path = output_dir / 'raw_results.json'
+          with raw_results_path.open('wb') as f:
+              f.write(msgspec.json.encode(raw_results))
+
+          # Save aggregated results
           aggregator = ResultAggregator()
           aggregator.save_results(aggregated, output_dir, 'aggregated_results.json')
 
@@ -227,10 +246,10 @@ jobs:
           echo "=== Generating Visualizations ==="
           mkdir -p docs/comparative-benchmarks/charts
 
-          if [ -f "comparative-benchmarks/aggregated-results/aggregated_results.json" ]; then
+          if [ -f "comparative-benchmarks/aggregated-results/raw_results.json" ]; then
             cd comparative-benchmarks
             uv run python -m src.cli visualize \
-              --input aggregated-results/aggregated_results.json \
+              --input aggregated-results/raw_results.json \
               --output-dir ../docs/comparative-benchmarks/charts
 
             echo "✅ Visualizations generated successfully"
@@ -243,10 +262,10 @@ jobs:
         run: |
           echo "=== Generating Benchmark Documentation ==="
 
-          if [ -f "comparative-benchmarks/aggregated-results/aggregated_results.json" ]; then
+          if [ -f "comparative-benchmarks/aggregated-results/raw_results.json" ]; then
             cd comparative-benchmarks
             uv run python -m src.cli generate-docs \
-              --input aggregated-results/aggregated_results.json \
+              --input aggregated-results/raw_results.json \
               --output-dir ../docs/comparative-benchmarks \
               --charts-dir ../docs/comparative-benchmarks/charts
 
