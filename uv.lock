@@ -540,8 +540,8 @@ requires-dist = [
     { name = "click", specifier = ">=8.2.1" },
     { name = "docling", marker = "extra == 'all'", specifier = ">=2.55.1" },
     { name = "docling", marker = "extra == 'docling'", specifier = ">=2.55.1" },
-    { name = "extractous", marker = "extra == 'all'", specifier = ">=0.3.0" },
-    { name = "extractous", marker = "extra == 'extractous'", specifier = ">=0.3.0" },
+    { name = "extractous", marker = "extra == 'all'", specifier = ">=0.3" },
+    { name = "extractous", marker = "extra == 'extractous'", specifier = ">=0.3" },
     { name = "kreuzberg", marker = "extra == 'all'", editable = "." },
     { name = "kreuzberg", marker = "extra == 'kreuzberg'", editable = "." },
     { name = "markitdown", marker = "extra == 'all'", specifier = ">=0.1.3" },
@@ -1815,7 +1815,7 @@ wheels = [
 
 [[package]]
 name = "kreuzberg"
-version = "3.19.1"
+version = "3.20.0"
 source = { editable = "." }
 dependencies = [
     { name = "anyio" },
@@ -1932,7 +1932,7 @@ requires-dist = [
     { name = "keybert", marker = "extra == 'entity-extraction'", specifier = ">=0.9.0" },
     { name = "kreuzberg", extras = ["additional-extensions", "api", "chunking", "cli", "crypto", "document-classification", "easyocr", "entity-extraction", "gmft", "langdetect", "paddleocr"], marker = "extra == 'all'" },
     { name = "langcodes", specifier = ">=3.5.0" },
-    { name = "litestar", extras = ["standard", "structlog", "opentelemetry"], marker = "extra == 'api'", specifier = ">=2.18.0" },
+    { name = "litestar", extras = ["opentelemetry", "standard", "structlog"], marker = "extra == 'api'", specifier = ">=2.18.0" },
     { name = "mailparse", marker = "extra == 'additional-extensions'", specifier = ">=1.0.15" },
     { name = "mcp", specifier = ">=1.17.0" },
     { name = "msgspec", specifier = ">=0.18.0" },

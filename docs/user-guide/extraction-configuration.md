@@ -901,12 +901,17 @@ html_config = HTMLToMarkdownConfig(
     newline_style="spaces",  # Line break style
     preprocess_html=True,  # Clean HTML before conversion
     preprocessing_preset="standard",  # HTML cleaning level
+    strip_tags=("script", "style"),
 )
 
 result = await extract_file(
     "document.html",
     config=ExtractionConfig(html_to_markdown_config=html_config),
 )
+
+# Inline images, SVGs, and embedded assets are automatically captured when
+# `ExtractionConfig(extract_images=True)` is enabled. The converter enforces
+# the extractor image size limits while decoding data URIs.
 ```
 
 Available heading styles:
