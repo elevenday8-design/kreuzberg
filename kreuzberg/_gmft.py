@@ -193,9 +193,14 @@ async def extract_tables(
                 await run_sync(doc.close)
 
         except ImportError as e:  # pragma: no cover
-            raise MissingDependencyError.create_for_package(
+            error = MissingDependencyError.create_for_package(
                 dependency_group="gmft", functionality="table extraction", package_name="gmft"
-            ) from e
+            )
+            error.context = {
+                "file_path": str(Path(file_path)),
+                "error_message": str(e),
+            }
+            raise error from e
     finally:
         table_cache.mark_complete(**cache_kwargs)
 
@@ -294,9 +299,14 @@ def extract_tables_sync(
             doc.close()  # type: ignore[no-untyped-call]
 
     except ImportError as e:  # pragma: no cover
-        raise MissingDependencyError.create_for_package(
+        error = MissingDependencyError.create_for_package(
             dependency_group="gmft", functionality="table extraction", package_name="gmft"
-        ) from e
+        )
+        error.context = {
+            "file_path": str(Path(file_path)),
+            "error_message": str(e),
+        }
+        raise error from e
 
 
 def _extract_tables_in_process(
@@ -449,6 +459,17 @@ def _extract_tables_isolated(
             return tables
 
         error_info = result
+        if error_info.get("type") == "ImportError":
+            error = MissingDependencyError.create_for_package(
+                dependency_group="gmft", functionality="table extraction", package_name="gmft"
+            )
+            error.context = {
+                "file_path": str(Path(file_path)),
+                "error_message": error_info["error"],
+                "traceback": error_info.get("traceback"),
+            }
+            raise error from ImportError(error_info["error"])
+
         raise ParsingError(
             f"GMFT table extraction failed: {error_info['error']}",
             context={
@@ -536,6 +557,17 @@ async def _extract_tables_isolated_async(
             return tables
 
         error_info = result
+        if error_info.get("type") == "ImportError":
+            error = MissingDependencyError.create_for_package(
+                dependency_group="gmft", functionality="table extraction", package_name="gmft"
+            )
+            error.context = {
+                "file_path": str(Path(file_path)),
+                "error_message": error_info["error"],
+                "traceback": error_info.get("traceback"),
+            }
+            raise error from ImportError(error_info["error"])
+
         raise ParsingError(
             f"GMFT table extraction failed: {error_info['error']}",
             context={

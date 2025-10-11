@@ -71,9 +71,8 @@ jobs:
           max_attempts: 3
           retry_wait_seconds: 30
           command: |
-            echo "Installing entire workspace with all packages and extras..."
-            # Install everything for benchmarks - all extras, all packages, all groups
-            uv sync --all-extras --all-packages --all-groups
+            echo "Installing workspace packages without optional extras..."
+            uv sync --all-packages
           shell: bash
 
       - name: Clear Kreuzberg Cache
@@ -139,7 +138,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          uv sync --all-extras --all-packages --all-groups
+          uv sync --all-packages
 
       - name: Download All Framework Results
         uses: actions/download-artifact@v5

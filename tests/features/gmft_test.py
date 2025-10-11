@@ -1186,6 +1186,38 @@ def test_extract_tables_isolated_process_needs_kill() -> None:
         mock_process.kill.assert_called_once()
 
 
+def test_extract_tables_isolated_missing_dependency() -> None:
+    file_path = "/path/to/file.pdf"
+    config = GMFTConfig()
+
+    error_info = {
+        "error": "libcublasLt.so.12: failed to map segment from shared object",
+        "type": "ImportError",
+        "traceback": "Traceback (most recent call last): ...",
+    }
+
+    mock_process = Mock()
+    mock_process.is_alive.return_value = True
+    mock_process.start = Mock()
+    mock_process.terminate = Mock()
+    mock_process.join = Mock()
+
+    mock_queue = Mock()
+    mock_queue.get_nowait.side_effect = [(False, error_info)]
+
+    mock_ctx = Mock()
+    mock_ctx.Queue.return_value = mock_queue
+    mock_ctx.Process.return_value = mock_process
+
+    with patch("multiprocessing.get_context", return_value=mock_ctx):
+        with pytest.raises(MissingDependencyError) as exc_info:
+            _extract_tables_isolated(file_path, config, timeout=1.0)
+
+    assert "kreuzberg['gmft']" in str(exc_info.value)
+    assert exc_info.value.context["file_path"] == file_path
+    assert exc_info.value.context["error_message"] == error_info["error"]
+
+
 @pytest.mark.anyio
 async def test_extract_tables_isolated_async_success() -> None:
     file_path = "/path/to/file.pdf"
@@ -1401,6 +1433,52 @@ async def test_extract_tables_isolated_async_error_from_process() -> None:
 
         assert "Async processing failed" in str(exc_info.value)
         assert exc_info.value.context["error_type"] == "RuntimeError"
+
+
+@pytest.mark.anyio
+async def test_extract_tables_isolated_async_missing_dependency() -> None:
+    file_path = "/path/to/file.pdf"
+    config = GMFTConfig()
+
+    error_info = {
+        "error": "libcublasLt.so.12: failed to map segment from shared object",
+        "type": "ImportError",
+        "traceback": "Traceback (most recent call last): ...",
+    }
+
+    mock_process = Mock()
+    mock_process.is_alive.return_value = True
+    mock_process.start = Mock()
+    mock_process.terminate = Mock()
+    mock_process.kill = Mock()
+    mock_process.join = Mock()
+
+    mock_queue = Mock()
+    mock_queue.get.return_value = (False, error_info)
+
+    mock_ctx = Mock()
+    mock_ctx.Queue.return_value = mock_queue
+    mock_ctx.Process.return_value = mock_process
+
+    with (
+        patch("multiprocessing.get_context", return_value=mock_ctx),
+        patch("anyio.to_thread.run_sync") as mock_run_sync,
+        patch("anyio.fail_after"),
+    ):
+
+        async def run_sync_side_effect(func: Any) -> Any:
+            if callable(func):
+                return func()
+            return None
+
+        mock_run_sync.side_effect = run_sync_side_effect
+
+        with pytest.raises(MissingDependencyError) as exc_info:
+            await _extract_tables_isolated_async(file_path, config, timeout=1.0)
+
+    assert "kreuzberg['gmft']" in str(exc_info.value)
+    assert exc_info.value.context["file_path"] == file_path
+    assert exc_info.value.context["error_message"] == error_info["error"]
 
 
 @pytest.mark.anyio
