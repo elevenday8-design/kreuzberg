@@ -317,6 +317,10 @@ curl -X POST http://localhost:8000/extract \
   -F "data=@multilingual_document.pdf"
 ```
 
+!!! warning "GMFT Deprecation"
+
+    GMFT-based table extraction is deprecated and scheduled for removal in Kreuzberg v4.0. The example below exists for legacy users; plan to migrate to the TATR-based table extraction pipeline before upgrading.
+
 Table extraction with GMFT configuration:
 
 ```bash

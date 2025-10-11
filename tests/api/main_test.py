@@ -792,12 +792,15 @@ async def test_extract_pdf_without_tables_with_table_extraction_enabled(
 ) -> None:
     from kreuzberg import ExtractionConfig, GMFTConfig
 
-    test_config = ExtractionConfig(
-        extract_tables=True,
-        gmft_config=GMFTConfig(
+    with pytest.warns(FutureWarning):
+        gmft_config = GMFTConfig(
             detector_base_threshold=0.9,
             remove_null_rows=True,
-        ),
+        )
+
+    test_config = ExtractionConfig(
+        extract_tables=True,
+        gmft_config=gmft_config,
     )
 
     with patch("kreuzberg._api.main.discover_config_cached", return_value=test_config):

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import warnings
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import asdict, dataclass, field
 from enum import Enum
@@ -262,6 +263,15 @@ class PaddleOCRConfig(ConfigDict):
 
 @dataclass(unsafe_hash=True, frozen=True, slots=True)
 class GMFTConfig(ConfigDict):
+    def __post_init__(self) -> None:
+        warnings.warn(
+            "GMFTConfig is deprecated and will be removed in Kreuzberg v4.0. "
+            "Install `kreuzberg[gmft]` only if you still rely on GMFT. "
+            "Future versions use native TATR-based table extraction via TableExtractionConfig.",
+            FutureWarning,
+            stacklevel=2,
+        )
+
     verbosity: int = 0
     """
     Verbosity level for logging.

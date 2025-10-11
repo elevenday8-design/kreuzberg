@@ -56,7 +56,11 @@ Configuration for OCR processing of extracted images:
 
 ## GMFT Configuration
 
-Configuration options for the GMFT table extraction engine:
+!!! warning "Deprecated"
+
+    `GMFTConfig` is deprecated and scheduled for removal in Kreuzberg v4.0. Use the new TATR-based `TableExtractionConfig` when migrating to v4.
+
+Configuration options for the GMFT table extraction engine (legacy):
 
 ::: kreuzberg.GMFTConfig
 

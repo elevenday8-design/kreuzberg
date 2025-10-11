@@ -122,6 +122,10 @@ async def detect_multilingual_document():
 
 ## Table Extraction
 
+!!! warning "GMFT Deprecation"
+
+    GMFTConfig is deprecated and will be removed in Kreuzberg v4.0. The example below is maintained for legacy users only—migrate to the upcoming TATR-based table extraction when upgrading.
+
 ```python
 from kreuzberg import extract_file, ExtractionConfig, GMFTConfig
 

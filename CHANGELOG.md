@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
+#### Deprecations
+
+- GMFT-based table extraction (`GMFTConfig`) is deprecated in preparation for the v4.0 migration to the native TATR pipeline. Instantiating `GMFTConfig` now emits a `FutureWarning`, and documentation highlights the upcoming replacement (`TableExtractionConfig`).
+
 #### Hybrid Rust-Python Architecture
 
 Version 4.0 introduces a hybrid architecture where performance-critical operations are implemented in Rust while maintaining the Python API:
@@ -149,6 +153,12 @@ The following internal GMFT options have been removed for simplicity:
 ### Breaking Changes
 
 - **Error Handling**: RuntimeError and OSError in keyword extraction and OCR processing will now bubble up instead of being silently handled. This ensures critical system issues are reported to developers.
+
+## [3.20.2] - 2025-10-11
+
+### Changed
+
+- Emitted a `FutureWarning` from `GMFTConfig` and updated documentation to steer users toward the upcoming TATR-based table extraction pipeline ahead of the v4.0 release.
 
 ## [3.20.1] - 2025-10-11
 

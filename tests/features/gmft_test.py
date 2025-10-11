@@ -996,7 +996,8 @@ def test_extract_tables_isolated_success() -> None:
 
 def test_extract_tables_isolated_process_died_sigsegv() -> None:
     file_path = "/path/to/file.pdf"
-    config = GMFTConfig()
+    with pytest.warns(FutureWarning):
+        config = GMFTConfig()
 
     mock_process = Mock()
     mock_process.is_alive.return_value = False
@@ -1025,7 +1026,8 @@ def test_extract_tables_isolated_process_died_sigsegv() -> None:
 
 def test_extract_tables_isolated_process_died_other() -> None:
     file_path = "/path/to/file.pdf"
-    config = GMFTConfig()
+    with pytest.warns(FutureWarning):
+        config = GMFTConfig()
 
     mock_process = Mock()
     mock_process.is_alive.return_value = False
@@ -1188,7 +1190,8 @@ def test_extract_tables_isolated_process_needs_kill() -> None:
 
 def test_extract_tables_isolated_missing_dependency() -> None:
     file_path = "/path/to/file.pdf"
-    config = GMFTConfig()
+    with pytest.warns(FutureWarning):
+        config = GMFTConfig()
 
     error_info = {
         "error": "libcublasLt.so.12: failed to map segment from shared object",
@@ -1438,7 +1441,8 @@ async def test_extract_tables_isolated_async_error_from_process() -> None:
 @pytest.mark.anyio
 async def test_extract_tables_isolated_async_missing_dependency() -> None:
     file_path = "/path/to/file.pdf"
-    config = GMFTConfig()
+    with pytest.warns(FutureWarning):
+        config = GMFTConfig()
 
     error_info = {
         "error": "libcublasLt.so.12: failed to map segment from shared object",

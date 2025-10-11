@@ -100,7 +100,8 @@ def test_create_ocr_config_cached_invalid_backend() -> None:
 
 def test_create_gmft_config_cached() -> None:
     config_dict = {"verbosity": 1}
-    result = create_gmft_config_cached(config_dict)
+    with pytest.warns(FutureWarning):
+        result = create_gmft_config_cached(config_dict)
     assert isinstance(result, GMFTConfig)
     assert result.verbosity == 1
 
@@ -141,7 +142,8 @@ def test_get_cache_stats() -> None:
     clear_all_caches()
 
     create_ocr_config_cached("tesseract", {})
-    create_gmft_config_cached({})
+    with pytest.warns(FutureWarning):
+        create_gmft_config_cached({})
     parse_header_config_cached("{}")
 
     stats = get_cache_stats()
@@ -165,7 +167,8 @@ def test_get_cache_stats() -> None:
 
 def test_clear_all_caches() -> None:
     create_ocr_config_cached("tesseract", {})
-    create_gmft_config_cached({})
+    with pytest.warns(FutureWarning):
+        create_gmft_config_cached({})
 
     clear_all_caches()
 
@@ -214,8 +217,10 @@ def test_config_dict_serialization_consistency() -> None:
     config1 = {"verbosity": 2, "formatter_base_threshold": 0.1}
     config2 = {"formatter_base_threshold": 0.1, "verbosity": 2}
 
-    result1 = create_gmft_config_cached(config1)
-    result2 = create_gmft_config_cached(config2)
+    with pytest.warns(FutureWarning):
+        result1 = create_gmft_config_cached(config1)
+    with pytest.warns(FutureWarning):
+        result2 = create_gmft_config_cached(config2)
 
     stats = get_cache_stats()
     assert stats["gmft_config"]["hits"] == 1

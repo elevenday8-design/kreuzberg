@@ -371,7 +371,8 @@ def test_build_extraction_config_from_dict_with_gmft() -> None:
         "extract_tables": True,
         "gmft": {"verbosity": 1},
     }
-    config = build_extraction_config_from_dict(config_dict)
+    with pytest.warns(FutureWarning):
+        config = build_extraction_config_from_dict(config_dict)
     assert config.extract_tables is True
     assert isinstance(config.gmft_config, GMFTConfig)
 

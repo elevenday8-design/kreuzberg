@@ -136,11 +136,17 @@ pip install "kreuzberg[chunking]"
 
 ### Table Extraction
 
-Table extraction is an optional feature that allows Kreuzberg to extract tables from PDFs. It uses the [GMFT](https://github.com/conjuncts/gmft) package. To install Kreuzberg with table extraction support, you can use:
+!!! warning "GMFT Deprecation"
+
+    The GMFT-powered table extraction pipeline is deprecated and will be removed in Kreuzberg v4.0. The upcoming release ships a native TATR-based `TableExtractionConfig` that replaces GMFT end-to-end.
+
+If you need to keep using the legacy GMFT integration in the current series, install the extra explicitly:
 
 ```shell
 pip install "kreuzberg[gmft]"
 ```
+
+`GMFTConfig` will emit a `FutureWarning` whenever it is instantiated to remind you to migrate. Plan to switch to the new table extraction configuration before upgrading to v4.0.
 
 ### Language Detection
 

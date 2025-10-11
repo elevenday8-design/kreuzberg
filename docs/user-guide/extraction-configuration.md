@@ -62,6 +62,9 @@ gpu = false
 language = "en"
 use_gpu = false
 
+!!! warning "GMFT Deprecation"
+    GMFT-based table extraction is deprecated and scheduled for removal in Kreuzberg v4.0. The new release ships a native `TableExtractionConfig` that replaces GMFT entirely. Begin migrating any GMFT settings to the upcoming configuration to avoid breaking changes.
+
 # Table extraction configuration (GMFT)
 [gmft]
 verbosity = 1
@@ -149,6 +152,7 @@ language = "eng"
 psm = 6
 
 [tool.kreuzberg.gmft]
+# Deprecated: migrate to TableExtractionConfig in v4.0
 detector_base_threshold = 0.85
 remove_null_rows = true
 ```

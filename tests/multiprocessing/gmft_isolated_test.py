@@ -56,7 +56,8 @@ def mock_gmft_modules() -> Generator[None, None, None]:
     reason="Mock patching issues with multiprocessing on Python 3.10 in CI",
 )
 def test_extract_tables_in_process_success(sample_pdf: Path, mock_gmft_modules: None) -> None:
-    config = GMFTConfig()
+    with pytest.warns(FutureWarning):
+        config = GMFTConfig()
     config_dict = asdict(config).copy()
     result_queue: Any = mp.Queue()
 
@@ -103,7 +104,8 @@ def test_extract_tables_in_process_success(sample_pdf: Path, mock_gmft_modules: 
 
 @pytest.mark.xfail(reason="Flaky test - passes individually but may fail in full test suite")
 def test_extract_tables_in_process_exception(sample_pdf: Path) -> None:
-    config = GMFTConfig()
+    with pytest.warns(FutureWarning):
+        config = GMFTConfig()
     config_dict = asdict(config).copy()
     result_queue: Any = mp.Queue()
 
@@ -118,7 +120,8 @@ def test_extract_tables_in_process_exception(sample_pdf: Path) -> None:
 
 
 def test_extract_tables_isolated_timeout(sample_pdf: Path) -> None:
-    config = GMFTConfig()
+    with pytest.warns(FutureWarning):
+        config = GMFTConfig()
 
     with patch("multiprocessing.get_context") as mock_get_context:
         mock_ctx = MagicMock()
@@ -140,7 +143,8 @@ def test_extract_tables_isolated_timeout(sample_pdf: Path) -> None:
 
 
 def test_extract_tables_isolated_segfault(sample_pdf: Path) -> None:
-    config = GMFTConfig()
+    with pytest.warns(FutureWarning):
+        config = GMFTConfig()
 
     with patch("multiprocessing.get_context") as mock_get_context:
         mock_ctx = MagicMock()
@@ -202,7 +206,8 @@ def test_extract_tables_isolated_error_result(sample_pdf: Path) -> None:
 
 
 def test_extract_tables_isolated_success(sample_pdf: Path) -> None:
-    config = GMFTConfig()
+    with pytest.warns(FutureWarning):
+        config = GMFTConfig()
 
     with patch("multiprocessing.get_context") as mock_get_context:
         mock_ctx = MagicMock()
@@ -241,7 +246,8 @@ def test_extract_tables_isolated_success(sample_pdf: Path) -> None:
 
 
 def test_extract_tables_isolated_process_cleanup_timeout(sample_pdf: Path) -> None:
-    config = GMFTConfig()
+    with pytest.warns(FutureWarning):
+        config = GMFTConfig()
 
     with patch("multiprocessing.get_context") as mock_get_context:
         mock_ctx = MagicMock()
@@ -265,7 +271,8 @@ def test_extract_tables_isolated_process_cleanup_timeout(sample_pdf: Path) -> No
 
 @pytest.mark.anyio
 async def test_extract_tables_isolated_async_success(sample_pdf: Path) -> None:
-    config = GMFTConfig()
+    with pytest.warns(FutureWarning):
+        config = GMFTConfig()
 
     with patch("multiprocessing.get_context") as mock_get_context:
         mock_ctx = MagicMock()
@@ -304,7 +311,8 @@ async def test_extract_tables_isolated_async_success(sample_pdf: Path) -> None:
 
 @pytest.mark.anyio
 async def test_extract_tables_isolated_async_timeout(sample_pdf: Path) -> None:
-    config = GMFTConfig()
+    with pytest.warns(FutureWarning):
+        config = GMFTConfig()
 
     # Mock anyio.to_thread.run_sync to simulate a long-running operation that times out ~keep
     async def mock_run_sync_timeout(func: Any) -> None:
