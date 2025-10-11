@@ -134,11 +134,9 @@ def test_api_health(image_name: str) -> bool:
     if exit_code != 0:
         return False
 
-    try:
-        time.sleep(5)
+    import urllib.request
 
-        import urllib.request
-
+    def _is_healthy() -> bool:
         try:
             response = urllib.request.urlopen(f"http://localhost:{port}/health", timeout=5)
             data = json.loads(response.read().decode())
@@ -146,6 +144,14 @@ def test_api_health(image_name: str) -> bool:
             return response.status == 200 and status_ok
         except Exception:
             return False
+
+    try:
+        deadline = time.time() + 30
+        while time.time() < deadline:
+            if _is_healthy():
+                return True
+            time.sleep(1)
+        return False
     finally:
         run_command(["docker", "stop", container_name], timeout=10)
         run_command(["docker", "rm", container_name], timeout=10)
@@ -248,7 +254,7 @@ def test_api_extraction(image_name: str) -> bool:
         f"{port}:8000",
         image_name,
     ]
-    exit_code, _container_id, stderr = run_command(cmd)
+    exit_code, _container_id, _stderr = run_command(cmd)
     if exit_code != 0:
         return False
 
@@ -261,25 +267,45 @@ def test_api_extraction(image_name: str) -> bool:
             temp_file = f.name
 
         try:
-            cmd = ["curl", "-s", "-X", "POST", f"http://localhost:{port}/extract", "-F", f"data=@{temp_file}"]
-            exit_code, stdout, stderr = run_command(cmd, timeout=30)
+            deadline = time.time() + 30
+            last_stderr = ""
 
-            if exit_code == 0:
+            def _try_extract() -> bool:
+                nonlocal last_stderr
+                cmd = [
+                    "curl",
+                    "-s",
+                    "-X",
+                    "POST",
+                    f"http://localhost:{port}/extract",
+                    "-F",
+                    f"data=@{temp_file}",
+                ]
+                exit_code, stdout, stderr = run_command(cmd, timeout=15)
+                last_stderr = stderr
+
+                if exit_code != 0:
+                    return False
+
                 try:
                     response = json.loads(stdout)
-                    if isinstance(response, list) and len(response) > 0:
-                        content = response[0].get("content", "")
-                        success = test_content in content
-                    else:
-                        success = False
                 except json.JSONDecodeError:
-                    success = False
-            else:
-                success = False
+                    return False
 
-            if not success and stderr:
+                if not isinstance(response, list) or not response:
+                    return False
+
+                content = response[0].get("content", "")
+                return test_content in content
+
+            while time.time() < deadline:
+                if _try_extract():
+                    return True
+                time.sleep(1)
+
+            if last_stderr:
                 pass
-            return success
+            return False
 
         finally:
             Path(temp_file).unlink()
