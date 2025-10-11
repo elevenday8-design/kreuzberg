@@ -1,9 +1,6 @@
 name: Comparative Framework Benchmark
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
     inputs:
       iterations:
@@ -18,13 +15,6 @@ on:
         type: string
 
 jobs:
-  skip-on-push:
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Skip benchmark on push
-        run: echo "Comparative benchmarks only run on manual dispatch"
-
   framework-benchmark:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
