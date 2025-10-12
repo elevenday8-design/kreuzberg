@@ -71,8 +71,10 @@ jobs:
           max_attempts: 3
           retry_wait_seconds: 30
           command: |
-            echo "Installing workspace packages without optional extras..."
-            uv sync --all-packages
+            echo "Installing core workspace packages..."
+            uv sync
+            echo "Installing comparative-benchmarks extras..."
+            uv sync --package comparative-benchmarks --all-extras
           shell: bash
 
       - name: Clear Kreuzberg Cache
