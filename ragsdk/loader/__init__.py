@@ -10,6 +10,7 @@ from .cad_stl_extractor import STLExtractor
 from .comic_book_extractor import ComicBookArchiveExtractor
 from .config import requires_full_pdf_extractor
 from .nas_ocr_backend import NASOCRBackend
+from .kreuzberg_loader import KreuzbergLoader, LoaderOutput
 from .pymupdf_pdf_extractor import PyMuPDFPDFExtractor
 
 ExtractorRegistry.add_extractor(PyMuPDFPDFExtractor)
@@ -50,4 +51,6 @@ __all__ = [
     "ComicBookArchiveExtractor",
     "requires_full_pdf_extractor",
     "NASOCRBackend",
+    "KreuzbergLoader",
+    "LoaderOutput",
 ]

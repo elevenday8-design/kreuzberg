@@ -132,6 +132,7 @@ nav:
       - Extraction Configuration: user-guide/extraction-configuration.md
       - Metadata Extraction: user-guide/metadata-extraction.md
       - Content Chunking: user-guide/chunking.md
+      - RAG SDK Pipelines: user-guide/ragsdk-pipeline.md
       - OCR Configuration: user-guide/ocr-configuration.md
       - OCR Backends: user-guide/ocr-backends.md
       - Document Classification: user-guide/document-classification.md
