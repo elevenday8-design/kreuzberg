@@ -37,7 +37,7 @@ class OcrBackendParamType(click.ParamType):
             return None
         if value.lower() == "none":
             return "none"
-        valid_backends = ["tesseract", "easyocr", "paddleocr", "none"]
+        valid_backends = ["tesseract", "easyocr", "paddleocr", "nas", "none"]
         if value.lower() not in valid_backends:
             self.fail(f"Invalid OCR backend '{value}'. Choose from: {', '.join(valid_backends)}", param, ctx)
         return value.lower()  # type: ignore[no-any-return]
@@ -291,7 +291,9 @@ def cli(ctx: click.Context) -> None:
     help="Number of keywords to extract (default: 10)",
 )
 @click.option(
-    "--ocr-backend", type=OcrBackendParamType(), help="OCR backend to use (tesseract, easyocr, paddleocr, none)"
+    "--ocr-backend",
+    type=OcrBackendParamType(),
+    help="OCR backend to use (tesseract, easyocr, paddleocr, nas, none)",
 )
 @click.option("--config", "config_file", type=click.Path(exists=True, path_type=Path), help="Configuration file path")
 @click.option("--show-metadata", is_flag=True, help="Include metadata in output")

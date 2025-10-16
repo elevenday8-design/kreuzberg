@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
@@ -25,7 +26,20 @@ class PyMuPDFPDFExtractor(Extractor):
         return requires_full_pdf_extractor(self.config)
 
     def _fallback(self) -> PDFExtractor:
-        return PDFExtractor(mime_type=self.mime_type, config=self.config)
+        config = self.config
+
+        image_ocr_enabled = False
+        if config.image_ocr_config is not None:
+            image_ocr_enabled = getattr(config.image_ocr_config, "enabled", False)
+        image_ocr_enabled = image_ocr_enabled or config.ocr_extracted_images
+
+        if config.ocr_config is None and config.ocr_backend in (None, "tesseract"):
+            config = replace(config, ocr_backend="nas")
+
+        if image_ocr_enabled and config.image_ocr_backend is None:
+            config = replace(config, image_ocr_backend="nas")
+
+        return PDFExtractor(mime_type=self.mime_type, config=config)
 
     def _extract_with_loader(self, loader: Callable[[], Document]) -> ExtractionResult:
         document = loader()

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ragsdk.loader  # noqa: F401  # Ensure NAS backend registration
 from kreuzberg._ocr import get_ocr_backend
 from kreuzberg._ocr._easyocr import EasyOCRBackend
 from kreuzberg._ocr._paddleocr import PaddleBackend
@@ -33,3 +34,11 @@ def test_get_ocr_backend_caching() -> None:
     backend5 = get_ocr_backend("tesseract")
     backend6 = get_ocr_backend("tesseract")
     assert backend5 is backend6
+
+
+def test_get_ocr_backend_nas() -> None:
+    get_ocr_backend.cache_clear()
+    backend = get_ocr_backend("nas")
+    from ragsdk.loader.nas_ocr_backend import NASOCRBackend
+
+    assert isinstance(backend, NASOCRBackend)

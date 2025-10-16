@@ -5,7 +5,7 @@ import logging
 import time
 import zlib
 from abc import ABC, abstractmethod
-from dataclasses import asdict
+from dataclasses import asdict, is_dataclass
 from multiprocessing import cpu_count
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -22,6 +22,7 @@ from kreuzberg._types import (
     normalize_metadata,
 )
 from kreuzberg._utils._quality import calculate_quality_score, clean_extracted_text
+from kreuzberg._utils._tmp import temporary_file
 from kreuzberg._utils._sync import run_taskgroup_batched
 
 if TYPE_CHECKING:
@@ -189,6 +190,15 @@ class Extractor(ABC):
         elif backend_name == "paddleocr":
             default_config = PaddleOCRConfig()
             config_class = PaddleOCRConfig
+        elif backend_name == "nas":
+            cfg = {}
+            if self.config.ocr_config is not None:
+                if is_dataclass(self.config.ocr_config):
+                    cfg.update(asdict(self.config.ocr_config))
+                elif isinstance(self.config.ocr_config, dict):
+                    cfg.update(self.config.ocr_config)
+            cfg["use_cache"] = self.config.use_cache
+            return cfg
         else:
             raise ValueError(f"Unknown OCR backend: {backend_name}")
 
@@ -221,8 +231,16 @@ class Extractor(ABC):
     async def _ocr_single_image(self, target: ExtractedImage, backend: Any, cfg: dict[str, Any]) -> ImageOCRResult:
         try:
             start = time.time()
-            pil_img = Image.open(io.BytesIO(target.data))
-            ocr_res = await backend.process_image(pil_img, **cfg)
+            if getattr(backend, "supports_file_streaming", False):
+                suffix = f".{(target.format or 'png').lower()}"
+                async with temporary_file(suffix, target.data) as tmp_path:
+                    ocr_res = await backend.process_file(tmp_path, **cfg)
+            else:
+                pil_img = Image.open(io.BytesIO(target.data))
+                try:
+                    ocr_res = await backend.process_image(pil_img, **cfg)
+                finally:
+                    pil_img.close()
             duration = time.time() - start
             return ImageOCRResult(
                 image=target,

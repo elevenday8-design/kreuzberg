@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -274,3 +275,30 @@ class TestImageOCRProcessing:
 
                 mock_get_backend.assert_called_once_with(backend_name)
                 assert results[0].ocr_result.content == f"{backend_name} OCR"
+
+    async def test_process_images_with_nas_backend_streaming(self) -> None:
+        config = ExtractionConfig(
+            extract_images=True,
+            ocr_extracted_images=True,
+            image_ocr_backend="nas",  # type: ignore[arg-type]
+        )
+        extractor = PDFExtractor(mime_type="application/pdf", config=config)
+
+        images = [ExtractedImage(data=b"nas-bytes", format="png", filename="nas.png")]
+
+        async def mock_process_file(path: Path, **kwargs: Any) -> ExtractionResult:
+            assert path.read_bytes() == b"nas-bytes"
+            return ExtractionResult(content="nas OCR", mime_type="text/plain", metadata={})
+
+        mock_backend = MagicMock()
+        mock_backend.supports_file_streaming = True
+        mock_backend.process_file = AsyncMock(side_effect=mock_process_file)
+
+        with patch("kreuzberg._extractors._base.get_ocr_backend", return_value=mock_backend) as mock_get_backend:
+            with patch("PIL.Image.open") as mock_open:
+                results = await extractor._process_images_with_ocr(images)
+
+        mock_get_backend.assert_called_once_with("nas")
+        mock_backend.process_file.assert_awaited_once()
+        mock_open.assert_not_called()
+        assert results[0].ocr_result.content == "nas OCR"

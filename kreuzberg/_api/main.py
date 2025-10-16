@@ -169,7 +169,7 @@ def _convert_value_type(current_value: Any, new_value: Any) -> Any:
 
 
 def _create_ocr_config(
-    ocr_backend: Literal["tesseract", "easyocr", "paddleocr"] | None, config_dict: dict[str, Any]
+    ocr_backend: Literal["tesseract", "easyocr", "paddleocr", "nas"] | None, config_dict: dict[str, Any]
 ) -> Any:
     if ocr_backend == "tesseract":
         return TesseractConfig(**config_dict)
@@ -251,12 +251,12 @@ async def handle_files_upload(  # noqa: PLR0913
     extract_keywords: str | bool | None = None,
     keyword_count: int | None = None,
     force_ocr: str | bool | None = None,
-    ocr_backend: Literal["tesseract", "easyocr", "paddleocr"] | None = None,
+    ocr_backend: Literal["tesseract", "easyocr", "paddleocr", "nas"] | None = None,
     auto_detect_language: str | bool | None = None,
     pdf_password: str | None = None,
     extract_images: str | bool | None = None,
     ocr_extracted_images: str | bool | None = None,
-    image_ocr_backend: Literal["tesseract", "easyocr", "paddleocr"] | None = None,
+    image_ocr_backend: Literal["tesseract", "easyocr", "paddleocr", "nas"] | None = None,
     image_ocr_min_width: int | None = None,
     image_ocr_min_height: int | None = None,
     image_ocr_max_width: int | None = None,
@@ -285,7 +285,7 @@ async def handle_files_upload(  # noqa: PLR0913
         extract_keywords: Extract keywords from text
         keyword_count: Number of keywords to extract (default: 10)
         force_ocr: Force OCR processing even for text-based documents
-        ocr_backend: OCR engine to use (tesseract, easyocr, paddleocr)
+        ocr_backend: OCR engine to use (tesseract, easyocr, paddleocr, nas)
         auto_detect_language: Enable automatic language detection
         pdf_password: Password for encrypted PDF files
         extract_images: Enable image extraction for supported formats
