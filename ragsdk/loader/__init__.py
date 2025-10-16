@@ -5,11 +5,17 @@ from functools import lru_cache, wraps
 import kreuzberg._ocr as _ocr_module
 from kreuzberg._registry import ExtractorRegistry
 
+from .cad_dxf_extractor import DXFExtractor
+from .cad_stl_extractor import STLExtractor
+from .comic_book_extractor import ComicBookArchiveExtractor
 from .config import requires_full_pdf_extractor
 from .nas_ocr_backend import NASOCRBackend
 from .pymupdf_pdf_extractor import PyMuPDFPDFExtractor
 
 ExtractorRegistry.add_extractor(PyMuPDFPDFExtractor)
+ExtractorRegistry.add_extractor(DXFExtractor)
+ExtractorRegistry.add_extractor(STLExtractor)
+ExtractorRegistry.add_extractor(ComicBookArchiveExtractor)
 
 
 def _patch_ocr_backend() -> None:
@@ -37,4 +43,11 @@ def _patch_ocr_backend() -> None:
 
 _patch_ocr_backend()
 
-__all__ = ["PyMuPDFPDFExtractor", "requires_full_pdf_extractor", "NASOCRBackend"]
+__all__ = [
+    "PyMuPDFPDFExtractor",
+    "DXFExtractor",
+    "STLExtractor",
+    "ComicBookArchiveExtractor",
+    "requires_full_pdf_extractor",
+    "NASOCRBackend",
+]
