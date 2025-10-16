@@ -24,6 +24,25 @@ JSON_MIME_TYPE: Final = "application/json"
 YAML_MIME_TYPE: Final = "application/x-yaml"
 TOML_MIME_TYPE: Final = "application/toml"
 
+DXF_MIME_TYPES: Final[set[str]] = {
+    "image/vnd.dxf",
+    "application/dxf",
+    "application/x-dxf",
+    "application/vnd.autocad.dxf",
+}
+
+STL_MIME_TYPES: Final[set[str]] = {
+    "model/stl",
+    "application/sla",
+    "application/vnd.ms-pki.stl",
+    "application/x-navistyle",
+}
+
+CBZ_MIME_TYPES: Final[set[str]] = {
+    "application/vnd.comicbook+zip",
+    "application/x-cbz",
+}
+
 EXCEL_MIME_TYPE: Final = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 EXCEL_BINARY_MIME_TYPE: Final = "application/vnd.ms-excel"
 EXCEL_MACRO_MIME_TYPE: Final = "application/vnd.ms-excel.sheet.macroEnabled.12"
@@ -187,6 +206,9 @@ EXT_TO_MIME_TYPE: Final[Mapping[str, str]] = {
     ".bib": "application/x-bibtex",
     ".ipynb": "application/x-ipynb+json",
     ".tex": "application/x-latex",
+    ".dxf": "image/vnd.dxf",
+    ".stl": "model/stl",
+    ".cbz": "application/vnd.comicbook+zip",
 }
 
 SUPPORTED_MIME_TYPES: Final[set[str]] = (
@@ -209,6 +231,9 @@ SUPPORTED_MIME_TYPES: Final[set[str]] = (
         "application/yaml",
         "text/toml",
     }
+    | DXF_MIME_TYPES
+    | STL_MIME_TYPES
+    | CBZ_MIME_TYPES
 )
 
 
