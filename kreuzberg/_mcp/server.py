@@ -430,7 +430,7 @@ def get_discovered_config() -> str:
 
 @mcp.resource("config://available-backends")
 def get_available_backends() -> str:
-    return "tesseract, easyocr, paddleocr"
+    return "tesseract, easyocr, paddleocr, nas"
 
 
 @mcp.resource("extractors://supported-formats")

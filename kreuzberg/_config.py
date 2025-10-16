@@ -24,6 +24,11 @@ from kreuzberg.exceptions import ValidationError
 if TYPE_CHECKING:
     from collections.abc import MutableMapping
 
+try:  # pragma: no cover - optional dependency
+    from ragsdk.loader.nas_ocr_backend import NASOCRConfig
+except Exception:  # noqa: BLE001
+    NASOCRConfig = None  # type: ignore[assignment]
+
 _CONFIG_FIELDS = [
     "force_ocr",
     "chunk_content",
@@ -41,7 +46,7 @@ _CONFIG_FIELDS = [
     "keyword_count",
 ]
 
-_VALID_OCR_BACKENDS = {"tesseract", "easyocr", "paddleocr"}
+_VALID_OCR_BACKENDS = {"tesseract", "easyocr", "paddleocr", "nas"}
 
 
 def _merge_file_config(config_dict: dict[str, Any], file_config: dict[str, Any]) -> None:
@@ -60,7 +65,7 @@ def _merge_cli_args(config_dict: dict[str, Any], cli_args: MutableMapping[str, A
 
 def _build_ocr_config_from_cli(
     ocr_backend: str, cli_args: MutableMapping[str, Any]
-) -> TesseractConfig | EasyOCRConfig | PaddleOCRConfig | None:
+) -> TesseractConfig | EasyOCRConfig | PaddleOCRConfig | Any | None:
     config_key = f"{ocr_backend}_config"
     if not cli_args.get(config_key):
         return None
@@ -83,6 +88,12 @@ def _build_ocr_config_from_cli(
                 return EasyOCRConfig(**backend_args)
             case "paddleocr":
                 return PaddleOCRConfig(**backend_args)
+            case "nas":
+                if NASOCRConfig is None:
+                    raise ValidationError(
+                        "NAS OCR backend requires the ragsdk package", context={"backend": ocr_backend}
+                    )
+                return NASOCRConfig(**backend_args)
             case _:  # pragma: no cover
                 return None
     except (TypeError, ValueError) as e:
@@ -135,7 +146,7 @@ def _configure_gmft(
 
 def _create_ocr_config(
     backend: str, backend_config: dict[str, Any]
-) -> TesseractConfig | EasyOCRConfig | PaddleOCRConfig:
+) -> TesseractConfig | EasyOCRConfig | PaddleOCRConfig | Any:
     match backend:
         case "tesseract":
             processed_config = backend_config.copy()
@@ -152,6 +163,10 @@ def _create_ocr_config(
             return EasyOCRConfig(**backend_config)
         case "paddleocr":
             return PaddleOCRConfig(**backend_config)
+        case "nas":
+            if NASOCRConfig is None:
+                raise ValueError("NAS OCR backend requires the ragsdk package")
+            return NASOCRConfig(**backend_config)
         case _:
             raise ValueError(f"Unknown backend: {backend}")
 
@@ -189,7 +204,7 @@ def merge_configs(base: dict[str, Any], override: dict[str, Any]) -> dict[str, A
 
 def parse_ocr_backend_config(
     config_dict: dict[str, Any], backend: OcrBackendType
-) -> TesseractConfig | EasyOCRConfig | PaddleOCRConfig | None:
+) -> TesseractConfig | EasyOCRConfig | PaddleOCRConfig | Any | None:
     if backend not in config_dict:
         return None
 

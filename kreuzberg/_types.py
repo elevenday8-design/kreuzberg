@@ -37,7 +37,7 @@ if TYPE_CHECKING:
     from PIL.Image import Image
     from polars import DataFrame
 
-OcrBackendType = Literal["tesseract", "easyocr", "paddleocr"]
+OcrBackendType = Literal["tesseract", "easyocr", "paddleocr", "nas"]
 OutputFormatType = Literal["text", "tsv", "hocr", "markdown"]
 ErrorContextType = Literal["batch_processing", "optional_feature", "single_extraction", "unknown"]
 
@@ -1157,8 +1157,10 @@ class ExtractionConfig(ConfigDict):
                 config_dict = asdict(TesseractConfig())
             case "easyocr":
                 config_dict = asdict(EasyOCRConfig())
-            case _:
+            case "paddleocr":
                 config_dict = asdict(PaddleOCRConfig())
+            case _:
+                config_dict = {}
 
         config_dict["use_cache"] = self.use_cache
         return config_dict
